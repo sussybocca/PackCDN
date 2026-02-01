@@ -21,6 +21,6 @@
       "destination": "/explore.html"
     }
   ],
-  "cleanUrls": false,  // Set to false since we're using .html explicitly
+  "cleanUrls": false,  
   "trailingSlash": false
 }
