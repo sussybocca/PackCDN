@@ -16,16 +16,16 @@ export default async function handler(req, res) {
     // Parse packJson to access its properties
     const packJsonObj = JSON.parse(packJson);
     
-    // Generate unique IDs and URLs
-    const packId = generateId();
-    const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${packId}`;
-    const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${packId}`;
+    // Generate URL-friendly ID (not for database, just for URLs)
+    const urlId = generateUrlId();
+    const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
+    const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
     
     // Encrypt for private packages
     const encryptedKey = !isPublic ? generateEncryptionKey() : null;
 
     // Map frontend package types to valid database package types
-    let packageType = 'npm'; // Default to 'npm' for JavaScript/TypeScript packages
+    let packageType = 'npm';
     
     if (packJsonObj.type) {
       const typeMap = {
@@ -41,11 +41,11 @@ export default async function handler(req, res) {
       packageType = typeMap[frontendType] || 'npm';
     }
 
-    // Save to Supabase
+    // Save to Supabase - DON'T include id field, let Supabase generate UUID
     const { data, error } = await supabase
       .from('packs')
       .insert([{
-        id: packId,
+        // No id field - Supabase will auto-generate UUID
         name,
         pack_json: packJson,
         files,
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      packId,
+      packId: data.id, // Use the auto-generated UUID from Supabase
       cdnUrl,
       workerUrl,
       installCommand: `pack install ${name} ${cdnUrl}`,
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
   }
 }
 
-function generateId() {
+function generateUrlId() {
   return Math.random().toString(36).substring(2) + 
          Date.now().toString(36);
 }
