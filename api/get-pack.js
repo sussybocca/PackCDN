@@ -15,24 +15,39 @@ export default async function handler(req, res) {
   try {
     console.log(`Looking for pack with ID: ${id}`);
     
-    // Try to find by url_id first (short ID like "h3auoju5jztml4adqdt")
-    // If not found, try by id (UUID)
-    const { data, error } = await supabase
+    // First try to find by url_id (short ID)
+    let { data, error } = await supabase
       .from('packs')
       .select('*')
-      .or(`url_id.eq.${id},id.eq.${id}`) // Search by both url_id AND id
+      .eq('url_id', id)
       .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
-      if (error.code === 'PGRST116') {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Pack not found',
-          debug: `No pack found with ID: ${id}`
-        });
+    // If not found by url_id, try by id (UUID)
+    if (error && error.code === 'PGRST116') {
+      console.log(`Not found by url_id, trying by UUID id: ${id}`);
+      const { data: uuidData, error: uuidError } = await supabase
+        .from('packs')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (uuidError) {
+        if (uuidError.code === 'PGRST116') {
+          return res.status(404).json({ 
+            success: false,
+            error: 'Pack not found',
+            debug: `No pack found with ID: ${id}`
+          });
+        }
+        throw uuidError;
       }
+      
+      data = uuidData;
+      console.log(`Found pack by UUID: ${data.name || data.id}`);
+    } else if (error) {
       throw error;
+    } else {
+      console.log(`Found pack by url_id: ${data.name || data.id}`);
     }
 
     if (!data) {
@@ -43,7 +58,7 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`Found pack: ${data.name || data.id}, url_id: ${data.url_id}`);
+    console.log(`Pack details - Name: ${data.name}, url_id: ${data.url_id}, id: ${data.id}`);
     
     // Parse pack_json if it's a string
     let packJson = data.pack_json;
