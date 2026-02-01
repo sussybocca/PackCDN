@@ -1,4 +1,3 @@
-// /api/publish.js
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -14,6 +13,9 @@ export default async function handler(req, res) {
   const { name, packJson, files, isPublic = true } = req.body;
 
   try {
+    // Parse packJson to access its properties
+    const packJsonObj = JSON.parse(packJson);
+    
     // Generate unique IDs and URLs
     const packId = generateId();
     const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${packId}`;
@@ -22,19 +24,19 @@ export default async function handler(req, res) {
     // Encrypt for private packages
     const encryptedKey = !isPublic ? generateEncryptionKey() : null;
 
-    // Save to Supabase
+    // Save to Supabase - use packJsonObj.type instead of packJson.type
     const { data, error } = await supabase
       .from('packs')
       .insert([{
         id: packId,
         name,
-        pack_json: packJson,
+        pack_json: packJson, // Keep the string version
         files,
         cdn_url: cdnUrl,
         worker_url: workerUrl,
         encrypted_key: encryptedKey,
         is_public: isPublic,
-        package_type: packJson.type
+        package_type: packJsonObj.type // Use the parsed object
       }])
       .select()
       .single();
@@ -50,7 +52,8 @@ export default async function handler(req, res) {
       encryptedKey
     });
   } catch (error) {
-    res.status(500).json({ error: 'Publish failed' });
+    console.error('Publish error:', error);
+    res.status(500).json({ error: 'Publish failed: ' + error.message });
   }
 }
 
