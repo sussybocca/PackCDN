@@ -1,0 +1,304 @@
+<!-- selector.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackCDN - Select Experience</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .tagline {
+            font-size: 1.2rem;
+            color: #a0aec0;
+            margin-bottom: 60px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .experience-card {
+            background: rgba(30, 30, 40, 0.8);
+            border-radius: 20px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            backdrop-filter: blur(10px);
+        }
+        
+        .experience-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: #667eea;
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .experience-card.highlight {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-color: #667eea;
+        }
+        
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #f0f0f0;
+        }
+        
+        .card-description {
+            color: #a0aec0;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .card-features {
+            list-style: none;
+            text-align: left;
+            margin-top: 20px;
+        }
+        
+        .card-features li {
+            padding: 8px 0;
+            color: #a0aec0;
+            position: relative;
+            padding-left: 25px;
+        }
+        
+        .card-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .select-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .select-btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        .quick-links {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        
+        .quick-links h3 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .link-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .link-btn {
+            padding: 10px 25px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 1px solid #667eea;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .link-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        footer {
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .logo {
+                font-size: 2.5rem;
+            }
+            
+            .selector-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .floating {
+            animation: floating 6s ease-in-out infinite;
+        }
+        
+        @keyframes floating {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="logo floating">PackCDN</h1>
+        <p class="tagline">Choose your experience - Instant package publishing and distribution platform</p>
+        
+        <div class="selector-grid">
+            <div class="experience-card highlight">
+                <div class="card-icon">✨</div>
+                <h2 class="card-title">Immersive Docs</h2>
+                <p class="card-description">
+                    Interactive 3D documentation with animated examples, live demos, 
+                    and visual architecture diagrams.
+                </p>
+                <ul class="card-features">
+                    <li>Three.js powered 3D background</li>
+                    <li>GSAP animations throughout</li>
+                    <li>Interactive code demos</li>
+                    <li>Visual flow diagrams</li>
+                    <li>Smooth scroll animations</li>
+                </ul>
+                <button class="select-btn" onclick="window.location.href='docs.html'">
+                    Enter Immersive Experience
+                </button>
+            </div>
+            
+            <div class="experience-card">
+                <div class="card-icon">🚀</div>
+                <h2 class="card-title">Classic Website</h2>
+                <p class="card-description">
+                    Fast, lightweight landing page with quick access to all features 
+                    and straightforward navigation.
+                </p>
+                <ul class="card-features">
+                    <li>Lightweight & fast loading</li>
+                    <li>Traditional navigation</li>
+                    <li>Quick access to features</li>
+                    <li>Mobile optimized</li>
+                    <li>Simple and clean</li>
+                </ul>
+                <button class="select-btn" onclick="window.location.href='index.html'">
+                    Go to Classic Website
+                </button>
+            </div>
+        </div>
+        
+        <div class="quick-links">
+            <h3>Quick Access</h3>
+            <div class="link-buttons">
+                <a href="editor.html" class="link-btn">Create Package</a>
+                <a href="explore.html" class="link-btn">Explore Packs</a>
+                <a href="/api/search" class="link-btn">API Search</a>
+                <a href="https://github.com" class="link-btn">GitHub</a>
+            </div>
+        </div>
+        
+        <footer>
+            PackCDN © 2024 | Anonymous Package Publishing | Built with Cloudflare Workers & Vercel
+        </footer>
+    </div>
+
+    <script>
+        // Add floating animation to cards
+        document.querySelectorAll('.experience-card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.2}s`;
+            card.classList.add('floating');
+        });
+        
+        // Add click effects
+        document.querySelectorAll('.experience-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (!e.target.classList.contains('select-btn')) {
+                    const btn = this.querySelector('.select-btn');
+                    if (btn) {
+                        btn.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            btn.style.transform = '';
+                            btn.click();
+                        }, 150);
+                    }
+                }
+            });
+        });
+        
+        // Add keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '1') {
+                window.location.href = 'docs.html';
+            } else if (e.key === '2') {
+                window.location.href = 'index.html';
+            } else if (e.key === 'e') {
+                window.location.href = 'editor.html';
+            }
+        });
+        
+        // Add welcome message
+        console.log(`
+🚀 Welcome to PackCDN!
+=====================
+Quick Navigation:
+• Press 1 for Immersive Docs
+• Press 2 for Classic Website
+• Press E for Editor
+
+Choose your experience above!
+        `);
+    </script>
+</body>
+</html>
