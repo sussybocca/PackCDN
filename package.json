@@ -2,7 +2,7 @@
   "name": "packcdn",
   "version": "1.0.0",
   "description": "Custom package CDN system for publishing and sharing npm, Python, and WebAssembly packages with automatic CDN generation",
-  "main": "index.html",
+  "main": "selector.html",
   "scripts": {
     "dev": "vercel dev",
     "start": "vercel dev",
