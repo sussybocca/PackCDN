@@ -24,11 +24,28 @@ export default async function handler(req, res) {
     // Encrypt for private packages
     const encryptedKey = !isPublic ? generateEncryptionKey() : null;
 
-    // Save to Supabase - REMOVE the id field since Supabase auto-generates UUID
+    // Map frontend package types to valid database package types
+    let packageType = 'npm'; // Default to 'npm' for JavaScript/TypeScript packages
+    
+    if (packJsonObj.type) {
+      const typeMap = {
+        'module': 'npm',
+        'library': 'npm', 
+        'template': 'npm',
+        'plugin': 'npm',
+        'python': 'python',
+        'wasm': 'wasm'
+      };
+      
+      const frontendType = packJsonObj.type.toLowerCase();
+      packageType = typeMap[frontendType] || 'npm';
+    }
+
+    // Save to Supabase
     const { data, error } = await supabase
       .from('packs')
       .insert([{
-        // Don't include id field - let Supabase generate the UUID
+        id: packId,
         name,
         pack_json: packJson,
         files,
@@ -36,19 +53,16 @@ export default async function handler(req, res) {
         worker_url: workerUrl,
         encrypted_key: encryptedKey,
         is_public: isPublic,
-        package_type: packJsonObj.type
+        package_type: packageType
       }])
       .select()
       .single();
 
     if (error) throw error;
 
-    // Use the auto-generated UUID from Supabase
-    const supabaseId = data.id;
-    
     res.status(200).json({
       success: true,
-      packId: supabaseId, // Use the Supabase UUID, not the generated one
+      packId,
       cdnUrl,
       workerUrl,
       installCommand: `pack install ${name} ${cdnUrl}`,
