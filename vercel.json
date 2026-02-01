@@ -1,12 +1,13 @@
+// vercel.json
 {
   "rewrites": [
     {
       "source": "/",
-      "destination": "/selector"
+      "destination": "/selector.html"
     },
     {
       "source": "/home",
-      "destination": "/index.html"
+      "destination": "/home/index.html"
     },
     {
       "source": "/docs",
@@ -21,32 +22,6 @@
       "destination": "/explore.html"
     }
   ],
-  "redirects": [
-    {
-      "source": "/index",
-      "destination": "/",
-      "permanent": false
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    }
-  ],
-  "cleanUrls": true,
+  "cleanUrls": false,  // Set to false since we're using .html explicitly
   "trailingSlash": false
 }
