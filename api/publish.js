@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     // Parse packJson to access its properties
     const packJsonObj = JSON.parse(packJson);
     
-    // Generate URL-friendly ID (not for database, just for URLs)
+    // Generate URL-friendly ID
     const urlId = generateUrlId();
     const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
     const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
@@ -41,19 +41,20 @@ export default async function handler(req, res) {
       packageType = typeMap[frontendType] || 'npm';
     }
 
-    // Save to Supabase - DON'T include id field, let Supabase generate UUID
+    // Save to Supabase - include url_id field!
     const { data, error } = await supabase
       .from('packs')
       .insert([{
-        // No id field - Supabase will auto-generate UUID
+        url_id: urlId, // ADD THIS: Store the short URL ID
         name,
         pack_json: packJson,
-        files,
+        files, // This is now stored as object {filename: content}
         cdn_url: cdnUrl,
         worker_url: workerUrl,
         encrypted_key: encryptedKey,
         is_public: isPublic,
-        package_type: packageType
+        package_type: packageType,
+        version: packJsonObj.version || '1.0.0' // Add version from packJson
       }])
       .select()
       .single();
@@ -62,7 +63,8 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      packId: data.id, // Use the auto-generated UUID from Supabase
+      packId: data.id, // The UUID from Supabase
+      urlId: urlId,    // The short URL ID (for CDN URLs)
       cdnUrl,
       workerUrl,
       installCommand: `pack install ${name} ${cdnUrl}`,
