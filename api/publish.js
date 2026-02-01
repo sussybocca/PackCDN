@@ -24,28 +24,31 @@ export default async function handler(req, res) {
     // Encrypt for private packages
     const encryptedKey = !isPublic ? generateEncryptionKey() : null;
 
-    // Save to Supabase - use packJsonObj.type instead of packJson.type
+    // Save to Supabase - REMOVE the id field since Supabase auto-generates UUID
     const { data, error } = await supabase
       .from('packs')
       .insert([{
-        id: packId,
+        // Don't include id field - let Supabase generate the UUID
         name,
-        pack_json: packJson, // Keep the string version
+        pack_json: packJson,
         files,
         cdn_url: cdnUrl,
         worker_url: workerUrl,
         encrypted_key: encryptedKey,
         is_public: isPublic,
-        package_type: packJsonObj.type // Use the parsed object
+        package_type: packJsonObj.type
       }])
       .select()
       .single();
 
     if (error) throw error;
 
+    // Use the auto-generated UUID from Supabase
+    const supabaseId = data.id;
+    
     res.status(200).json({
       success: true,
-      packId,
+      packId: supabaseId, // Use the Supabase UUID, not the generated one
       cdnUrl,
       workerUrl,
       installCommand: `pack install ${name} ${cdnUrl}`,
