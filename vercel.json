@@ -1,24 +1,23 @@
-
 {
   "rewrites": [
     {
-      "source": "/",
+      "source": "^/$",
       "destination": "/selector.html"
     },
     {
-      "source": "/index",
+      "source": "^/index$",
       "destination": "/index.html"
     },
     {
-      "source": "/docs",
+      "source": "^/docs$",
       "destination": "/docs.html"
     },
     {
-      "source": "/editor",
+      "source": "^/editor$",
       "destination": "/editor.html"
     },
     {
-      "source": "/explore",
+      "source": "^/explore$",
       "destination": "/explore.html"
     }
   ],
