@@ -73,6 +73,12 @@
             background-color: #3fa33a;
         }
         
+        button:disabled {
+            background-color: #3e3e42;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
         .container {
             display: flex;
             flex: 1;
@@ -589,7 +595,6 @@
                         type: 'module',
                         description: 'My awesome package with WASM support',
                         main: 'index.js',
-                        wasm: 'module.wasm',
                         author: '',
                         license: 'MIT'
                     }, null, 2),
@@ -599,47 +604,27 @@
                 'index.js': {
                     name: 'index.js',
                     content: `// Main entry point for your package
-// Example of using WebAssembly
-export async function loadWasm() {
-    try {
-        // Load the WebAssembly module
-        const wasmModule = await WebAssembly.instantiateStreaming(
-            fetch('./module.wasm'),
-            {
-                // Import object for the WASM module
-                env: {
-                    memory: new WebAssembly.Memory({ initial: 256 })
-                }
-            }
-        );
-        
-        console.log('WASM module loaded successfully');
-        return wasmModule.instance.exports;
-    } catch (error) {
-        console.error('Failed to load WASM module:', error);
-        return null;
-    }
+
+export function helloWorld() {
+    console.log('Hello from my awesome pack!');
+    return 'Hello World!';
 }
 
-// Example function that uses WASM
-export async function computeWithWasm(a, b) {
-    const wasmExports = await loadWasm();
-    if (wasmExports && wasmExports.compute) {
-        return wasmExports.compute(a, b);
-    }
-    return a + b; // Fallback to JavaScript
-}
+// Add your code here
+export const version = '1.0.0';
 
-// Export the WASM loading function
-export { loadWasm };`,
+// Example utility function
+export function sum(a, b) {
+    return a + b;
+}`,
                     language: 'javascript',
                     editable: true
                 },
                 'README.md': {
                     name: 'README.md',
-                    content: `# My Awesome Pack with WASM
+                    content: `# My Awesome Pack
 
-This package includes WebAssembly for high-performance computations.
+This is a sample package created with Pack Editor.
 
 ## Installation
 
@@ -650,19 +635,18 @@ pack install my-awesome-pack
 ## Usage
 
 \`\`\`javascript
-import { loadWasm, computeWithWasm } from 'my-awesome-pack';
+import { helloWorld } from 'my-awesome-pack';
 
-// Load the WASM module
-const wasmExports = await loadWasm();
-
-// Use WASM functions
-const result = await computeWithWasm(5, 3);
-console.log(result);
+helloWorld(); // Outputs: Hello from my awesome pack!
 \`\`\`
 
-## WebAssembly Files
+## API
 
-This package includes a WebAssembly module (\`module.wasm\`) that provides high-performance computations. The WASM file is served directly from the CDN.
+### helloWorld()
+Prints a greeting message and returns "Hello World!"
+
+### sum(a, b)
+Returns the sum of two numbers
 
 ## License
 
@@ -899,9 +883,6 @@ MIT
             appState.editor.setValue(file.content);
             monaco.editor.setModelLanguage(appState.editor.getModel(), file.language);
             
-            // Set editor read-only for WASM files
-            appState.editor.updateOptions({ readOnly: false });
-            
             // Update UI
             renderFileList();
             renderEditorTabs();
@@ -1028,17 +1009,11 @@ MIT
                     appState.wasmFiles[file.name] = {
                         name: file.name,
                         size: file.size,
-                        data: arrayBuffer,
-                        type: 'wasm'
+                        data: arrayBuffer
                     };
                     
                     renderWasmList();
                     showNotification(`Uploaded ${file.name} (${formatFileSize(file.size)})`, 'success');
-                    
-                    // Update package.json if needed
-                    if (file.name === 'module.wasm') {
-                        updatePackageJsonWasmReference(file.name);
-                    }
                 };
                 
                 reader.readAsArrayBuffer(file);
@@ -1065,25 +1040,6 @@ MIT
             } catch (error) {
                 console.error('WASM validation error:', error);
                 return false;
-            }
-        }
-        
-        // Update package.json to reference WASM file
-        function updatePackageJsonWasmReference(wasmFileName) {
-            try {
-                const packageJson = JSON.parse(appState.files['package.json'].content);
-                if (!packageJson.wasm || packageJson.wasm !== wasmFileName) {
-                    packageJson.wasm = wasmFileName;
-                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
-                    
-                    if (appState.activeFile === 'package.json') {
-                        appState.editor.setValue(appState.files['package.json'].content);
-                    }
-                    
-                    showNotification('Updated package.json with WASM reference', 'success');
-                }
-            } catch (e) {
-                console.error('Failed to update package.json:', e);
             }
         }
         
@@ -1152,17 +1108,10 @@ MIT
                 }
             });
             
-            // Validate WASM files
-            Object.keys(appState.wasmFiles).forEach(fileName => {
-                if (!fileName.endsWith('.wasm')) {
-                    errors.push(`Invalid WASM file name: ${fileName} (must end with .wasm)`);
-                }
-            });
-            
             return { errors, warnings };
         }
         
-        // Publish package to API
+        // Publish package to API - FIXED FOR API EXPECTATIONS
         async function publishPackage() {
             // Validate package first
             const validation = validatePackage();
@@ -1182,43 +1131,40 @@ MIT
                 packageJson.name = appState.packName;
                 packageJson.type = appState.packType;
                 
-                // Prepare all files for upload
+                // Prepare all files for upload - SIMPLE OBJECT AS API EXPECTS
                 const files = {};
                 
-                // Add regular files
+                // Add regular files - just the content as string
                 Object.keys(appState.files).forEach(fileName => {
-                    files[fileName] = {
-                        content: appState.files[fileName].content,
-                        type: 'text'
-                    };
+                    files[fileName] = appState.files[fileName].content;
                 });
                 
-                // Add WASM files (convert ArrayBuffer to base64 for transmission)
+                // Add WASM files - convert ArrayBuffer to base64 string
                 Object.keys(appState.wasmFiles).forEach(fileName => {
                     const wasmFile = appState.wasmFiles[fileName];
-                    // Convert ArrayBuffer to base64
+                    // Convert ArrayBuffer to base64 string
                     const bytes = new Uint8Array(wasmFile.data);
                     let binary = '';
                     for (let i = 0; i < bytes.byteLength; i++) {
                         binary += String.fromCharCode(bytes[i]);
                     }
-                    const base64 = btoa(binary);
-                    
-                    files[fileName] = {
-                        content: base64,
-                        type: 'wasm',
-                        encoding: 'base64',
-                        size: wasmFile.size
-                    };
+                    files[fileName] = btoa(binary); // Just the base64 string, not an object
                 });
                 
-                // Prepare request body
+                // Prepare request body - EXACTLY AS API EXPECTS
                 const requestBody = {
                     name: appState.packName,
-                    packJson: JSON.stringify(packageJson),
-                    files: files,
+                    packJson: JSON.stringify(packageJson), // Already a string in your API
+                    files: files, // Simple object: {filename: contentString}
                     isPublic: appState.isPublic
                 };
+                
+                console.log('Sending to API:', {
+                    name: requestBody.name,
+                    packJson: requestBody.packJson.substring(0, 100) + '...',
+                    fileCount: Object.keys(requestBody.files).length,
+                    fileNames: Object.keys(requestBody.files)
+                });
                 
                 // Call publish API
                 const response = await fetch('/api/publish.js', {
@@ -1229,11 +1175,14 @@ MIT
                     body: JSON.stringify(requestBody)
                 });
                 
+                const responseText = await response.text();
+                console.log('API Response:', responseText);
+                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${responseText}`);
                 }
                 
-                const result = await response.json();
+                const result = JSON.parse(responseText);
                 
                 // Hide loading, show results
                 publishLoading.style.display = 'none';
@@ -1338,6 +1287,7 @@ MIT
                 
                 publishModal.style.display = 'flex';
                 publishResult.style.display = 'none';
+                publishLoading.style.display = 'none';
             });
             
             // Modal controls
