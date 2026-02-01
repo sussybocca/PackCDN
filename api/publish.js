@@ -16,8 +16,8 @@ export default async function handler(req, res) {
   try {
     // Generate unique IDs and URLs
     const packId = generateId();
-    const cdnUrl = `https://packcdn.workers.dev/cdn/${packId}`;
-    const workerUrl = `https://packcdn.workers.dev/pack/${packId}`;
+    const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${packId}`;
+    const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${packId}`;
     
     // Encrypt for private packages
     const encryptedKey = !isPublic ? generateEncryptionKey() : null;
