@@ -1,24 +1,31 @@
 {
   "rewrites": [
     {
-      "source": "^/$",
-      "destination": "/selector.html"
+      "source": "/",
+      "destination": "/selector"
     },
     {
-      "source": "^/index$",
+      "source": "/home",
       "destination": "/index.html"
     },
     {
-      "source": "^/docs$",
+      "source": "/docs",
       "destination": "/docs.html"
     },
     {
-      "source": "^/editor$",
+      "source": "/editor",
       "destination": "/editor.html"
     },
     {
-      "source": "^/explore$",
+      "source": "/explore",
       "destination": "/explore.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/index",
+      "destination": "/",
+      "permanent": false
     }
   ],
   "headers": [
