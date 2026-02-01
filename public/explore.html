@@ -116,7 +116,7 @@
       packs.forEach(pack => {
         const card = document.createElement('div');
         card.className = 'pack-card';
-        card.onclick = () => window.open(`https://packcdn.workers.dev/pack/${pack.id}`, '_blank');
+        card.onclick = () => window.open(`https://packcdn.firefly-worker.workers.dev/pack/${pack.id}`, '_blank');
         
         card.innerHTML = `
           <div class="pack-header">
