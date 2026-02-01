@@ -1,0 +1,51 @@
+{
+  "name": "packcdn",
+  "version": "1.0.0",
+  "description": "Custom package CDN system for publishing and sharing npm, Python, and WebAssembly packages with automatic CDN generation",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev",
+    "deploy": "vercel --prod",
+    "build": "echo 'No build step required for static site'",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "cdn",
+    "package-manager",
+    "npm",
+    "python",
+    "wasm",
+    "cloudflare",
+    "vercel",
+    "supabase",
+    "monaco-editor"
+  ],
+  "author": "PackCDN Team",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0",
+    "@vercel/node": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/packcdn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/packcdn/issues"
+  },
+  "homepage": "https://packcdn.vercel.app",
+  "files": [
+    "*.html",
+    "*.js",
+    "api/*.js",
+    "public/*"
+  ]
+}
