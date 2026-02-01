@@ -1,8 +1,9 @@
-// Cloudflare Worker - packcdn.workers.dev
+// Cloudflare Worker - packcdn.firefly-worker.workers.dev
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+    const hostname = request.headers.get('host') || 'packcdn.firefly-worker.workers.dev';
     
     // Get the origin from the request
     const requestOrigin = request.headers.get('Origin');
@@ -13,7 +14,9 @@ export default {
       'http://localhost:3000',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
-      'http://127.0.0.1:5173'
+      'http://127.0.0.1:5173',
+      `https://${hostname}`,
+      `http://${hostname}`
     ];
     
     // Determine if the origin is allowed
@@ -22,16 +25,16 @@ export default {
       corsOrigin = requestOrigin;
     }
     
-    // CORS headers - ALLOW POST for /api/publish.js
+    // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': corsOrigin,
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', // ADDED POST
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Origin, X-Requested-With',
       'Access-Control-Max-Age': '86400',
       'Vary': 'Origin',
     };
 
-    // Handle CORS preflight - this is what /api/publish.js needs
+    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { 
         status: 204,
@@ -43,13 +46,13 @@ export default {
     let response;
     try {
       if (path.startsWith('/cdn/')) {
-        response = await handleCDN(request, path);
+        response = await handleCDN(request, path, hostname);
       } else if (path.startsWith('/pack/')) {
-        response = await handlePackInfo(request, path);
+        response = await handlePackInfo(request, path, hostname);
       } else if (path.startsWith('/search')) {
-        response = await handleSearch(request, url);
+        response = await handleSearch(request, url, hostname);
       } else if (path === '/') {
-        response = handleHome();
+        response = handleHome(hostname);
       } else {
         response = new Response('Not Found', { 
           status: 404,
@@ -58,7 +61,7 @@ export default {
       }
     } catch (error) {
       console.error('Worker error:', error);
-      response = new Response('Internal Server Error', { 
+      response = new Response('Internal Server Error: ' + error.message, { 
         status: 500,
         headers: { 'Content-Type': 'text/plain' }
       });
@@ -81,7 +84,7 @@ export default {
 };
 
 // Handle CDN file serving
-async function handleCDN(request, path) {
+async function handleCDN(request, path, hostname) {
   const segments = path.split('/');
   const packId = segments[2];
   const filePath = segments.slice(3).join('/') || 'index.js';
@@ -94,6 +97,8 @@ async function handleCDN(request, path) {
   }
   
   try {
+    console.log(`Fetching pack: ${packId}, file: ${filePath}`);
+    
     // Fetch pack from the get-pack API
     const apiResponse = await fetch(
       `https://pack-cdn.vercel.app/api/get-pack?id=${encodeURIComponent(packId)}`,
@@ -101,31 +106,38 @@ async function handleCDN(request, path) {
         headers: {
           'User-Agent': 'PackCDN-Worker/1.0',
           'Accept': 'application/json',
-          'Origin': 'https://packcdn.firefly-worker.workers.dev/'
+          'Origin': `https://${hostname}`
         }
       }
     );
     
+    console.log(`API response status: ${apiResponse.status}`);
+    
     if (!apiResponse.ok) {
-      return new Response(`Pack not found: ${packId}`, { 
+      const errorText = await apiResponse.text();
+      console.error(`API error: ${apiResponse.status} - ${errorText}`);
+      return new Response(`Pack not found: ${packId} (API: ${apiResponse.status})`, { 
         status: 404,
         headers: { 'Content-Type': 'text/plain' }
       });
     }
     
     const result = await apiResponse.json();
+    console.log(`API result success: ${result.success}`);
     
     if (!result.success || !result.pack) {
-      return new Response(`Invalid pack data: ${packId}`, { 
+      return new Response(`Invalid pack data: ${packId} - ${result.error || 'No pack data'}`, { 
         status: 404,
         headers: { 'Content-Type': 'text/plain' }
       });
     }
     
     const pack = result.pack;
+    console.log(`Pack found: ${pack.name || pack.id}, files count: ${pack.files ? Object.keys(pack.files).length : 0}`);
     
     // Get files from pack data
     if (!pack.files || typeof pack.files !== 'object') {
+      console.error('No files object in pack:', pack);
       return new Response('No files in pack', { 
         status: 404,
         headers: { 'Content-Type': 'text/plain' }
@@ -137,19 +149,42 @@ async function handleCDN(request, path) {
     
     // If file not found, try index.js as default
     if (!fileContent && filePath === 'index.js') {
+      console.log('File not found, trying fallbacks...');
       // Try common entry points
       fileContent = pack.files['main.js'] || 
                     pack.files['index.mjs'] || 
-                    pack.files['app.js'] ||
-                    Object.values(pack.files)[0];
+                    pack.files['app.js'];
+      
+      // If still not found, try to find any .js file
+      if (!fileContent) {
+        const jsFiles = Object.entries(pack.files).find(([name, content]) => 
+          name.endsWith('.js') || name.endsWith('.mjs') || name.endsWith('.cjs')
+        );
+        if (jsFiles) {
+          fileContent = jsFiles[1];
+          console.log(`Found fallback JS file: ${jsFiles[0]}`);
+        }
+      }
+      
+      // Last resort: first file
+      if (!fileContent) {
+        const firstFile = Object.values(pack.files)[0];
+        if (firstFile) {
+          fileContent = firstFile;
+          console.log('Using first file as fallback');
+        }
+      }
     }
     
     if (!fileContent) {
-      return new Response(`File not found: ${filePath}`, { 
+      console.error(`File not found in pack: ${filePath}, available files:`, Object.keys(pack.files));
+      return new Response(`File not found: ${filePath}. Available files: ${Object.keys(pack.files).join(', ')}`, { 
         status: 404,
         headers: { 'Content-Type': 'text/plain' }
       });
     }
+    
+    console.log(`Serving file: ${filePath}, content length: ${fileContent.length}`);
     
     // Determine content type
     let contentType = 'text/plain';
@@ -161,6 +196,11 @@ async function handleCDN(request, path) {
       contentType = 'text/x-python';
     } else if (ext === 'wasm') {
       contentType = 'application/wasm';
+      // Check if WASM is base64 encoded
+      if (typeof fileContent === 'string' && fileContent.startsWith('data:application/wasm;base64,')) {
+        const base64Data = fileContent.split(',')[1];
+        fileContent = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      }
     } else if (ext === 'json') {
       contentType = 'application/json';
     } else if (ext === 'html') {
@@ -171,11 +211,20 @@ async function handleCDN(request, path) {
       contentType = 'text/markdown';
     }
     
+    const responseHeaders = {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=86400',
+      'X-Pack-ID': packId,
+      'X-File-Path': filePath
+    };
+    
+    // Add content length for binary data
+    if (fileContent instanceof Uint8Array) {
+      responseHeaders['Content-Length'] = fileContent.length.toString();
+    }
+    
     return new Response(fileContent, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400'
-      }
+      headers: responseHeaders
     });
     
   } catch (error) {
@@ -188,7 +237,7 @@ async function handleCDN(request, path) {
 }
 
 // Handle search - proxy to your search API
-async function handleSearch(request, url) {
+async function handleSearch(request, url, hostname) {
   const searchParams = url.searchParams;
   
   // Build query for your search API
@@ -202,7 +251,7 @@ async function handleSearch(request, url) {
       headers: {
         'User-Agent': 'PackCDN-Worker/1.0',
         'Accept': 'application/json',
-        'Origin': 'https://packcdn.firefly-worker.workers.dev/'
+        'Origin': `https://${hostname}`
       }
     });
     
@@ -239,11 +288,11 @@ async function handleSearch(request, url) {
 }
 
 // Handle pack information page
-async function handlePackInfo(request, path) {
+async function handlePackInfo(request, path, hostname) {
   const packId = path.split('/')[2];
   
   if (!packId) {
-    return renderNotFound('Missing pack ID');
+    return renderNotFound('Missing pack ID', hostname);
   }
   
   try {
@@ -252,19 +301,19 @@ async function handlePackInfo(request, path) {
       `https://pack-cdn.vercel.app/api/get-pack?id=${encodeURIComponent(packId)}`,
       {
         headers: {
-          'Origin': 'https://packcdn.workers.dev'
+          'Origin': `https://${hostname}`
         }
       }
     );
     
     if (!response.ok) {
-      return renderNotFound(`Pack ${packId} not found`);
+      return renderNotFound(`Pack ${packId} not found`, hostname);
     }
     
     const result = await response.json();
     
     if (!result.success || !result.pack) {
-      return renderNotFound(result.error || 'Pack not found');
+      return renderNotFound(result.error || 'Pack not found', hostname);
     }
     
     const pack = result.pack;
@@ -293,19 +342,19 @@ async function handlePackInfo(request, path) {
       </div>
       
       <div class="code">
-        $ pack install ${pack.name || packId} https://packcdn.firefly-worker.workers.dev/cdn/${packId}
+        $ pack install ${pack.name || packId} https://${hostname}/cdn/${packId}
       </div>
       
       <h3>Usage in JavaScript</h3>
       <div class="code">
-        import pkg from 'https://packcdn.firefly-worker.workers.dev/cdn/${packId}';<br>
+        import pkg from 'https://${hostname}/cdn/${packId}';<br>
         // or<br>
-        const pkg = await import('https://packcdn.firefly-worker.workers.dev/cdn/${packId}');
+        const pkg = await import('https://${hostname}/cdn/${packId}');
       </div>
       
       <h3>Usage in HTML</h3>
       <div class="code">
-        &lt;script src="https://packcdn.firefly-worker.workers.dev/cdn/${packId}/index.js"&gt;&lt;/script&gt;
+        &lt;script src="https://${hostname}/cdn/${packId}/index.js"&gt;&lt;/script&gt;
       </div>
       
       ${pack.pack_json && pack.pack_json.description ? `
@@ -338,11 +387,11 @@ async function handlePackInfo(request, path) {
     
   } catch (error) {
     console.error('Pack info error:', error);
-    return renderNotFound('Error loading pack');
+    return renderNotFound('Error loading pack', hostname);
   }
 }
 
-function handleHome() {
+function handleHome(hostname) {
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -360,7 +409,7 @@ function handleHome() {
   
   <div class="code">
     # Install any pack<br>
-    $ pack install my-package https://packcdn.firefly-worker.workers.dev/cdn/package-id
+    $ pack install my-package https://${hostname}/cdn/package-id
   </div>
   
   <a href="https://pack-cdn.vercel.app/editor.html" class="cta">Create a Pack</a>
@@ -380,12 +429,12 @@ function handleHome() {
   });
 }
 
-function renderNotFound(message = 'Pack not found') {
+function renderNotFound(message = 'Pack not found', hostname) {
   const html = `<!DOCTYPE html>
 <html>
 <body style="text-align: center; padding: 50px; font-family: sans-serif;">
   <h1>${message}</h1>
-  <a href="/">Back to PackCDN</a>
+  <a href="https://${hostname}">Back to PackCDN</a>
 </body>
 </html>`;
   return new Response(html, { 
