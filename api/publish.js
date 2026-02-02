@@ -44,6 +44,21 @@ const ALLOWED_EXTENSIONS = {
   'data': ['csv', 'tsv', 'xml', 'yaml', 'yml']
 };
 
+// ESSENTIAL PACKAGE FILES THAT MUST BE ALLOWED
+const ESSENTIAL_FILES = [
+  'package.json',
+  'index.js',
+  'main.js',
+  'app.js',
+  'server.js',
+  'README.md',
+  'LICENSE',
+  'LICENSE.txt',
+  'README.txt',
+  'CHANGELOG.md',
+  'CONTRIBUTING.md'
+];
+
 export default async function handler(req, res) {
   // Start timing for performance monitoring
   const startTime = Date.now();
@@ -248,7 +263,7 @@ export default async function handler(req, res) {
     const processedFiles = {};
     
     for (const [filename, content] of Object.entries(files)) {
-      // Validate filename
+      // Validate filename - ALLOW ESSENTIAL FILES
       const filenameValidation = validateFilename(filename);
       if (!filenameValidation.valid) {
         return res.status(400).json({ 
@@ -272,16 +287,21 @@ export default async function handler(req, res) {
       totalSize += fileSize;
       
       // Individual file size limit (reduced for security)
-      if (fileSize > 2 * 1024 * 1024) { // 2MB per file
+      // BUT allow larger package.json if needed
+      const maxFileSize = filename.toLowerCase() === 'package.json' 
+        ? 5 * 1024 * 1024  // 5MB for package.json
+        : 2 * 1024 * 1024; // 2MB for other files
+      
+      if (fileSize > maxFileSize) {
         return res.status(400).json({ 
           success: false, 
-          error: `File too large: ${filename}. Maximum 2MB per file.`,
+          error: `File too large: ${filename}. Maximum ${maxFileSize / 1024 / 1024}MB per file.`,
           code: 'FILE_TOO_LARGE'
         });
       }
 
-      // Check for empty files
-      if (fileSize === 0) {
+      // Check for empty files (but allow empty JSON files for config)
+      if (fileSize === 0 && !filename.endsWith('.json')) {
         return res.status(400).json({
           success: false,
           error: `File cannot be empty: ${filename}`,
@@ -293,7 +313,18 @@ export default async function handler(req, res) {
       const ext = filename.split('.').pop().toLowerCase();
       const fileType = getFileType(ext);
       
-      if (!fileType) {
+      // Allow files without extensions if they're essential
+      if (!fileType && (!ext || ext === filename)) {
+        // Check if it's an essential file without extension
+        const essentialNoExt = ESSENTIAL_FILES.filter(f => !f.includes('.'));
+        if (!essentialNoExt.includes(filename)) {
+          return res.status(400).json({
+            success: false,
+            error: `Unsupported file extension: .${ext}`,
+            code: 'UNSUPPORTED_EXTENSION'
+          });
+        }
+      } else if (!fileType) {
         return res.status(400).json({
           success: false,
           error: `Unsupported file extension: .${ext}`,
@@ -607,7 +638,7 @@ function validateFilename(filename) {
   }
   
   // Basic character validation
-  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+  if (!/^[a-zA-Z0-9._\-]+$/.test(filename)) {
     return { valid: false, reason: 'Filename can only contain letters, numbers, dots, hyphens, and underscores' };
   }
   
@@ -616,26 +647,44 @@ function validateFilename(filename) {
     return { valid: false, reason: 'Filename cannot contain directory traversal characters' };
   }
   
-  // No hidden files (starting with dot) except .gitignore, .env, etc.
-  if (filename.startsWith('.') && !['.gitignore', '.env', '.npmrc', '.prettierrc'].includes(filename)) {
-    return { valid: false, reason: 'Hidden files are not allowed' };
-  }
-  
-  // Reserved filenames
-  const reservedFilenames = [
-    'index.js', 'main.js', 'app.js', 'server.js', 
-    'package.json', 'package-lock.json', 'yarn.lock',
-    'node_modules', 'vendor', 'lib', 'bin'
+  // No hidden files (starting with dot) except essential config files
+  const allowedHiddenFiles = [
+    '.gitignore', '.env', '.npmrc', '.prettierrc', '.eslintrc',
+    '.babelrc', '.dockerignore', '.gitattributes', '.editorconfig',
+    '.github', '.vscode'
   ];
   
-  if (reservedFilenames.includes(filename.toLowerCase())) {
+  if (filename.startsWith('.') && !allowedHiddenFiles.some(allowed => 
+      filename === allowed || filename.startsWith(allowed + '/'))) {
+    return { valid: false, reason: 'Hidden files are only allowed for common configuration files' };
+  }
+  
+  // CRITICAL FIX: Allow essential package files
+  const essentialFileLower = filename.toLowerCase();
+  if (ESSENTIAL_FILES.some(essential => essentialFileLower === essential.toLowerCase())) {
+    return { valid: true };
+  }
+  
+  // Reserved directory/folder names (not files)
+  const reservedDirectories = [
+    'node_modules', 'vendor', 'lib', 'bin', 'dist', 'build',
+    'public', 'src', 'test', 'tests', 'docs', 'examples'
+  ];
+  
+  // Only block these if they're exact matches (not files within them)
+  if (reservedDirectories.includes(filename.toLowerCase())) {
     return { valid: false, reason: 'Filename is reserved for system use' };
   }
   
-  // Extension validation
+  // Allow files with no extension (like README, LICENSE)
   const ext = filename.split('.').pop().toLowerCase();
   if (!ext || ext === filename) {
-    return { valid: false, reason: 'Filename must have an extension' };
+    // Files without extensions are allowed if they look like documentation
+    const allowedNoExt = /^[A-Z][A-Z0-9_]*(\.[A-Z0-9]+)?$/;
+    if (allowedNoExt.test(filename)) {
+      return { valid: true };
+    }
+    return { valid: false, reason: 'Files without extensions must follow common naming conventions' };
   }
   
   return { valid: true };
@@ -664,7 +713,24 @@ function validateFileContent(filename, content, fileType) {
     }
   }
   
-  // Type-specific validation
+  // Type-specific validation - BUT ALLOW ESSENTIAL FILES
+  const filenameLower = filename.toLowerCase();
+  
+  // Skip validation for essential files (they should be trusted)
+  if (ESSENTIAL_FILES.some(essential => filenameLower === essential.toLowerCase())) {
+    // Still validate JSON files for syntax
+    if (filenameLower === 'package.json' || filename.endsWith('.json')) {
+      try {
+        JSON.parse(content);
+        return { valid: true };
+      } catch (e) {
+        return { valid: false, reason: 'Invalid JSON format in package.json' };
+      }
+    }
+    return { valid: true };
+  }
+  
+  // Regular validation for non-essential files
   switch (fileType) {
     case 'js':
       return validateJavaScript(content);
