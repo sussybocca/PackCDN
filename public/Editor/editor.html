@@ -86,7 +86,7 @@
         }
         
         .sidebar {
-            width: 280px;
+            width: 320px;
             background-color: #252526;
             border-right: 1px solid #3e3e42;
             padding: 20px;
@@ -351,8 +351,10 @@
             border-radius: 8px;
             padding: 25px;
             width: 90%;
-            max-width: 500px;
+            max-width: 600px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
         }
         
         .modal-header {
@@ -469,6 +471,59 @@
             color: #858585;
             text-align: center;
         }
+        
+        .field-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .field-row .config-item {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .advanced-options {
+            background-color: #2a2d2e;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border-left: 3px solid #569cd6;
+        }
+        
+        .advanced-options h4 {
+            margin-bottom: 10px;
+            color: #569cd6;
+        }
+        
+        .option-description {
+            font-size: 0.85rem;
+            color: #858585;
+            margin-top: 5px;
+        }
+        
+        .type-info {
+            font-size: 0.8rem;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .basic-info {
+            background-color: #2d5c0c;
+            border-left: 3px solid #3fa33a;
+        }
+        
+        .standard-info {
+            background-color: #5c5c0c;
+            border-left: 3px solid #f5d76e;
+        }
+        
+        .advanced-info {
+            background-color: #5c2d0c;
+            border-left: 3px solid #d16969;
+        }
     </style>
 </head>
 <body>
@@ -515,14 +570,21 @@
                     <input type="text" id="packName" placeholder="my-awesome-pack" value="my-awesome-pack">
                 </div>
                 
-                <div class="config-item">
-                    <label for="packType">Package Type</label>
-                    <select id="packType">
-                        <option value="module">Module</option>
-                        <option value="library">Library</option>
-                        <option value="template">Template</option>
-                        <option value="plugin">Plugin</option>
-                    </select>
+                <div class="field-row">
+                    <div class="config-item">
+                        <label for="packType">Package Type</label>
+                        <select id="packType">
+                            <option value="basic">Basic</option>
+                            <option value="standard">Standard</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <div id="typeInfo" class="type-info"></div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="version">Version</label>
+                        <input type="text" id="version" placeholder="1.0.0" value="1.0.0">
+                    </div>
                 </div>
                 
                 <div class="config-item">
@@ -530,6 +592,38 @@
                     <div class="checkbox-group">
                         <input type="checkbox" id="isPublic" checked>
                         <label for="isPublic">Public Package</label>
+                    </div>
+                </div>
+                
+                <div class="advanced-options">
+                    <h4>Advanced Options</h4>
+                    
+                    <div class="config-item">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="isNewVersion">
+                            <label for="isNewVersion">Create as new version</label>
+                        </div>
+                        <div class="option-description">Check this if you're creating a new version of an existing package</div>
+                    </div>
+                    
+                    <div id="newVersionFields" style="display: none;">
+                        <div class="config-item">
+                            <label for="basePackId">Base Pack ID</label>
+                            <input type="text" id="basePackId" placeholder="Existing pack ID">
+                            <div class="option-description">ID of the package you're creating a new version for</div>
+                        </div>
+                        
+                        <div class="config-item">
+                            <label for="editToken">Edit Token</label>
+                            <input type="text" id="editToken" placeholder="Edit token (if required)">
+                            <div class="option-description">Required if you're not the original publisher</div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="userId">User ID (Optional)</label>
+                        <input type="text" id="userId" placeholder="Your user ID">
+                        <div class="option-description">For collaboration and version tracking</div>
                     </div>
                 </div>
             </div>
@@ -584,7 +678,7 @@
         // Monaco editor configuration
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
         
-        // Initialize app state
+        // Initialize app state with new fields
         const appState = {
             files: {
                 'package.json': {
@@ -660,8 +754,32 @@ MIT
             activeFile: 'package.json',
             editor: null,
             packName: 'my-awesome-pack',
-            packType: 'module',
-            isPublic: true
+            packType: 'basic',
+            version: '1.0.0',
+            isPublic: true,
+            isNewVersion: false,
+            basePackId: '',
+            userId: '',
+            editToken: ''
+        };
+        
+        // Package type limits from API
+        const PACKAGE_TYPE_LIMITS = {
+            basic: {
+                maxFiles: 20,
+                maxSize: 5 * 1024 * 1024, // 5MB
+                description: 'Simple packages with basic JS, no Node.js modules'
+            },
+            standard: {
+                maxFiles: 50,
+                maxSize: 10 * 1024 * 1024, // 10MB
+                description: 'Standard packages with limited Node.js modules'
+            },
+            advanced: {
+                maxFiles: 100,
+                maxSize: 25 * 1024 * 1024, // 25MB
+                description: 'Advanced packages with full Node.js module support'
+            }
         };
         
         // DOM Elements
@@ -670,7 +788,14 @@ MIT
         const editorContainer = document.getElementById('editor');
         const packNameInput = document.getElementById('packName');
         const packTypeSelect = document.getElementById('packType');
+        const versionInput = document.getElementById('version');
         const isPublicCheckbox = document.getElementById('isPublic');
+        const isNewVersionCheckbox = document.getElementById('isNewVersion');
+        const newVersionFields = document.getElementById('newVersionFields');
+        const basePackIdInput = document.getElementById('basePackId');
+        const editTokenInput = document.getElementById('editToken');
+        const userIdInput = document.getElementById('userId');
+        const typeInfo = document.getElementById('typeInfo');
         const publishModal = document.getElementById('publishModal');
         const closeModal = document.getElementById('closeModal');
         const cancelPublishBtn = document.getElementById('cancelPublishBtn');
@@ -725,9 +850,21 @@ MIT
                                 appState.packName = packageJson.name;
                                 packNameInput.value = packageJson.name;
                             }
+                            if (packageJson.version && packageJson.version !== appState.version) {
+                                appState.version = packageJson.version;
+                                versionInput.value = packageJson.version;
+                            }
                             if (packageJson.type && packageJson.type !== appState.packType) {
-                                appState.packType = packageJson.type;
-                                packTypeSelect.value = packageJson.type;
+                                // Map module/library/template/plugin to basic/standard/advanced
+                                if (packageJson.type === 'module' || packageJson.type === 'library') {
+                                    appState.packType = 'standard';
+                                } else if (packageJson.type === 'template' || packageJson.type === 'plugin') {
+                                    appState.packType = 'advanced';
+                                } else {
+                                    appState.packType = packageJson.type;
+                                }
+                                packTypeSelect.value = appState.packType;
+                                updateTypeInfo();
                             }
                         } catch (e) {
                             // Invalid JSON, ignore
@@ -740,6 +877,7 @@ MIT
             renderFileList();
             renderEditorTabs();
             setupEventListeners();
+            updateTypeInfo();
         });
         
         // Render the file list in the sidebar
@@ -923,6 +1061,15 @@ MIT
                     language = 'css';
                     content = `/* ${fileName} */\n\n`;
                     break;
+                case 'py':
+                    language = 'python';
+                    content = `# ${fileName}\n\n`;
+                    break;
+                case 'ts':
+                case 'tsx':
+                    language = 'typescript';
+                    content = `// ${fileName}\n\n`;
+                    break;
             }
             
             appState.files[fileName] = {
@@ -1061,6 +1208,16 @@ MIT
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
+        // Update package type info display
+        function updateTypeInfo() {
+            const limits = PACKAGE_TYPE_LIMITS[appState.packType];
+            if (limits) {
+                typeInfo.textContent = `${limits.description}. Max ${limits.maxFiles} files, ${limits.maxSize / 1024 / 1024}MB total.`;
+                typeInfo.className = `type-info ${appState.packType}-info`;
+                typeInfo.style.display = 'block';
+            }
+        }
+        
         // Show notification
         function showNotification(message, type = 'info') {
             notification.textContent = message;
@@ -1108,10 +1265,23 @@ MIT
                 }
             });
             
+            // Check package type limits
+            const limits = PACKAGE_TYPE_LIMITS[appState.packType];
+            const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
+            
+            if (totalFiles > limits.maxFiles) {
+                errors.push(`Package type "${appState.packType}" allows maximum ${limits.maxFiles} files, but you have ${totalFiles}`);
+            }
+            
+            // Check if creating new version without base pack ID
+            if (appState.isNewVersion && !appState.basePackId) {
+                errors.push('Base Pack ID is required when creating a new version');
+            }
+            
             return { errors, warnings };
         }
         
-        // Publish package to API - FIXED FOR API EXPECTATIONS
+        // Publish package to API - UPDATED FOR NEW API
         async function publishPackage() {
             // Validate package first
             const validation = validatePackage();
@@ -1129,12 +1299,11 @@ MIT
                 // Prepare package.json
                 const packageJson = JSON.parse(appState.files['package.json'].content);
                 packageJson.name = appState.packName;
-                packageJson.type = appState.packType;
                 
-                // Prepare all files for upload - SIMPLE OBJECT AS API EXPECTS
+                // Prepare all files for upload
                 const files = {};
                 
-                // Add regular files - just the content as string
+                // Add regular files
                 Object.keys(appState.files).forEach(fileName => {
                     files[fileName] = appState.files[fileName].content;
                 });
@@ -1148,22 +1317,31 @@ MIT
                     for (let i = 0; i < bytes.byteLength; i++) {
                         binary += String.fromCharCode(bytes[i]);
                     }
-                    files[fileName] = btoa(binary); // Just the base64 string, not an object
+                    files[fileName] = btoa(binary);
                 });
                 
-                // Prepare request body - EXACTLY AS API EXPECTS
+                // Prepare request body for new API
                 const requestBody = {
                     name: appState.packName,
-                    packJson: JSON.stringify(packageJson), // Already a string in your API
-                    files: files, // Simple object: {filename: contentString}
-                    isPublic: appState.isPublic
+                    packJson: JSON.stringify(packageJson),
+                    files: files,
+                    isPublic: appState.isPublic,
+                    packageType: appState.packType,
+                    version: appState.version,
+                    isNewVersion: appState.isNewVersion,
+                    basePackId: appState.basePackId || null,
+                    userId: appState.userId || null,
+                    editToken: appState.editToken || null,
+                    collaborators: [] // Can be extended later
                 };
                 
                 console.log('Sending to API:', {
                     name: requestBody.name,
-                    packJson: requestBody.packJson.substring(0, 100) + '...',
+                    packageType: requestBody.packageType,
+                    version: requestBody.version,
+                    isNewVersion: requestBody.isNewVersion,
                     fileCount: Object.keys(requestBody.files).length,
-                    fileNames: Object.keys(requestBody.files)
+                    isPublic: requestBody.isPublic
                 });
                 
                 // Call publish API
@@ -1194,8 +1372,20 @@ MIT
                         <span class="result-label">✓ Published successfully!</span>
                     </div>
                     <div class="result-item">
+                        <span class="result-label">Package Type:</span>
+                        <span class="result-value">${appState.packType}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Version:</span>
+                        <span class="result-value">${result.version}</span>
+                    </div>
+                    <div class="result-item">
                         <span class="result-label">Pack ID:</span>
                         <span class="result-value">${result.packId}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">URL ID:</span>
+                        <span class="result-value">${result.urlId}</span>
                     </div>
                     <div class="result-item">
                         <span class="result-label">CDN URL:</span>
@@ -1218,6 +1408,17 @@ MIT
                         <span class="result-label">⚠️ Save this key! It won't be shown again.</span>
                     </div>
                     ` : ''}
+                    ${result.isNewVersion ? `
+                    <div class="result-item">
+                        <span class="result-label">New Version:</span>
+                        <span class="result-value">✓ Created new version from base pack ${result.basePackId}</span>
+                    </div>
+                    ` : ''}
+                    <div class="result-item">
+                        <span class="result-label">Advanced Features:</span>
+                        <span class="result-value">Versioning: ${result.advancedFeatures?.versioning ? '✓' : '✗'}, 
+                        Collaboration: ${result.advancedFeatures?.collaboration ? '✓' : '✗'}</span>
+                    </div>
                     <div class="result-item">
                         <button id="exploreBtn" class="success" style="width: 100%; margin-top: 10px;">Explore Package</button>
                     </div>
@@ -1244,10 +1445,32 @@ MIT
             
             packTypeSelect.addEventListener('change', (e) => {
                 appState.packType = e.target.value;
+                updateTypeInfo();
+            });
+            
+            versionInput.addEventListener('input', (e) => {
+                appState.version = e.target.value;
             });
             
             isPublicCheckbox.addEventListener('change', (e) => {
                 appState.isPublic = e.target.checked;
+            });
+            
+            isNewVersionCheckbox.addEventListener('change', (e) => {
+                appState.isNewVersion = e.target.checked;
+                newVersionFields.style.display = e.target.checked ? 'block' : 'none';
+            });
+            
+            basePackIdInput.addEventListener('input', (e) => {
+                appState.basePackId = e.target.value;
+            });
+            
+            editTokenInput.addEventListener('input', (e) => {
+                appState.editToken = e.target.value;
+            });
+            
+            userIdInput.addEventListener('input', (e) => {
+                appState.userId = e.target.value;
             });
             
             // New file button
@@ -1284,6 +1507,21 @@ MIT
                         </div>
                     `;
                 }
+                
+                // Add package type info to modal
+                const limits = PACKAGE_TYPE_LIMITS[appState.packType];
+                const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
+                
+                validationResults.innerHTML += `
+                    <div style="background-color: #2a2d2e; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                        <strong>Package Type:</strong> ${appState.packType}
+                        <div style="font-size: 0.9rem; margin-top: 5px;">
+                            ${limits.description}<br>
+                            Files: ${totalFiles} / ${limits.maxFiles}<br>
+                            Max size: ${limits.maxSize / 1024 / 1024}MB
+                        </div>
+                    </div>
+                `;
                 
                 publishModal.style.display = 'flex';
                 publishResult.style.display = 'none';
