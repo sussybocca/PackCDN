@@ -671,10 +671,10 @@
                 </div>
                 
                 <div class="card">
-                    <h3 class="card-title">POST /api/publish-pack</h3>
+                    <h3 class="card-title">POST /api/publish</h3>
                     <p class="card-content">Publish new package with CDN</p>
                     <div class="code-block">
-                        <span class="highlight">POST</span> /api/publish-pack<br>
+                        <span class="highlight">POST</span> /api/publish<br>
                         { "name": "my-package", "files": {...} }
                     </div>
                 </div>
@@ -704,7 +704,7 @@
                     <div class="terminal-dot"></div>
                 </div>
                 <div class="terminal-content">
-                    $ curl -X POST https://pack-cdn.vercel.app/api/publish-pack \<br>
+                    $ curl -X POST https://pack-cdn.vercel.app/api/publish \<br>
                       -H "Content-Type: application/json" \<br>
                       -d '{"name":"my-package","files":{"index.js":"..."}}'<br><br>
                     {<br>
