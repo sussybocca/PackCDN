@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackCDN - Secure Anonymous Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 450px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .login-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .login-body {
+            padding: 40px;
+        }
+
+        .step {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .username-display {
+            background: #f3f4f6;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 25px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            display: block;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .step-dot.active {
+            background: #2563eb;
+            transform: scale(1.2);
+        }
+
+        .codes-info {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
+        .codes-info strong {
+            color: #d97706;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .back-btn:hover {
+            color: #374151;
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>PackCDN</h1>
+            <p>Secure Anonymous Access</p>
+            <div class="security-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                </svg>
+                HTTPS-Only • No Passwords • Anonymous
+            </div>
+        </div>
+
+        <div class="login-body">
+            <div class="step-indicator">
+                <div class="step-dot active" data-step="1"></div>
+                <div class="step-dot" data-step="2"></div>
+            </div>
+
+            <!-- Step 1: Email Entry -->
+            <div class="step active" id="step1">
+                <h2 style="margin-bottom: 20px; color: #1f2937;">Get Anonymous Access</h2>
+                <p style="color: #6b7280; margin-bottom: 25px; line-height: 1.6;">
+                    Enter your email to receive 20 secure recovery codes. Each code can be used only once for login.
+                </p>
+
+                <div class="message" id="message1"></div>
+
+                <div class="form-group">
+                    <label for="email">Your Email Address</label>
+                    <input type="email" id="email" placeholder="you@example.com" required>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="terms">
+                    <label for="terms">I understand that I must save my recovery codes securely</label>
+                </div>
+
+                <button class="btn btn-primary" onclick="initiateLogin()" id="initiateBtn">
+                    <span>Send Recovery Codes</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Step 2: Code Verification -->
+            <div class="step" id="step2">
+                <button class="back-btn" onclick="goBack()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back
+                </button>
+
+                <h2 style="margin-bottom: 20px; color: #1f2937;">Enter Recovery Code</h2>
+                
+                <div class="username-display" id="generatedUsername"></div>
+                <p style="color: #6b7280; margin: 10px 0 25px; font-size: 13px; text-align: center;">
+                    This is your anonymous username
+                </p>
+
+                <div class="message" id="message2"></div>
+
+                <div class="codes-info">
+                    <strong>📋 Check your email</strong> for the list of 20 recovery codes. 
+                    Use them in order (Code #1 first, then #2, etc.).
+                </div>
+
+                <div class="form-group">
+                    <label for="code">Recovery Code</label>
+                    <input type="text" id="code" placeholder="Enter code (e.g., A1B2C3)" required>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="rememberMe">
+                    <label for="rememberMe">Remember me for 30 days (secure HTTPS cookie)</label>
+                </div>
+
+                <button class="btn btn-primary" onclick="verifyCode()" id="verifyBtn">
+                    <span>Verify & Login</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 13l4 4L19 7"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p id="loadingText">Processing...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let generatedUsername = '';
+
+        function showStep(step) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+            
+            document.getElementById(`step${step}`).classList.add('active');
+            document.querySelector(`.step-dot[data-step="${step}"]`).classList.add('active');
+            currentStep = step;
+        }
+
+        function showMessage(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+        }
+
+        function hideMessage(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        function setLoading(loading, text = 'Processing...') {
+            const loadingEl = document.getElementById('loading');
+            const loadingText = document.getElementById('loadingText');
+            
+            loadingText.textContent = text;
+            
+            if (loading) {
+                loadingEl.classList.add('active');
+                document.getElementById('initiateBtn').disabled = true;
+                document.getElementById('verifyBtn').disabled = true;
+            } else {
+                loadingEl.classList.remove('active');
+                document.getElementById('initiateBtn').disabled = false;
+                document.getElementById('verifyBtn').disabled = false;
+            }
+        }
+
+        async function initiateLogin() {
+            const email = document.getElementById('email').value.trim();
+            const terms = document.getElementById('terms').checked;
+
+            if (!email) {
+                showMessage('message1', 'Please enter your email address', 'error');
+                return;
+            }
+
+            if (!terms) {
+                showMessage('message1', 'You must agree to securely save your recovery codes', 'error');
+                return;
+            }
+
+            setLoading(true, 'Generating secure credentials...');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'initiate',
+                        email: email
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    generatedUsername = data.username;
+                    document.getElementById('generatedUsername').textContent = data.username;
+                    
+                    showMessage('message1', 
+                        '✅ Recovery codes sent to your email! Check your inbox (and spam folder).', 
+                        'success'
+                    );
+                    
+                    setTimeout(() => {
+                        hideMessage('message1');
+                        showStep(2);
+                    }, 2000);
+                } else {
+                    showMessage('message1', data.error || 'Failed to send recovery codes', 'error');
+                }
+            } catch (error) {
+                showMessage('message1', 'Network error. Please try again.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function verifyCode() {
+            const email = document.getElementById('email').value.trim();
+            const code = document.getElementById('code').value.trim().toUpperCase();
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            if (!code) {
+                showMessage('message2', 'Please enter your recovery code', 'error');
+                return;
+            }
+
+            setLoading(true, 'Verifying recovery code...');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'verify',
+                        email: email,
+                        code: code,
+                        rememberMe: rememberMe
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('message2', 
+                        `✅ Login successful! Welcome ${data.username}. ${data.codesRemaining} codes remaining.`, 
+                        'success'
+                    );
+                    
+                    // Redirect to dashboard after successful login
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showMessage('message2', data.error || 'Invalid recovery code', 'error');
+                }
+            } catch (error) {
+                showMessage('message2', 'Network error. Please try again.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function goBack() {
+            showStep(1);
+        }
+
+        // Enter key support
+        document.getElementById('email').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') initiateLogin();
+        });
+
+        document.getElementById('code').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') verifyCode();
+        });
+    </script>
+</body>
+</html>
