@@ -10,15 +10,16 @@ const supabase = createClient(
 // Enhanced rate limiting with exponential backoff
 const rateLimitStore = new Map();
 const RATE_LIMIT_CONFIG = {
-  WINDOW_MS: 60 * 1000, // 1 minute
-  MAX_REQUESTS: 5, // 5 requests per minute (reduced for security)
-  BAN_WINDOW_MS: 15 * 60 * 1000, // 15 minute ban for violators
-  BAN_THRESHOLD: 20 // Ban after 20 violations
+  WINDOW_MS: 60 * 1000,
+  MAX_REQUESTS: 10,
+  BAN_WINDOW_MS: 15 * 60 * 1000,
+  BAN_THRESHOLD: 20
 };
 
-// Allowed origins (strict)
+// Allowed origins
 const ALLOWED_ORIGINS = [
   'https://pack-cdn.vercel.app',
+  'https://pack-dash.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173'
 ];
@@ -30,21 +31,22 @@ const RESERVED_NAMES = [
   'install', 'update', 'remove', 'delete', 'create'
 ];
 
-// File extension whitelist
+// File extension whitelist with expanded support
 const ALLOWED_EXTENSIONS = {
-  'js': ['js', 'mjs', 'cjs'],
+  'js': ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx'],
   'python': ['py', 'pyc', 'pyo'],
   'wasm': ['wasm'],
   'json': ['json'],
   'markdown': ['md', 'markdown'],
   'text': ['txt'],
   'html': ['html', 'htm'],
-  'css': ['css'],
-  'image': ['png', 'jpg', 'jpeg', 'gif', 'svg'],
-  'data': ['csv', 'tsv', 'xml', 'yaml', 'yml']
+  'css': ['css', 'scss', 'sass'],
+  'image': ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'],
+  'data': ['csv', 'tsv', 'xml', 'yaml', 'yml'],
+  'binary': ['bin', 'dat']
 };
 
-// ESSENTIAL PACKAGE FILES THAT MUST BE ALLOWED
+// ESSENTIAL PACKAGE FILES
 const ESSENTIAL_FILES = [
   'package.json',
   'index.js',
@@ -59,6 +61,68 @@ const ESSENTIAL_FILES = [
   'CONTRIBUTING.md'
 ];
 
+// ALLOWED NODE.JS MODULES FOR ADVANCED PACKAGES (whitelist)
+const ALLOWED_NODE_MODULES = [
+  // Core modules (generally safe)
+  'crypto', 'util', 'events', 'stream', 'buffer', 'path', 'url', 'querystring',
+  'string_decoder', 'timers', 'console',
+  
+  // Common utility modules
+  'lodash', 'underscore', 'moment', 'date-fns', 'axios', 'node-fetch',
+  'uuid', 'validator', 'joi', 'yup',
+  
+  // Data processing
+  'csv-parse', 'csv-stringify', 'jsonwebtoken', 'bcrypt', 'bcryptjs',
+  
+  // Safe utility modules
+  'chalk', 'colors', 'debug', 'winston', 'pino',
+  
+  // File formats
+  'yaml', 'xml2js', 'cheerio',
+  
+  // Testing (safe)
+  'jest', 'mocha', 'chai', 'sinon'
+];
+
+// BANNED NODE.JS MODULES (blacklist)
+const BANNED_NODE_MODULES = [
+  'child_process', 'cluster', 'worker_threads', 'vm',
+  'fs', 'os', 'net', 'dns', 'tls', 'http', 'https',
+  'dgram', 'zlib', 'perf_hooks', 'repl', 'readline',
+  'module', 'process'
+];
+
+// Package types with their capabilities
+const PACKAGE_TYPES = {
+  'basic': {
+    level: 1,
+    maxFiles: 20,
+    maxSize: 5 * 1024 * 1024, // 5MB
+    allowNodeModules: false,
+    allowAdvancedJS: false,
+    requiresVerification: false
+  },
+  'standard': {
+    level: 2,
+    maxFiles: 50,
+    maxSize: 10 * 1024 * 1024, // 10MB
+    allowNodeModules: true,
+    allowedNodeModules: ALLOWED_NODE_MODULES.slice(0, 30),
+    allowAdvancedJS: true,
+    requiresVerification: false
+  },
+  'advanced': {
+    level: 3,
+    maxFiles: 100,
+    maxSize: 25 * 1024 * 1024, // 25MB
+    allowNodeModules: true,
+    allowedNodeModules: ALLOWED_NODE_MODULES,
+    allowAdvancedJS: true,
+    requiresVerification: true,
+    sandboxLevel: 'strict'
+  }
+};
+
 export default async function handler(req, res) {
   // Start timing for performance monitoring
   const startTime = Date.now();
@@ -68,12 +132,11 @@ export default async function handler(req, res) {
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (origin) {
-    // Log unauthorized origin attempts
     console.warn(`Unauthorized origin attempt: ${origin}`);
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, X-Requested-With, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -106,7 +169,6 @@ export default async function handler(req, res) {
       bannedUntil: 0
     };
     
-    // Check if IP is banned
     if (requestData.bannedUntil > Date.now()) {
       return res.status(429).json({
         success: false,
@@ -119,7 +181,6 @@ export default async function handler(req, res) {
     const now = Date.now();
     
     if (now > requestData.resetTime) {
-      // Reset counter for new window
       requestData.count = 1;
       requestData.resetTime = now + RATE_LIMIT_CONFIG.WINDOW_MS;
     } else {
@@ -128,7 +189,6 @@ export default async function handler(req, res) {
       if (requestData.count > RATE_LIMIT_CONFIG.MAX_REQUESTS) {
         requestData.violations++;
         
-        // Ban IP if too many violations
         if (requestData.violations >= RATE_LIMIT_CONFIG.BAN_THRESHOLD) {
           requestData.bannedUntil = now + RATE_LIMIT_CONFIG.BAN_WINDOW_MS;
           console.warn(`IP banned: ${clientIp} for ${RATE_LIMIT_CONFIG.BAN_WINDOW_MS / 1000} seconds`);
@@ -158,18 +218,30 @@ export default async function handler(req, res) {
     });
   }
 
-  // Size limit check (10MB)
+  // Size limit check (50MB for advanced packages)
   const contentLength = parseInt(req.headers['content-length'] || '0');
-  if (contentLength > 10 * 1024 * 1024) {
+  if (contentLength > 50 * 1024 * 1024) {
     return res.status(413).json({
       success: false,
-      error: 'Request body too large. Maximum 10MB allowed.',
+      error: 'Request body too large. Maximum 50MB allowed for advanced packages.',
       code: 'PAYLOAD_TOO_LARGE'
     });
   }
 
   try {
-    const { name, packJson, files, isPublic = true } = req.body;
+    const { 
+      name, 
+      packJson, 
+      files, 
+      isPublic = true,
+      packageType = 'basic',
+      version = '1.0.0',
+      isNewVersion = false,
+      basePackId = null,
+      userId = null,
+      editToken = null,
+      collaborators = []
+    } = req.body;
 
     // Validate required fields
     if (!name || !packJson || !files) {
@@ -180,7 +252,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Validate package name - STRICT ENFORCEMENT
+    // Validate package name
     const nameValidation = validatePackageName(name);
     if (!nameValidation.valid) {
       return res.status(400).json({ 
@@ -199,12 +271,22 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate package type
+    if (!PACKAGE_TYPES[packageType]) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid package type. Must be one of: ${Object.keys(PACKAGE_TYPES).join(', ')}`,
+        code: 'INVALID_PACKAGE_TYPE'
+      });
+    }
+
+    const packageConfig = PACKAGE_TYPES[packageType];
+
     // Validate packJson
     let packJsonObj;
     try {
       packJsonObj = JSON.parse(packJson);
       
-      // Additional packJson validation
       if (typeof packJsonObj !== 'object' || packJsonObj === null) {
         return res.status(400).json({
           success: false,
@@ -215,10 +297,10 @@ export default async function handler(req, res) {
       
       // Validate packJson size
       const packJsonSize = JSON.stringify(packJsonObj).length;
-      if (packJsonSize > 1024 * 1024) { // 1MB max for packJson
+      if (packJsonSize > 2 * 1024 * 1024) { // 2MB max for advanced packages
         return res.status(400).json({
           success: false,
-          error: 'packJson too large. Maximum 1MB allowed.',
+          error: 'packJson too large. Maximum 2MB allowed.',
           code: 'PACK_JSON_TOO_LARGE'
         });
       }
@@ -239,12 +321,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // File count limit
+    // File count limit based on package type
     const fileCount = Object.keys(files).length;
-    if (fileCount > 50) { // Reduced from 100 to 50 for security
+    if (fileCount > packageConfig.maxFiles) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Too many files. Maximum 50 files allowed per package.',
+        error: `Too many files. Maximum ${packageConfig.maxFiles} files allowed for ${packageType} packages.`,
         code: 'TOO_MANY_FILES'
       });
     }
@@ -259,12 +341,12 @@ export default async function handler(req, res) {
 
     // Validate individual files
     let totalSize = 0;
-    const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // Reduced to 5MB total for security
     const processedFiles = {};
+    const fileDependencies = new Set();
     
     for (const [filename, content] of Object.entries(files)) {
-      // Validate filename - ALLOW ESSENTIAL FILES
-      const filenameValidation = validateFilename(filename);
+      // Validate filename
+      const filenameValidation = validateFilename(filename, packageType);
       if (!filenameValidation.valid) {
         return res.status(400).json({ 
           success: false, 
@@ -286,12 +368,8 @@ export default async function handler(req, res) {
       const fileSize = content.length;
       totalSize += fileSize;
       
-      // Individual file size limit (reduced for security)
-      // BUT allow larger package.json if needed
-      const maxFileSize = filename.toLowerCase() === 'package.json' 
-        ? 5 * 1024 * 1024  // 5MB for package.json
-        : 2 * 1024 * 1024; // 2MB for other files
-      
+      // Individual file size limit
+      const maxFileSize = packageType === 'advanced' ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
       if (fileSize > maxFileSize) {
         return res.status(400).json({ 
           success: false, 
@@ -300,7 +378,7 @@ export default async function handler(req, res) {
         });
       }
 
-      // Check for empty files (but allow empty JSON files for config)
+      // Check for empty files
       if (fileSize === 0 && !filename.endsWith('.json')) {
         return res.status(400).json({
           success: false,
@@ -313,9 +391,7 @@ export default async function handler(req, res) {
       const ext = filename.split('.').pop().toLowerCase();
       const fileType = getFileType(ext);
       
-      // Allow files without extensions if they're essential
       if (!fileType && (!ext || ext === filename)) {
-        // Check if it's an essential file without extension
         const essentialNoExt = ESSENTIAL_FILES.filter(f => !f.includes('.'));
         if (!essentialNoExt.includes(filename)) {
           return res.status(400).json({
@@ -332,8 +408,8 @@ export default async function handler(req, res) {
         });
       }
 
-      // Content validation based on file type
-      const contentValidation = validateFileContent(filename, content, fileType);
+      // Content validation based on package type
+      const contentValidation = validateFileContent(filename, content, fileType, packageType);
       if (!contentValidation.valid) {
         return res.status(400).json({
           success: false,
@@ -342,47 +418,130 @@ export default async function handler(req, res) {
         });
       }
 
+      // Extract dependencies from package.json
+      if (filename.toLowerCase() === 'package.json') {
+        try {
+          const pkgJson = JSON.parse(content);
+          if (pkgJson.dependencies) {
+            Object.keys(pkgJson.dependencies).forEach(dep => {
+              if (dep.startsWith('@')) return; // Skip scoped packages
+              fileDependencies.add(dep.toLowerCase());
+            });
+          }
+        } catch (e) {
+          // Ignore parsing errors, will be caught by validation
+        }
+      }
+
       // Store sanitized content
       processedFiles[filename] = content;
     }
 
     // Total package size limit
-    if (totalSize > MAX_TOTAL_SIZE) {
+    if (totalSize > packageConfig.maxSize) {
       return res.status(400).json({ 
         success: false, 
-        error: `Package too large. Total size: ${(totalSize / 1024 / 1024).toFixed(2)}MB. Maximum 5MB per package.`,
+        error: `Package too large. Total size: ${(totalSize / 1024 / 1024).toFixed(2)}MB. Maximum ${packageConfig.maxSize / 1024 / 1024}MB for ${packageType} packages.`,
         code: 'PACKAGE_TOO_LARGE'
       });
     }
 
-    // Check for duplicate package name BEFORE generating IDs
-    const { data: existingPack, error: checkError } = await supabase
-      .from('packs')
-      .select('id, name, created_at')
-      .eq('name', name)
-      .limit(1);
-
-    if (checkError) {
-      console.error('Duplicate check error:', checkError);
-      return res.status(500).json({
-        success: false,
-        error: 'Internal server error during duplicate check',
-        code: 'DUPLICATE_CHECK_FAILED'
-      });
+    // Validate dependencies for advanced packages
+    if (packageType === 'advanced' || packageType === 'standard') {
+      for (const dep of fileDependencies) {
+        const allowed = packageConfig.allowedNodeModules || ALLOWED_NODE_MODULES;
+        if (!allowed.includes(dep) && !allowed.some(a => dep.startsWith(a + '/'))) {
+          return res.status(400).json({
+            success: false,
+            error: `Dependency "${dep}" is not allowed for ${packageType} packages.`,
+            code: 'DISALLOWED_DEPENDENCY',
+            allowedModules: allowed
+          });
+        }
+        
+        // Check banned modules
+        if (BANNED_NODE_MODULES.includes(dep)) {
+          return res.status(400).json({
+            success: false,
+            error: `Dependency "${dep}" is banned for security reasons.`,
+            code: 'BANNED_DEPENDENCY'
+          });
+        }
+      }
     }
 
-    // BLOCK DUPLICATE PACKAGE NAMES
-    if (existingPack && existingPack.length > 0) {
-      const existing = existingPack[0];
-      const createdAt = new Date(existing.created_at).toLocaleDateString();
+    // VERSIONING AND COLLABORATION LOGIC
+    let versionNumber = sanitizeVersion(version);
+    let parentPackId = null;
+    let versionSequence = 1;
+    
+    if (isNewVersion && basePackId) {
+      // Create new version of existing pack
+      const { data: basePack, error: baseError } = await supabase
+        .from('packs')
+        .select('id, name, version, version_sequence, parent_pack_id, collaborators')
+        .eq('id', basePackId)
+        .single();
       
-      return res.status(409).json({
-        success: false,
-        error: `Package name "${name}" is already taken. Package names must be unique.`,
-        code: 'PACKAGE_NAME_EXISTS',
-        existingPackageId: existing.id,
-        existingPackageCreated: createdAt
-      });
+      if (baseError || !basePack) {
+        return res.status(404).json({
+          success: false,
+          error: 'Base package not found',
+          code: 'BASE_PACK_NOT_FOUND'
+        });
+      }
+      
+      // Verify edit permissions
+      const canEdit = await verifyEditPermission(basePackId, userId, editToken, basePack.collaborators);
+      if (!canEdit) {
+        return res.status(403).json({
+          success: false,
+          error: 'You do not have permission to edit this package',
+          code: 'EDIT_PERMISSION_DENIED'
+        });
+      }
+      
+      parentPackId = basePack.parent_pack_id || basePack.id;
+      
+      // Get latest version sequence
+      const { data: versions } = await supabase
+        .from('packs')
+        .select('version_sequence')
+        .eq('parent_pack_id', parentPackId)
+        .order('version_sequence', { ascending: false })
+        .limit(1);
+      
+      versionSequence = versions && versions.length > 0 ? versions[0].version_sequence + 1 : 1;
+    } else {
+      // New package - check for existing name
+      const { data: existingPack, error: checkError } = await supabase
+        .from('packs')
+        .select('id, name, created_at')
+        .eq('name', name)
+        .limit(1);
+      
+      if (checkError) {
+        console.error('Duplicate check error:', checkError);
+        return res.status(500).json({
+          success: false,
+          error: 'Internal server error during duplicate check',
+          code: 'DUPLICATE_CHECK_FAILED'
+        });
+      }
+      
+      if (existingPack && existingPack.length > 0) {
+        const existing = existingPack[0];
+        const createdAt = new Date(existing.created_at).toLocaleDateString();
+        
+        return res.status(409).json({
+          success: false,
+          error: `Package name "${name}" is already taken. Package names must be unique.`,
+          code: 'PACKAGE_NAME_EXISTS',
+          existingPackageId: existing.id,
+          existingPackageCreated: createdAt,
+          suggestion: `Use "isNewVersion: true" and "basePackId: "${existing.id}" to create a new version`
+        });
+      }
     }
 
     // Generate cryptographically secure URL ID
@@ -396,7 +555,6 @@ export default async function handler(req, res) {
       .limit(1);
 
     if (existingUrlId && existingUrlId.length > 0) {
-      // Extremely unlikely but handle collision
       return res.status(500).json({
         success: false,
         error: 'Internal server error: URL ID collision',
@@ -404,72 +562,68 @@ export default async function handler(req, res) {
       });
     }
 
+    // Generate URLs
     const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
     const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
     
-    // Generate cryptographically secure encryption key for private packages
+    // Generate encryption key for private packages
     const encryptedKey = !isPublic ? generateSecureEncryptionKey() : null;
 
-    // Map frontend package types to valid database package types
-    let packageType = 'npm';
-    
-    if (packJsonObj.type) {
-      const typeMap = {
-        'module': 'npm',
-        'library': 'npm', 
-        'template': 'npm',
-        'plugin': 'npm',
-        'python': 'python',
-        'wasm': 'wasm'
-      };
-      
-      const frontendType = packJsonObj.type.toLowerCase();
-      packageType = typeMap[frontendType] || 'npm';
-    }
-
-    // Extract and sanitize version
-    let version = '1.0.0';
-    if (packJsonObj.version) {
-      version = sanitizeVersion(packJsonObj.version);
-    }
-
-    // Generate a checksum of the package for verification
+    // Generate checksum
     const packageChecksum = generateChecksum(JSON.stringify(processedFiles));
 
-    // Save to Supabase with transaction (if supported)
+    // Prepare collaborators array
+    const sanitizedCollaborators = Array.isArray(collaborators) 
+      ? collaborators.filter(c => c && typeof c === 'string' && c.length > 0).slice(0, 10)
+      : [];
+
+    // Add current user as collaborator if not already
+    if (userId && !sanitizedCollaborators.includes(userId)) {
+      sanitizedCollaborators.unshift(userId);
+    }
+
+    // Save to Supabase
     const now = new Date().toISOString();
+    const packData = {
+      url_id: urlId,
+      name,
+      pack_json: packJson,
+      files: processedFiles,
+      cdn_url: cdnUrl,
+      worker_url: workerUrl,
+      encrypted_key: encryptedKey,
+      is_public: isPublic,
+      package_type: packageType,
+      version: versionNumber,
+      version_sequence: versionSequence,
+      parent_pack_id: parentPackId,
+      checksum: packageChecksum,
+      file_count: fileCount,
+      total_size: totalSize,
+      dependencies: Array.from(fileDependencies),
+      collaborators: sanitizedCollaborators,
+      created_at: now,
+      updated_at: now,
+      views: 0,
+      downloads: 0,
+      publish_ip: clientIp,
+      last_accessed: now,
+      publisher_id: userId,
+      sandbox_level: packageConfig.sandboxLevel || 'basic',
+      requires_verification: packageConfig.requiresVerification || false,
+      verification_status: packageConfig.requiresVerification ? 'pending' : 'approved'
+    };
+
     const { data, error } = await supabase
       .from('packs')
-      .insert([{
-        url_id: urlId,
-        name,
-        pack_json: packJson,
-        files: processedFiles,
-        cdn_url: cdnUrl,
-        worker_url: workerUrl,
-        encrypted_key: encryptedKey,
-        is_public: isPublic,
-        package_type: packageType,
-        version: version,
-        checksum: packageChecksum,
-        file_count: fileCount,
-        total_size: totalSize,
-        created_at: now,
-        updated_at: now,
-        views: 0,
-        downloads: 0,
-        publish_ip: clientIp,
-        last_accessed: now
-      }])
+      .insert([packData])
       .select()
       .single();
 
     if (error) {
       console.error('Supabase insert error:', error);
       
-      // Check for specific constraint violations
-      if (error.code === '23505') { // Unique violation
-        // This should not happen with our pre-check, but handle just in case
+      if (error.code === '23505') {
         return res.status(409).json({ 
           success: false, 
           error: 'Package with this name already exists',
@@ -477,7 +631,6 @@ export default async function handler(req, res) {
         });
       }
       
-      // Log detailed error for debugging but return generic message
       console.error('Database error details:', {
         code: error.code,
         message: error.message,
@@ -492,21 +645,42 @@ export default async function handler(req, res) {
       });
     }
 
-    // Log successful publish with audit trail
+    // Create version history entry
+    if (isNewVersion && basePackId) {
+      try {
+        await supabase
+          .from('pack_versions')
+          .insert([{
+            pack_id: data.id,
+            parent_pack_id: parentPackId,
+            version: versionNumber,
+            version_sequence: versionSequence,
+            changes: `New version created`,
+            publisher_id: userId,
+            created_at: now
+          }]);
+      } catch (versionError) {
+        console.warn('Version history logging failed:', versionError);
+      }
+    }
+
+    // Log successful publish
     const processingTime = Date.now() - startTime;
     console.log(`Package published successfully:`, {
       name,
       urlId,
       packageType,
+      version: versionNumber,
+      versionSequence,
       fileCount,
       totalSize: `${(totalSize / 1024).toFixed(2)}KB`,
       processingTime: `${processingTime}ms`,
       clientIp,
-      timestamp: now,
-      checksum: packageChecksum
+      isNewVersion,
+      parentPackId
     });
 
-    // Audit log to Supabase (optional separate table)
+    // Audit log
     try {
       await supabase
         .from('publish_audit_log')
@@ -514,45 +688,54 @@ export default async function handler(req, res) {
           pack_id: data.id,
           pack_name: name,
           client_ip: clientIp,
+          package_type: packageType,
+          version: versionNumber,
           file_count: fileCount,
           total_size: totalSize,
           is_public: isPublic,
+          is_new_version: isNewVersion,
+          parent_pack_id: parentPackId,
           created_at: now
         }]);
     } catch (auditError) {
-      // Don't fail the publish if audit logging fails
       console.warn('Audit logging failed:', auditError);
     }
 
-    // Return success response with additional metadata
+    // Return success response
     res.status(201).json({
       success: true,
       packId: data.id,
       urlId: urlId,
       cdnUrl,
       workerUrl,
-      installCommand: `pack install ${name} ${cdnUrl}`,
+      installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
       encryptedKey,
+      isNewVersion,
+      parentPackId,
+      version: versionNumber,
+      versionSequence,
       metadata: {
         name,
-        version,
+        version: versionNumber,
         packageType,
         fileCount,
         totalSize,
         isPublic,
+        collaborators: sanitizedCollaborators,
         createdAt: now,
-        checksum: packageChecksum
+        checksum: packageChecksum,
+        dependencies: Array.from(fileDependencies)
       },
       links: {
         cdn: cdnUrl,
         info: workerUrl,
         download: `${cdnUrl}/index.js`,
-        api: `/api/get-pack?id=${urlId}`
+        api: `/api/get-pack?id=${urlId}`,
+        versions: `/api/pack-versions?id=${parentPackId || data.id}`
       }
     });
 
   } catch (error) {
-    // Comprehensive error logging
     console.error('Publish error:', {
       message: error.message,
       stack: error.stack,
@@ -561,7 +744,6 @@ export default async function handler(req, res) {
       processingTime: `${Date.now() - startTime}ms`
     });
     
-    // Don't expose internal error details to client
     res.status(500).json({ 
       success: false, 
       error: 'An unexpected error occurred. Please try again later.',
@@ -570,7 +752,46 @@ export default async function handler(req, res) {
   }
 }
 
-// Enhanced helper functions
+// HELPER FUNCTIONS
+
+async function verifyEditPermission(packId, userId, editToken, collaborators = []) {
+  // Public editing (anyone can create new versions)
+  if (!userId) {
+    return true; // Allow anonymous version creation
+  }
+  
+  // Check if user is in collaborators list
+  if (collaborators.includes(userId)) {
+    return true;
+  }
+  
+  // Check if user is the original publisher
+  const { data: pack } = await supabase
+    .from('packs')
+    .select('publisher_id')
+    .eq('id', packId)
+    .single();
+  
+  if (pack && pack.publisher_id === userId) {
+    return true;
+  }
+  
+  // Check edit token (for shared editing)
+  if (editToken) {
+    const { data: tokenData } = await supabase
+      .from('edit_tokens')
+      .select('pack_id, expires_at')
+      .eq('token', editToken)
+      .eq('pack_id', packId)
+      .single();
+    
+    if (tokenData && new Date(tokenData.expires_at) > new Date()) {
+      return true;
+    }
+  }
+  
+  return false;
+}
 
 function validatePackageName(name) {
   if (typeof name !== 'string') {
@@ -585,36 +806,25 @@ function validatePackageName(name) {
     return { valid: false, reason: 'Package name cannot exceed 50 characters' };
   }
   
-  // Must start with a letter
   if (!/^[a-z]/.test(name)) {
     return { valid: false, reason: 'Package name must start with a lowercase letter' };
   }
   
-  // Only lowercase letters, numbers, hyphens, and underscores
   if (!/^[a-z0-9-_]+$/.test(name)) {
     return { valid: false, reason: 'Package name can only contain lowercase letters, numbers, hyphens, and underscores' };
   }
   
-  // Cannot end with hyphen or underscore
   if (/[-_]$/.test(name)) {
     return { valid: false, reason: 'Package name cannot end with a hyphen or underscore' };
   }
   
-  // No consecutive hyphens or underscores
   if (/[-_]{2,}/.test(name)) {
     return { valid: false, reason: 'Package name cannot contain consecutive hyphens or underscores' };
   }
   
-  // Check for offensive patterns (basic)
   const offensivePatterns = [
-    /admin/i,
-    /root/i,
-    /system/i,
-    /config/i,
-    /password/i,
-    /token/i,
-    /secret/i,
-    /private/i
+    /admin/i, /root/i, /system/i, /config/i,
+    /password/i, /token/i, /secret/i, /private/i
   ];
   
   if (offensivePatterns.some(pattern => pattern.test(name))) {
@@ -624,7 +834,7 @@ function validatePackageName(name) {
   return { valid: true };
 }
 
-function validateFilename(filename) {
+function validateFilename(filename, packageType) {
   if (typeof filename !== 'string') {
     return { valid: false, reason: 'Filename must be a string' };
   }
@@ -637,21 +847,17 @@ function validateFilename(filename) {
     return { valid: false, reason: 'Filename cannot exceed 255 characters' };
   }
   
-  // Basic character validation
   if (!/^[a-zA-Z0-9._\-]+$/.test(filename)) {
     return { valid: false, reason: 'Filename can only contain letters, numbers, dots, hyphens, and underscores' };
   }
   
-  // Prevent directory traversal
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     return { valid: false, reason: 'Filename cannot contain directory traversal characters' };
   }
   
-  // No hidden files (starting with dot) except essential config files
   const allowedHiddenFiles = [
     '.gitignore', '.env', '.npmrc', '.prettierrc', '.eslintrc',
-    '.babelrc', '.dockerignore', '.gitattributes', '.editorconfig',
-    '.github', '.vscode'
+    '.babelrc', '.dockerignore', '.gitattributes', '.editorconfig'
   ];
   
   if (filename.startsWith('.') && !allowedHiddenFiles.some(allowed => 
@@ -659,32 +865,32 @@ function validateFilename(filename) {
     return { valid: false, reason: 'Hidden files are only allowed for common configuration files' };
   }
   
-  // CRITICAL FIX: Allow essential package files
   const essentialFileLower = filename.toLowerCase();
   if (ESSENTIAL_FILES.some(essential => essentialFileLower === essential.toLowerCase())) {
     return { valid: true };
   }
   
-  // Reserved directory/folder names (not files)
   const reservedDirectories = [
     'node_modules', 'vendor', 'lib', 'bin', 'dist', 'build',
     'public', 'src', 'test', 'tests', 'docs', 'examples'
   ];
   
-  // Only block these if they're exact matches (not files within them)
   if (reservedDirectories.includes(filename.toLowerCase())) {
     return { valid: false, reason: 'Filename is reserved for system use' };
   }
   
-  // Allow files with no extension (like README, LICENSE)
   const ext = filename.split('.').pop().toLowerCase();
   if (!ext || ext === filename) {
-    // Files without extensions are allowed if they look like documentation
     const allowedNoExt = /^[A-Z][A-Z0-9_]*(\.[A-Z0-9]+)?$/;
     if (allowedNoExt.test(filename)) {
       return { valid: true };
     }
     return { valid: false, reason: 'Files without extensions must follow common naming conventions' };
+  }
+  
+  // Advanced packages can have more file types
+  if (packageType === 'basic' && ['ts', 'tsx', 'scss', 'sass'].includes(ext)) {
+    return { valid: false, reason: `File extension .${ext} requires standard or advanced package type` };
   }
   
   return { valid: true };
@@ -699,13 +905,11 @@ function getFileType(extension) {
   return null;
 }
 
-function validateFileContent(filename, content, fileType) {
-  // Check for null bytes and other control characters
+function validateFileContent(filename, content, fileType, packageType) {
   if (/\x00/.test(content)) {
     return { valid: false, reason: 'File contains null bytes' };
   }
   
-  // Check for extremely long lines (potential DoS)
   const lines = content.split('\n');
   for (const line of lines) {
     if (line.length > 10000) {
@@ -713,12 +917,9 @@ function validateFileContent(filename, content, fileType) {
     }
   }
   
-  // Type-specific validation - BUT ALLOW ESSENTIAL FILES
   const filenameLower = filename.toLowerCase();
   
-  // Skip validation for essential files (they should be trusted)
   if (ESSENTIAL_FILES.some(essential => filenameLower === essential.toLowerCase())) {
-    // Still validate JSON files for syntax
     if (filenameLower === 'package.json' || filename.endsWith('.json')) {
       try {
         JSON.parse(content);
@@ -730,88 +931,48 @@ function validateFileContent(filename, content, fileType) {
     return { valid: true };
   }
   
-  // Regular validation for non-essential files
   switch (fileType) {
     case 'js':
-      return validateJavaScript(content);
+      return validateJavaScript(content, packageType);
     case 'json':
       return validateJSON(content);
-    case 'python':
-      return validatePython(content);
-    case 'wasm':
-      return validateWASM(content);
-    case 'html':
-      return validateHTML(content);
     default:
-      // For other types, just do basic validation
       return { valid: true };
   }
 }
 
-function validateJavaScript(content) {
+function validateJavaScript(content, packageType) {
   const dangerousPatterns = [
-    // Execution patterns
     /\beval\s*\(/i,
     /\bFunction\s*\(/i,
     /new\s+Function\s*\(/i,
     /\bsetTimeout\s*\([^)]*\)/i,
     /\bsetInterval\s*\([^)]*\)/i,
-    /\bsetImmediate\s*\([^)]*\)/i,
-    
-    // File system access (Node.js)
-    /\bfs\s*\./i,
-    /\brequire\s*\([^)]*\)/i,
-    /\bprocess\s*\./i,
-    /\bchild_process\s*\./i,
-    
-    // Network access
-    /\bfetch\s*\([^)]*\)/i,
-    /\bXMLHttpRequest/i,
-    /\bwebsocket/i,
-    
-    // Storage access
-    /\blocalStorage\s*\./i,
-    /\bsessionStorage\s*\./i,
-    /\bindexedDB/i,
-    /\bcookie/i,
-    
-    // DOM manipulation (if running in browser context)
-    /\bdocument\s*\./i,
-    /\bwindow\s*\./i,
-    /\balert\s*\(/i,
-    /\bconfirm\s*\(/i,
-    /\bprompt\s*\(/i,
-    
-    // Crypto mining
-    /\bcrypto\s*\./i,
-    /\bminer/i,
-    /\bcoin/i,
-    
-    // Obfuscated code indicators
-    /\bunescape\s*\(/i,
-    /\batob\s*\(/i,
-    /\bbtoa\s*\(/i,
-    
-    // Suspicious strings
-    /base64/i,
-    /eval/i,
-    /exec/i,
-    /spawn/i,
-    /shell/i
+    /\bsetImmediate\s*\([^)]*\)/i
   ];
+  
+  // Allow more patterns for advanced packages
+  if (packageType === 'basic') {
+    dangerousPatterns.push(
+      /\brequire\s*\([^)]*\)/i,
+      /\bprocess\s*\./i,
+      /\bfs\s*\./i,
+      /\bfetch\s*\([^)]*\)/i,
+      /\bXMLHttpRequest/i
+    );
+  }
   
   for (const pattern of dangerousPatterns) {
     if (pattern.test(content)) {
-      return { 
-        valid: false, 
-        reason: 'JavaScript contains potentially dangerous patterns'
-      };
+      const reason = packageType === 'basic' 
+        ? 'Basic packages cannot use dynamic imports or I/O operations'
+        : 'JavaScript contains potentially dangerous patterns';
+      return { valid: false, reason };
     }
   }
   
-  // Check for minified code (very long lines)
   const avgLineLength = content.length / (content.split('\n').length || 1);
-  if (avgLineLength > 500) {
+  if (avgLineLength > 1000) {
     return { valid: false, reason: 'JavaScript appears to be minified or obfuscated' };
   }
   
@@ -827,130 +988,38 @@ function validateJSON(content) {
   }
 }
 
-function validatePython(content) {
-  const dangerousPatterns = [
-    /\bimport\s+os\b/,
-    /\bimport\s+sys\b/,
-    /\bimport\s+subprocess\b/,
-    /\beval\s*\(/,
-    /\bexec\s*\(/,
-    /\bcompile\s*\(/,
-    /\bopen\s*\(/,
-    /\b__import__\s*\(/,
-    /\binput\s*\(/,
-    /\braw_input\s*\(/,
-    /\bpickle\b/,
-    /\bshelve\b/,
-    /\bmarshal\b/
-  ];
-  
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(content)) {
-      return { 
-        valid: false, 
-        reason: 'Python contains potentially dangerous imports or functions'
-      };
-    }
-  }
-  
-  return { valid: true };
-}
-
-function validateWASM(content) {
-  // Basic WASM validation (magic number)
-  if (content.length < 8) {
-    return { valid: false, reason: 'Invalid WASM file: too short' };
-  }
-  
-  // Check for base64 encoding
-  if (/^[A-Za-z0-9+/]+={0,2}$/.test(content)) {
-    // It's base64 encoded, decode first
-    try {
-      const binary = atob(content);
-      const header = new Uint8Array(binary.split('').map(c => c.charCodeAt(0)));
-      
-      // Check WASM magic number: \0asm
-      if (header[0] !== 0 || header[1] !== 0x61 || header[2] !== 0x73 || header[3] !== 0x6D) {
-        return { valid: false, reason: 'Invalid WASM file: incorrect magic number' };
-      }
-    } catch (e) {
-      return { valid: false, reason: 'Invalid base64 encoding for WASM file' };
-    }
-  } else {
-    // Assume it's binary string
-    if (content.charCodeAt(0) !== 0 || 
-        content.charCodeAt(1) !== 0x61 ||
-        content.charCodeAt(2) !== 0x73 ||
-        content.charCodeAt(3) !== 0x6D) {
-      return { valid: false, reason: 'Invalid WASM file: incorrect magic number' };
-    }
-  }
-  
-  return { valid: true };
-}
-
-function validateHTML(content) {
-  const dangerousPatterns = [
-    /<script[^>]*>/i,
-    /javascript:/i,
-    /data:/i,
-    /onload=/i,
-    /onerror=/i,
-    /onclick=/i,
-    /eval\s*\(/i
-  ];
-  
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(content)) {
-      return { 
-        valid: false, 
-        reason: 'HTML contains potentially dangerous scripts or attributes'
-      };
-    }
-  }
-  
-  return { valid: true };
-}
-
 function generateSecureUrlId() {
-  // Cryptographically secure random string with timestamp
   return crypto.randomBytes(12).toString('hex') + 
          Date.now().toString(36) +
          crypto.randomBytes(4).toString('hex');
 }
 
 function generateSecureEncryptionKey() {
-  // Generate cryptographically secure random key
   return crypto.randomBytes(32).toString('hex');
 }
 
 function sanitizeVersion(version) {
   if (typeof version !== 'string') return '1.0.0';
   
-  // Allow only numbers and dots for version
-  const sanitized = version.replace(/[^0-9.]/g, '');
+  // Remove everything except numbers, dots, and prerelease identifiers
+  const sanitized = version.replace(/[^0-9.a-zA-Z-+]/g, '');
   
-  // Ensure proper format (at least one dot)
   if (!sanitized.includes('.')) {
     return sanitized + '.0.0';
   }
   
-  // Remove leading/trailing dots
   const parts = sanitized.split('.').filter(part => part !== '');
   if (parts.length === 0) return '1.0.0';
   
-  // Ensure each part is numeric
   const numericParts = parts.map(part => {
-    const num = parseInt(part, 10);
-    return isNaN(num) ? '0' : num.toString();
+    const numMatch = part.match(/^(\d+)/);
+    return numMatch ? numMatch[1] : '0';
   });
   
-  // Pad to at least 3 parts
   while (numericParts.length < 3) {
     numericParts.push('0');
   }
   
-  // Limit to 5 parts max
   return numericParts.slice(0, 5).join('.');
 }
 
@@ -958,16 +1027,15 @@ function generateChecksum(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
-// Cleanup function for rate limiting store
+// Cleanup rate limiting store
 setInterval(() => {
   const now = Date.now();
   for (const [ip, data] of rateLimitStore.entries()) {
-    // Clean entries older than 1 hour
     if (now > data.resetTime + 60 * 60 * 1000 && data.bannedUntil < now) {
       rateLimitStore.delete(ip);
     }
   }
-}, 5 * 60 * 1000); // Run cleanup every 5 minutes
+}, 5 * 60 * 1000);
 
 // Export for testing
 if (process.env.NODE_ENV === 'test') {
@@ -976,6 +1044,9 @@ if (process.env.NODE_ENV === 'test') {
     validateFilename,
     validateFileContent,
     sanitizeVersion,
-    generateSecureUrlId
+    generateSecureUrlId,
+    PACKAGE_TYPES,
+    ALLOWED_NODE_MODULES,
+    BANNED_NODE_MODULES
   };
 }
