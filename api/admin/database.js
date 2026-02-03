@@ -1,4 +1,4 @@
-// /api/admin/database.js - REPLACE THE ENTIRE FILE WITH THIS:
+// /api/admin/database.js - UPDATED VERSION WITH get_all_tables() RPC
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -229,64 +229,118 @@ export default withSecurity(async (req, res, supabase, clientIP) => {
 
     switch (action) {
       case 'GET_ALL_TABLES':
-        // Get all tables from information_schema
-        const { data: tables, error: tablesError } = await supabase
-          .from('information_schema.tables')
-          .select('table_name, table_type')
-          .eq('table_schema', 'public')
-          .order('table_name')
+        try {
+          // Use the RPC function to get all tables
+          const { data: tables, error: tablesError } = await supabase
+            .rpc('get_all_tables')
 
-        if (tablesError) {
-          console.error('Tables fetch error:', tablesError)
+          if (tablesError) {
+            console.error('Tables fetch error (RPC):', tablesError)
+            
+            // Fallback: Try to get tables from pg_tables via SQL
+            const { data: pgTables, error: pgError } = await supabase
+              .rpc('exec_sql', {
+                query_text: `SELECT tablename as table_name, 'BASE TABLE' as table_type FROM pg_catalog.pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
+                is_readonly: true
+              }).catch(err => ({ error: err }))
+
+            if (pgError) {
+              console.error('All table fetch methods failed:', pgError)
+              return res.status(500).json({ 
+                error: 'Failed to fetch tables',
+                details: 'Cannot access database schema.',
+                hint: 'Make sure get_all_tables() function exists and SERVICE_ROLE_KEY has proper permissions'
+              })
+            }
+
+            // Use pg_catalog result
+            tables = pgTables
+          }
+
+          console.log(`Found ${tables.length} tables in database`)
+
+          // Fetch sample data from each table
+          const allTablesData = {}
+          const tableStats = {}
+          
+          // Limit concurrent table checks to avoid rate limits
+          const maxConcurrent = 3
+          const tableChunks = []
+          for (let i = 0; i < tables.length; i += maxConcurrent) {
+            tableChunks.push(tables.slice(i, i + maxConcurrent))
+          }
+
+          for (const chunk of tableChunks) {
+            await Promise.all(chunk.map(async (tableInfo) => {
+              const tableName = tableInfo.table_name || tableInfo.tablename
+              
+              if (!tableName) return
+              
+              try {
+                const { data: tableData, error: tableError, count } = await supabase
+                  .from(tableName)
+                  .select('*', { count: 'exact', head: true })
+                  .limit(1)
+
+                if (!tableError) {
+                  tableStats[tableName] = {
+                    type: tableInfo.table_type || 'BASE TABLE',
+                    estimatedRows: count || 0,
+                    sampled: tableData ? tableData.length : 0
+                  }
+                  
+                  // Get full data for smaller tables
+                  if (count && count <= limit) {
+                    const { data: fullData } = await supabase
+                      .from(tableName)
+                      .select('*')
+                      .limit(limit)
+                    allTablesData[tableName] = fullData || []
+                  }
+                } else {
+                  console.warn(`Could not fetch table ${tableName}:`, tableError.message)
+                  tableStats[tableName] = {
+                    type: tableInfo.table_type || 'BASE TABLE',
+                    estimatedRows: 0,
+                    sampled: 0,
+                    error: tableError.message
+                  }
+                }
+              } catch (err) {
+                console.warn(`Error fetching table ${tableName}:`, err.message)
+                tableStats[tableName] = {
+                  type: tableInfo.table_type || 'BASE TABLE',
+                  estimatedRows: 0,
+                  sampled: 0,
+                  error: err.message
+                }
+              }
+            }))
+            
+            // Small delay between chunks
+            if (tableChunks.length > 1) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+          }
+
+          return res.json({
+            success: true,
+            timestamp: new Date().toISOString(),
+            ip: clientIP,
+            tables: tables.map(t => t.table_name || t.tablename).filter(Boolean),
+            stats: tableStats,
+            data: allTablesData,
+            limit: limit,
+            supabaseUrl: process.env.SUPABASE_URL?.replace(/\/\/(.*?)\.supabase.co/, '//***.supabase.co')
+          })
+
+        } catch (error) {
+          console.error('Table fetch error:', error)
           return res.status(500).json({ 
             error: 'Failed to fetch tables',
-            details: tablesError.message 
+            details: error.message 
           })
         }
-
-        // Fetch sample data from each table
-        const allTablesData = {}
-        const tableStats = {}
-        
-        for (const tableInfo of tables) {
-          const tableName = tableInfo.table_name
-          try {
-            const { data: tableData, error: tableError, count } = await supabase
-              .from(tableName)
-              .select('*', { count: 'exact', head: true })
-              .limit(1)
-
-            if (!tableError) {
-              tableStats[tableName] = {
-                type: tableInfo.table_type,
-                estimatedRows: count || 0,
-                sampled: tableData ? tableData.length : 0
-              }
-              
-              // Get full data for smaller tables
-              if (count && count <= limit) {
-                const { data: fullData } = await supabase
-                  .from(tableName)
-                  .select('*')
-                  .limit(limit)
-                allTablesData[tableName] = fullData || []
-              }
-            }
-          } catch (err) {
-            console.warn(`Could not fetch table ${tableName}:`, err.message)
-          }
-        }
-
-        return res.json({
-          success: true,
-          timestamp: new Date().toISOString(),
-          ip: clientIP,
-          tables: tables.map(t => t.table_name),
-          stats: tableStats,
-          data: allTablesData,
-          limit: limit,
-          supabaseUrl: process.env.SUPABASE_URL?.replace(/\/\/(.*?)\.supabase\.co/, '//***.supabase.co') // Masked
-        })
 
       case 'GET_TABLE':
         if (!table) {
