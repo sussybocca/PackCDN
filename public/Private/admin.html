@@ -966,8 +966,7 @@
             matrixCanvas.height = window.innerHeight;
         });
 
-      // IN YOUR FRONTEND, UPDATE generateSignature() function:
-async function generateSignature(password, timestamp, action, data = null) {
+   async function generateSignature(password, timestamp, action, data = null) {
   try {
     const encoder = new TextEncoder();
     
@@ -977,10 +976,23 @@ async function generateSignature(password, timestamp, action, data = null) {
     // Create the message WITH SUPABASE_URL to match backend
     let message = `${password}:${timestamp}:${action}:${supabaseUrl}`;
     
-    if (data) {
+    // Debug log - see exactly what's being signed
+    console.log('🔐 FRONTEND SIGNING:', {
+      passwordPreview: password.substring(0, 3) + '...',
+      timestamp: timestamp,
+      action: action,
+      supabaseUrl: supabaseUrl.substring(0, 20) + '...',
+      hasData: data !== null,
+      dataType: typeof data
+    });
+    
+    // ONLY include data if it's not null AND has content
+    if (data !== null && Object.keys(data).length > 0) {
       const dataString = typeof data === 'string' ? data : JSON.stringify(data);
       message += `:${dataString}`;
     }
+    
+    console.log('🔐 FINAL MESSAGE BEING SIGNED:', message.substring(0, 100) + '...');
     
     const messageData = encoder.encode(message);
     
@@ -996,14 +1008,6 @@ async function generateSignature(password, timestamp, action, data = null) {
     const signature = await crypto.subtle.sign('HMAC', key, messageData);
     const hashArray = Array.from(new Uint8Array(signature));
     const signatureHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    console.log('🔐 Frontend Signature Generated:', {
-      passwordPreview: password.substring(0, 3) + '...',
-      timestamp: timestamp.slice(0, 19),
-      action: action,
-      supabaseUrl: supabaseUrl.substring(0, 20) + '...',
-      signaturePreview: signatureHex.substring(0, 16) + '...'
-    });
     
     return signatureHex;
     
@@ -1060,8 +1064,7 @@ async function generateIPValidator(timestamp) {
         // ============================
         // API COMMUNICATION
         // ============================
-  // UPDATE the makeSecureRequest() function:
-async function makeSecureRequest(action, data = {}) {
+ async function makeSecureRequest(action, data = {}) {
   const password = currentSession.token || document.getElementById('password').value;
   if (!password) {
     addLog('ERROR: No authentication token available', 'danger');
@@ -1072,8 +1075,13 @@ async function makeSecureRequest(action, data = {}) {
   const timestamp = new Date().toISOString();
 
   try {
-    // 1. Generate signature with the timestamp
-    const signature = await generateSignature(password, timestamp, action, data);
+    // 1. Generate signature - DON'T include empty data for GET_ALL_TABLES
+    const signature = await generateSignature(
+      password, 
+      timestamp, 
+      action, 
+      action === 'GET_ALL_TABLES' ? null : data
+    );
 
     // 2. Generate IP validator with THE SAME timestamp
     const ipValidator = await generateIPValidator(timestamp);
@@ -1082,13 +1090,14 @@ async function makeSecureRequest(action, data = {}) {
       throw new Error('Signature generation failed');
     }
 
-    const signature = await generateSignature(
-    password, 
-    timestamp, 
-    action, 
-    action === 'GET_ALL_TABLES' ? null : data  // Don't include data for GET_ALL_TABLES
-  );
-  
+    // 3. Build request data
+    const requestData = {
+      password: password,
+      timestamp: timestamp,
+      signature: signature,
+      action: action,
+      ...data
+    };
 
     addLog(`API: Sending ${action} request...`, 'info');
 
