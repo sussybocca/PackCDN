@@ -1,4 +1,4 @@
-// /api/admin/database.js - UPDATED VERSION WITH get_all_tables() RPC
+// /api/admin/database.js - UPDATED TO MATCH FRONTEND
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -151,15 +151,34 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    // 6. Signature validation with HMAC
+    // 6. Signature validation with HMAC - UPDATED TO MATCH FRONTEND
+    let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
+    
+    // MATCH FRONTEND LOGIC: Include data for actions that aren't GET_ALL_TABLES or GET_TABLE
+    if (req.body.data && Object.keys(req.body.data).length > 0 && 
+        !['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+      const dataString = typeof req.body.data === 'string' 
+        ? req.body.data 
+        : JSON.stringify(req.body.data);
+      signatureMessage += `:${dataString}`;
+    }
+
+    console.log('🔐 BACKEND SIGNATURE MESSAGE:', {
+      action: action,
+      hasData: !!(req.body.data && Object.keys(req.body.data).length > 0),
+      includedData: !['GET_ALL_TABLES', 'GET_TABLE'].includes(action),
+      message: signatureMessage.substring(0, 100) + '...'
+    });
+
+    // IMPORTANT: Use password as HMAC key (matches frontend)
     const expectedSignature = crypto
-      .createHmac('sha256', ADMIN_PASSWORD)
-      .update(`${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`)
+      .createHmac('sha256', password)  // CHANGED FROM ADMIN_PASSWORD to password
+      .update(signatureMessage)
       .digest('hex')
 
     console.log('🔐 SIGNATURE DEBUG:', {
-      received: signature.substring(0, 16) + '...',
-      expected: expectedSignature.substring(0, 16) + '...',
+      received: signature?.substring(0, 16) + '...',
+      expected: expectedSignature?.substring(0, 16) + '...',
       matches: signature === expectedSignature
     })
 
