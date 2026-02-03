@@ -1,30 +1,55 @@
 // api/wildcard-redirect.js
 export default function handler(req, res) {
-  const path = req.url;
+  const path = req.url.split('?')[0];
   
-  // All static files that should be encrypted
-  const staticFiles = [
-    '/config.json',
-    '/docs.html',
-    '/Docs/docs.html',
-    '/Docs/Pages/Home/index.html',
-    '/Docs/Pages/Home/Pages/Editor/editor.html',
-    '/Docs/Pages/Home/Pages/Explore/explore.html',
-    '/editor.html',
-    '/Editor/editor.html',
-    '/explore.html',
-    '/Explore/explore.html',
-    '/home/editor.html',
-    '/home/explore.html',
-    '/home/index.html',
-    '/Login/login.html',
-    '/Private/admin.html',
-    '/selector.html'
-  ];
+  // Map of actual files to their fun URL names
+  const fileToFunUrl = {
+    // Core files
+    '/selector.html': 'quantum-portal',
+    '/home/index.html': 'cosmic-dashboard',
+    '/docs.html': 'digital-library',
+    '/editor.html': 'neo-workshop',
+    '/explore.html': 'virtual-explorer',
+    '/config.json': 'synth-config',
+    
+    // Docs files
+    '/Docs/docs.html': 'stellar-docs',
+    '/Docs/Pages/Home/index.html': 'home-core',
+    '/Docs/Pages/Home/Pages/Editor/editor.html': 'editor-nexus',
+    '/Docs/Pages/Home/Pages/Explore/explore.html': 'explore-gateway',
+    
+    // Editor files
+    '/editor.html': 'cyber-studio',
+    '/Editor/editor.html': 'arcane-editor',
+    
+    // Explore files
+    '/explore.html': 'orbital-discovery',
+    '/Explore/explore.html': 'celestial-explorer',
+    
+    // Auth files
+    '/Login/login.html': 'dragon-login',
+    '/Private/admin.html': 'phoenix-admin',
+    
+    // Home files
+    '/home/editor.html': 'home-studio',
+    '/home/explore.html': 'home-discovery',
+    '/selector.html': 'home-portal'
+  };
   
-  // Destinations for random URLs to point to
-  const destinations = staticFiles;
+  // Reverse map: fun URL back to file
+  const funUrlToFile = {};
+  for (const [file, funName] of Object.entries(fileToFunUrl)) {
+    funUrlToFile['/' + funName] = file;
+    // Add variations
+    funUrlToFile['/' + funName + '-v1'] = file;
+    funUrlToFile['/' + funName + '-v2'] = file;
+    funUrlToFile['/' + funName + '-v3'] = file;
+    funUrlToFile['/api/' + funName] = file;
+    funUrlToFile['/v1/' + funName] = file;
+    funUrlToFile['/v2/' + funName] = file;
+  }
   
+  // Word banks for generating MORE fun URLs
   const wordBanks = {
     tech: ['quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 'ai', 'ml'],
     space: ['cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 'quasar', 'wormhole'],
@@ -35,6 +60,7 @@ export default function handler(req, res) {
     places: ['nexus', 'hub', 'core', 'center', 'matrix', 'grid', 'network', 'web', 'cloud', 'cluster']
   };
   
+  // Generate hash for deterministic fun URLs
   function getHash(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -44,96 +70,76 @@ export default function handler(req, res) {
     return Math.abs(hash);
   }
   
-  function generateRandomUrlFromHash(hashValue) {
-    const categories = Object.keys(wordBanks);
-    const numWords = 2 + (hashValue % 3);
+  // Check if this is a file that has a fun URL mapping
+  if (fileToFunUrl[path]) {
+    const funName = fileToFunUrl[path];
+    const funUrl = '/' + funName + '-v' + ((getHash(path) % 5) + 1);
     
-    let randomPath = '/';
-    for (let i = 0; i < numWords; i++) {
-      const categoryIndex = (hashValue * (i + 1)) % categories.length;
-      const category = categories[categoryIndex];
-      const words = wordBanks[category];
-      const wordIndex = (hashValue * (i + 2)) % words.length;
-      const word = words[wordIndex];
-      randomPath += word + (i < numWords - 1 ? '-' : '');
-    }
+    console.log(`🔗 ${path} has fun URL: ${funUrl}`);
     
-    const variations = [
-      () => randomPath + '-v' + ((hashValue % 10) + 1),
-      () => randomPath + (hashValue % 1000),
-      () => randomPath + '-' + hashValue.toString(36).slice(0, 6),
-      () => '/api/' + randomPath.slice(1),
-      () => '/v' + ((hashValue % 3) + 1) + randomPath,
-      () => randomPath,
-      () => randomPath + '-gateway',
-      () => randomPath + '-portal',
-      () => randomPath + '-access'
-    ];
-    
-    const variationIndex = hashValue % variations.length;
-    return variations[variationIndex]();
-  }
-  
-  // Check if this is a static file that should be encrypted
-  const isStaticFile = staticFiles.includes(path);
-  
-  const hash = getHash(path);
-  
-  // If it's a static file, encrypt it
-  if (isStaticFile) {
-    const randomUrl = generateRandomUrlFromHash(hash);
-    
-    console.log(`🔒 ENCRYPTING: ${path} -> ${randomUrl}`);
-    
+    // PERMANENT redirect to fun URL (301)
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-URL-Encrypted', 'true');
-    res.setHeader('X-Original-Path', path);
-    res.setHeader('X-Encrypted-URL', randomUrl);
-    res.setHeader('X-File-Hash', hash.toString());
+    res.setHeader('X-Fun-URL', funUrl);
+    res.setHeader('X-Original-File', path);
     
-    // 301 Permanent redirect
-    return res.redirect(301, randomUrl);
+    return res.redirect(301, funUrl);
   }
   
-  // Handle special clean routes
-  const cleanRoutes = {
-    '/': '/selector.html',
-    '/home': '/home/index.html',
-    '/docs': '/docs.html',
-    '/editor': '/editor.html',
-    '/explore': '/explore.html',
-    '/portal': '/selector.html',
-    '/gateway': '/home/index.html',
-    '/library': '/docs.html',
-    '/workshop': '/editor.html',
-    '/discover': '/explore.html',
-    '/settings': '/config.json'
-  };
-  
-  if (cleanRoutes[path]) {
-    return res.redirect(302, cleanRoutes[path]);
+  // Check if this is a fun URL that maps to a file
+  if (funUrlToFile[path]) {
+    const targetFile = funUrlToFile[path];
+    
+    console.log(`🎉 Fun URL ${path} → ${targetFile}`);
+    
+    // Serve the actual file (via redirect since it exists as static file)
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Serving-File', targetFile);
+    
+    return res.redirect(302, targetFile);
   }
   
-  // Handle API routes
-  if (path.startsWith('/api/')) {
-    // Let API routes pass through (they'll be handled by other API functions)
-    return res.status(404).json({
-      error: 'API route not found',
-      path: path,
-      note: 'This is the wildcard redirect handler, not the actual API'
+  // Generate a NEW fun URL for any unknown path
+  const hash = getHash(path);
+  const categories = Object.keys(wordBanks);
+  const numWords = 2 + (hash % 3);
+  
+  let generatedFunUrl = '/';
+  for (let i = 0; i < numWords; i++) {
+    const catIndex = (hash * (i + 1)) % categories.length;
+    const category = categories[catIndex];
+    const words = wordBanks[category];
+    const wordIndex = (hash * (i + 2)) % words.length;
+    generatedFunUrl += words[wordIndex] + (i < numWords - 1 ? '-' : '');
+  }
+  
+  // Add version
+  generatedFunUrl += '-v' + ((hash % 10) + 1);
+  
+  // Pick a random file to map this new fun URL to
+  const allFiles = Object.keys(fileToFunUrl);
+  const fileIndex = hash % allFiles.length;
+  const mappedFile = allFiles[fileIndex];
+  
+  // Store the mapping
+  funUrlToFile[generatedFunUrl] = mappedFile;
+  
+  console.log(`✨ Generated new fun URL: ${path} → ${generatedFunUrl} → ${mappedFile}`);
+  
+  // Redirect to show what would happen
+  if (path.includes('show')) {
+    return res.json({
+      system: 'Fun URL Transformer',
+      originalPath: path,
+      generatedFunUrl: generatedFunUrl,
+      mapsToFile: mappedFile,
+      totalMappings: Object.keys(funUrlToFile).length,
+      exampleFunUrls: Object.keys(funUrlToFile).slice(0, 10)
     });
   }
   
-  // For any other random URL, redirect to a static file
-  const destinationIndex = hash % destinations.length;
-  const destination = destinations[destinationIndex];
-  
-  console.log(`🎲 RANDOM: ${path} -> ${destination}`);
-  
+  // Redirect to the actual file
   res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('X-Random-Redirect', 'true');
-  res.setHeader('X-Destination', destination);
-  res.setHeader('X-Path-Hash', hash.toString());
+  res.setHeader('X-Generated-Fun-URL', generatedFunUrl);
   
-  return res.redirect(302, destination);
+  return res.redirect(302, mappedFile);
 }
