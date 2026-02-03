@@ -1,5 +1,11 @@
 {
   "rewrites": [
+    // Wildcard redirect for ALL random URLs - must be FIRST
+    {
+      "source": "/((?!api|_next|static|.*\\..*).*)",
+      "destination": "/api/wildcard-redirect"
+    },
+    // Your original routes
     {
       "source": "/",
       "destination": "/selector.html"
@@ -54,6 +60,37 @@
     {
       "source": "/settings",
       "destination": "/config.json",
+      "permanent": false
+    },
+    // Fun random redirects that will work with the wildcard handler
+    {
+      "source": "/quantum-portal",
+      "destination": "/api/wildcard-redirect",
+      "permanent": false
+    },
+    {
+      "source": "/neo-gateway",
+      "destination": "/api/wildcard-redirect",
+      "permanent": false
+    },
+    {
+      "source": "/cosmic-library",
+      "destination": "/api/wildcard-redirect",
+      "permanent": false
+    },
+    {
+      "source": "/digital-workshop",
+      "destination": "/api/wildcard-redirect",
+      "permanent": false
+    },
+    {
+      "source": "/virtual-explorer",
+      "destination": "/api/wildcard-redirect",
+      "permanent": false
+    },
+    {
+      "source": "/synth-settings",
+      "destination": "/api/wildcard-redirect",
       "permanent": false
     }
   ],
