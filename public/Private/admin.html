@@ -1076,13 +1076,12 @@ async function generateIPValidator(timestamp) {
 
   try {
     // 1. Generate signature - DON'T include empty data for GET_ALL_TABLES
-    const signature = await generateSignature(
-      password, 
-      timestamp, 
-      action, 
-      action === 'GET_ALL_TABLES' ? null : data
-    );
-
+  const signature = await generateSignature(
+  password, 
+  timestamp, 
+  action, 
+  action === 'GET_ALL_TABLES' || action === 'GET_TABLE' ? null : data
+);
     // 2. Generate IP validator with THE SAME timestamp
     const ipValidator = await generateIPValidator(timestamp);
 
