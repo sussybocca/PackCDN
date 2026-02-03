@@ -2,7 +2,8 @@
 export default function handler(req, res) {
   const path = req.url;
   
-  const destinations = [
+  // All static files that should be encrypted
+  const staticFiles = [
     '/config.json',
     '/docs.html',
     '/Docs/docs.html',
@@ -18,17 +19,11 @@ export default function handler(req, res) {
     '/home/index.html',
     '/Login/login.html',
     '/Private/admin.html',
-    '/selector.html',
-    '/api/admin/database',
-    '/api/analyze',
-    '/api/get-pack',
-    '/api/login',
-    '/api/publish',
-    '/api/random-urls',
-    '/api/search',
-    '/api/session-generate',
-    '/api/wildcard-redirect'
+    '/selector.html'
   ];
+  
+  // Destinations for random URLs to point to
+  const destinations = staticFiles;
   
   const wordBanks = {
     tech: ['quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 'ai', 'ml'],
@@ -49,7 +44,7 @@ export default function handler(req, res) {
     return Math.abs(hash);
   }
   
-  function generateRandomUrlFromHash(hashValue, pathStr) {
+  function generateRandomUrlFromHash(hashValue) {
     const categories = Object.keys(wordBanks);
     const numWords = 2 + (hashValue % 3);
     
@@ -79,15 +74,16 @@ export default function handler(req, res) {
     return variations[variationIndex]();
   }
   
-  const hasFileExtension = /\.[a-zA-Z0-9]+$/.test(path);
-  const isApiPath = path.startsWith('/api/');
+  // Check if this is a static file that should be encrypted
+  const isStaticFile = staticFiles.includes(path);
   
   const hash = getHash(path);
-  const destinationIndex = hash % destinations.length;
-  const destination = destinations[destinationIndex];
   
-  if (hasFileExtension && !isApiPath) {
-    const randomUrl = generateRandomUrlFromHash(hash, path);
+  // If it's a static file, encrypt it
+  if (isStaticFile) {
+    const randomUrl = generateRandomUrlFromHash(hash);
+    
+    console.log(`🔒 ENCRYPTING: ${path} -> ${randomUrl}`);
     
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-URL-Encrypted', 'true');
@@ -95,10 +91,12 @@ export default function handler(req, res) {
     res.setHeader('X-Encrypted-URL', randomUrl);
     res.setHeader('X-File-Hash', hash.toString());
     
+    // 301 Permanent redirect
     return res.redirect(301, randomUrl);
   }
   
-  const specialRoutes = {
+  // Handle special clean routes
+  const cleanRoutes = {
     '/': '/selector.html',
     '/home': '/home/index.html',
     '/docs': '/docs.html',
@@ -112,31 +110,30 @@ export default function handler(req, res) {
     '/settings': '/config.json'
   };
   
-  if (specialRoutes[path]) {
-    return res.redirect(302, specialRoutes[path]);
+  if (cleanRoutes[path]) {
+    return res.redirect(302, cleanRoutes[path]);
   }
   
-  if (isApiPath) {
-    return res.redirect(302, destination);
+  // Handle API routes
+  if (path.startsWith('/api/')) {
+    // Let API routes pass through (they'll be handled by other API functions)
+    return res.status(404).json({
+      error: 'API route not found',
+      path: path,
+      note: 'This is the wildcard redirect handler, not the actual API'
+    });
   }
   
-  const encryptedUrl = generateRandomUrlFromHash(hash, destination);
+  // For any other random URL, redirect to a static file
+  const destinationIndex = hash % destinations.length;
+  const destination = destinations[destinationIndex];
+  
+  console.log(`🎲 RANDOM: ${path} -> ${destination}`);
   
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Random-Redirect', 'true');
   res.setHeader('X-Destination', destination);
-  res.setHeader('X-Encrypted-Version', encryptedUrl);
   res.setHeader('X-Path-Hash', hash.toString());
-  
-  if (path.includes('show-info')) {
-    return res.json({
-      message: 'Random URL System Active',
-      requestedPath: path,
-      destination: destination,
-      encryptedUrl: encryptedUrl,
-      hash: hash
-    });
-  }
   
   return res.redirect(302, destination);
 }
