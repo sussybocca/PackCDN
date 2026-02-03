@@ -1,11 +1,11 @@
 {
   "rewrites": [
-    
+ 
     {
       "source": "/((?!api|_next|static|.*\\..*).*)",
       "destination": "/api/wildcard-redirect"
     },
- 
+  
     {
       "source": "/",
       "destination": "/selector.html"
@@ -29,6 +29,15 @@
     {
       "source": "/config.json",
       "destination": "/config.json"
+    },
+   
+    {
+      "source": "/api/random-urls",
+      "destination": "/api/random-urls"
+    },
+    {
+      "source": "/api/wildcard-redirect",
+      "destination": "/api/wildcard-redirect"
     }
   ],
   "redirects": [
@@ -60,37 +69,6 @@
     {
       "source": "/settings",
       "destination": "/config.json",
-      "permanent": false
-    },
-   
-    {
-      "source": "/quantum-portal",
-      "destination": "/api/wildcard-redirect",
-      "permanent": false
-    },
-    {
-      "source": "/neo-gateway",
-      "destination": "/api/wildcard-redirect",
-      "permanent": false
-    },
-    {
-      "source": "/cosmic-library",
-      "destination": "/api/wildcard-redirect",
-      "permanent": false
-    },
-    {
-      "source": "/digital-workshop",
-      "destination": "/api/wildcard-redirect",
-      "permanent": false
-    },
-    {
-      "source": "/virtual-explorer",
-      "destination": "/api/wildcard-redirect",
-      "permanent": false
-    },
-    {
-      "source": "/synth-settings",
-      "destination": "/api/wildcard-redirect",
       "permanent": false
     }
   ],
