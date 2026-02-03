@@ -32,7 +32,7 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-    // @username-style routes (keep these before catch-all)
+    
     {
       "source": "/@quantum",
       "destination": "/selector.html"
