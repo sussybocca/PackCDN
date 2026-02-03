@@ -976,25 +976,23 @@
     // Create the message WITH SUPABASE_URL to match backend
     let message = `${password}:${timestamp}:${action}:${supabaseUrl}`;
     
-    // Debug log - see exactly what's being signed
-    console.log('🔐 FRONTEND SIGNING:', {
-      passwordPreview: password.substring(0, 3) + '...',
-      timestamp: timestamp,
-      action: action,
-      supabaseUrl: supabaseUrl.substring(0, 20) + '...',
-      hasData: data !== null,
-      dataType: typeof data
-    });
+    // Check if data should be included - FIXED to handle null properly
+    if (data !== null && data !== undefined) {
+      // Check if it's an object with keys
+      if (typeof data === 'object' && Object.keys(data).length > 0) {
+        // Only include for non-read actions
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          const dataString = JSON.stringify(data);
+          message += `:${dataString}`;
+        }
+      } else if (typeof data === 'string' && data.trim() !== '') {
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          message += `:${data}`;
+        }
+      }
+    }
     
-    
-    // In generateSignature(), change the data inclusion logic:
-if (data !== null && Object.keys(data).length > 0 && 
-    !['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-  const dataString = typeof data === 'string' ? data : JSON.stringify(data);
-  message += `:${dataString}`;
-}
-    
-    console.log('🔐 FINAL MESSAGE BEING SIGNED:', message.substring(0, 100) + '...');
+    console.log('🔐 FRONTEND FINAL SIGNATURE MESSAGE:', message.substring(0, 100) + '...');
     
     const messageData = encoder.encode(message);
     
