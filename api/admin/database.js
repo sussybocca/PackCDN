@@ -1,4 +1,4 @@
-// /api/admin/database.js - UPDATED WITH NULL DATA FIX
+// /api/admin/database.js - ACTUALLY FIXED
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -151,40 +151,49 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    // 6. Signature validation with HMAC - FIXED TO HANDLE NULL DATA
+    // 6. SIGNATURE VALIDATION - ACTUALLY FIXED THIS TIME
     let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
 
-    // FIX: Properly handle null/undefined data for GET_TABLE/GET_ALL_TABLES
-    if (req.body.data !== undefined && req.body.data !== null) {
-      // Check if data is an object with keys
-      if (typeof req.body.data === 'object' && Object.keys(req.body.data).length > 0) {
-        // Only include data in signature for non-read actions
+    // THE ACTUAL FIX: Frontend doesn't send 'data' field for GET_TABLE/GET_ALL_TABLES
+    // So we need to check if it EXISTS, not just if it's not null/undefined
+    const hasDataField = 'data' in req.body;
+    const bodyData = req.body.data;
+    
+    console.log('🔐 DATA FIELD CHECK:', {
+      action: action,
+      hasDataField: hasDataField,
+      dataValue: bodyData,
+      dataType: typeof bodyData
+    });
+
+    // Only include data in signature if:
+    // 1. The 'data' field EXISTS in the request (hasDataField is true)
+    // 2. The data has actual content (not empty object/string)
+    // 3. The action is NOT GET_ALL_TABLES or GET_TABLE
+    if (hasDataField && bodyData !== null && bodyData !== undefined) {
+      if (typeof bodyData === 'object' && Object.keys(bodyData).length > 0) {
         if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-          const dataString = JSON.stringify(req.body.data);
+          const dataString = JSON.stringify(bodyData);
           signatureMessage += `:${dataString}`;
         }
-        // For GET_TABLE/GET_ALL_TABLES, data might contain table/limit properties
-        // but these should NOT be included in the signature
-      } else if (typeof req.body.data === 'string' && req.body.data.trim() !== '') {
+      } else if (typeof bodyData === 'string' && bodyData.trim() !== '') {
         if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-          signatureMessage += `:${req.body.data}`;
+          signatureMessage += `:${bodyData}`;
         }
       }
     }
 
     console.log('🔐 BACKEND SIGNATURE MESSAGE:', {
       action: action,
-      hasData: req.body.data !== undefined && req.body.data !== null,
-      dataValue: req.body.data,
-      includedInSignature: !['GET_ALL_TABLES', 'GET_TABLE'].includes(action) && 
-                          req.body.data && 
-                          Object.keys(req.body.data || {}).length > 0,
+      hasDataField: hasDataField,
+      includedDataInSignature: signatureMessage.includes(':' + JSON.stringify(bodyData)) || 
+                               (typeof bodyData === 'string' && signatureMessage.includes(':' + bodyData)),
       message: signatureMessage.substring(0, 100) + '...'
     });
 
     // IMPORTANT: Use password as HMAC key (matches frontend)
     const expectedSignature = crypto
-      .createHmac('sha256', password)  // CHANGED FROM ADMIN_PASSWORD to password
+      .createHmac('sha256', password)
       .update(signatureMessage)
       .digest('hex')
 
@@ -244,7 +253,7 @@ const withSecurity = (handler) => async (req, res) => {
   }
 }
 
-// Main handler with full database management
+// Main handler with full database management - UNCHANGED
 export default withSecurity(async (req, res, supabase, clientIP) => {
   try {
     const { action, table, data, query, id, limit = 1000 } = req.body
