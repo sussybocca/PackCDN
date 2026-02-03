@@ -32,6 +32,97 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
+    // @username-style routes (keep these before catch-all)
+    {
+      "source": "/@quantum",
+      "destination": "/selector.html"
+    },
+    {
+      "source": "/@cosmic",
+      "destination": "/home/index.html"
+    },
+    {
+      "source": "/@digital",
+      "destination": "/docs.html"
+    },
+    {
+      "source": "/@neo",
+      "destination": "/editor.html"
+    },
+    {
+      "source": "/@virtual",
+      "destination": "/explore.html"
+    },
+    {
+      "source": "/@synth",
+      "destination": "/config.json"
+    },
+    {
+      "source": "/@stellar",
+      "destination": "/Docs/docs.html"
+    },
+    {
+      "source": "/@cyber",
+      "destination": "/Editor/editor.html"
+    },
+    {
+      "source": "/@orbital",
+      "destination": "/Explore/explore.html"
+    },
+    {
+      "source": "/@dragon",
+      "destination": "/Login/login.html"
+    },
+    {
+      "source": "/@phoenix",
+      "destination": "/Private/admin.html"
+    },
+    // Fun URL routes (keep these before catch-all)
+    {
+      "source": "/quantum-portal",
+      "destination": "/selector.html"
+    },
+    {
+      "source": "/cosmic-dashboard",
+      "destination": "/home/index.html"
+    },
+    {
+      "source": "/digital-library",
+      "destination": "/docs.html"
+    },
+    {
+      "source": "/neo-workshop",
+      "destination": "/editor.html"
+    },
+    {
+      "source": "/virtual-explorer",
+      "destination": "/explore.html"
+    },
+    {
+      "source": "/synth-config",
+      "destination": "/config.json"
+    },
+    {
+      "source": "/stellar-docs",
+      "destination": "/Docs/docs.html"
+    },
+    {
+      "source": "/cyber-studio",
+      "destination": "/Editor/editor.html"
+    },
+    {
+      "source": "/orbital-discovery",
+      "destination": "/Explore/explore.html"
+    },
+    {
+      "source": "/dragon-login",
+      "destination": "/Login/login.html"
+    },
+    {
+      "source": "/phoenix-admin",
+      "destination": "/Private/admin.html"
+    },
+    // Catch-all for everything else (MUST BE LAST)
     {
       "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
