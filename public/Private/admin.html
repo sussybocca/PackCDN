@@ -1070,7 +1070,7 @@ async function generateIPValidator(timestamp) {
         // ============================
         // API COMMUNICATION
         // ============================
- async function makeSecureRequest(action, data = {}) {
+ async function makeSecureRequest(action, requestParams = {}) {
   const password = currentSession.token || document.getElementById('password').value;
   if (!password) {
     addLog('ERROR: No authentication token available', 'danger');
@@ -1081,8 +1081,26 @@ async function generateIPValidator(timestamp) {
   const timestamp = new Date().toISOString();
 
   try {
-    // 1. Generate signature - IMPORTANT: For GET_ALL_TABLES and GET_TABLE, pass null for data
-    const signatureData = ['GET_ALL_TABLES', 'GET_TABLE'].includes(action) ? null : data;
+    console.log('🔐 FRONTEND DEBUG REQUEST:', {
+      action: action,
+      timestamp: timestamp,
+      params: requestParams
+    });
+
+    // 1. Generate signature - Handle different actions differently
+    let signatureData = null;
+    
+    if (['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+      // For these actions, don't include any data in signature
+      signatureData = null;
+    } else if (action === 'RAW_SQL') {
+      // For SQL, include the query string in signature
+      signatureData = { query: requestParams.query };
+    } else {
+      // For INSERT/UPDATE/DELETE, include the data object
+      signatureData = requestParams.data || requestParams;
+    }
+    
     const signature = await generateSignature(password, timestamp, action, signatureData);
     
     // 2. Generate IP validator with THE SAME timestamp
@@ -1092,7 +1110,7 @@ async function generateIPValidator(timestamp) {
       throw new Error('Signature generation failed');
     }
 
-    // 3. Build request data - IMPORTANT: Only include data for non-read actions
+    // 3. Build request data - MATCHES BACKEND EXPECTATIONS
     const requestData = {
       password: password,
       timestamp: timestamp,
@@ -1100,10 +1118,30 @@ async function generateIPValidator(timestamp) {
       action: action
     };
 
-    // Only add data property for non-read actions
-    if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-      requestData.data = data;
+    // Add parameters based on action type (MATCHES BACKEND)
+    if (action === 'GET_TABLE') {
+      requestData.table = requestParams.table;
+      requestData.limit = requestParams.limit || 100;
+    } else if (action === 'RAW_SQL') {
+      requestData.query = requestParams.query;
+    } else if (action === 'INSERT' || action === 'UPDATE' || action === 'DELETE') {
+      // For these actions, backend expects data in req.body.data
+      requestData.data = requestParams.data || requestParams;
+      if (action === 'UPDATE' || action === 'DELETE') {
+        requestData.id = requestParams.id;
+      }
+      if (action === 'UPDATE') {
+        requestData.table = requestParams.table;
+      }
+      if (action === 'DELETE') {
+        requestData.table = requestParams.table;
+      }
     }
+
+    console.log('🔐 FRONTEND SENDING REQUEST (Formatted for Backend):', {
+      action: action,
+      fullBody: requestData
+    });
 
     addLog(`API: Sending ${action} request...`, 'info');
 
@@ -1259,45 +1297,73 @@ async function generateIPValidator(timestamp) {
             });
         }
 
-        async function selectTable(tableName) {
-            addLog(`DATABASE: Loading table "${tableName}"...`, 'info');
-            updateOperationTerminal(`Loading table "${tableName}"...`);
-            
-            const result = await makeSecureRequest('GET_TABLE', {
-                table: tableName,
-                limit: parseInt(document.getElementById('rowLimit').value)
-            });
-            
-            if (result && result.data) {
-                currentSession.currentTable = tableName;
-                currentSession.currentData = result.data;
-                
-                // Update UI
-                document.getElementById('currentTable').textContent = tableName;
-                document.getElementById('btnInsert').disabled = false;
-                document.getElementById('btnUpdate').disabled = false;
-                document.getElementById('btnDelete').disabled = false;
-                document.getElementById('btnView').disabled = false;
-                
-                // Clear selection
-                currentSession.selectedRows.clear();
-                
-                // Display data
-                displayTableData(result.data);
-                
-                // Update table list highlighting
-                document.querySelectorAll('.table-item').forEach(item => {
-                    item.classList.remove('active');
-                    if (item.textContent.includes(tableName)) {
-                        item.classList.add('active');
-                    }
-                });
-                
-                addLog(`Table "${tableName}" loaded (${result.data.length} rows)`, 'success');
-                updateOperationTerminal(`Table "${tableName}" ready. ${result.data.length} rows loaded.`);
-            }
-        }
+        async function makeSecureRequest(action, requestParams = {}) {
+  const password = currentSession.token || document.getElementById('password').value;
+  if (!password) {
+    addLog('ERROR: No authentication token available', 'danger');
+    return null;
+  }
 
+  const timestamp = new Date().toISOString();
+
+  try {
+    console.log('🔐 FRONTEND REQUEST:', { action, params: requestParams });
+
+    // Generate signature - for GET_TABLE, use null as data
+    const signatureData = ['GET_ALL_TABLES', 'GET_TABLE'].includes(action) ? null : requestParams;
+    const signature = await generateSignature(password, timestamp, action, signatureData);
+    
+    const ipValidator = await generateIPValidator(timestamp);
+
+    if (!signature) {
+      throw new Error('Signature generation failed');
+    }
+
+    // Build request - MATCH BACKEND EXPECTATIONS
+    const requestData = {
+      password: password,
+      timestamp: timestamp,
+      signature: signature,
+      action: action
+    };
+
+    // CRITICAL FIX: For GET_TABLE, add table and limit directly to requestData
+    if (action === 'GET_TABLE') {
+      requestData.table = requestParams.table;
+      requestData.limit = requestParams.limit || 100;
+    }
+    // For other actions that need data field
+    else if (['INSERT', 'UPDATE', 'DELETE', 'RAW_SQL'].includes(action)) {
+      requestData.data = requestParams;
+    }
+
+    console.log('🔐 FRONTEND SENDING:', requestData);
+
+    addLog(`API: Sending ${action} request...`, 'info');
+
+    const response = await fetch('/api/admin/database', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-IP-Validator': ipValidator
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      addLog(`API: ${action} completed successfully`, 'success');
+      return result;
+    } else {
+      console.error('API Error Response:', result);
+      throw new Error(result.error || result.firewall || `API request failed: ${action}`);
+    }
+  } catch (error) {
+    addLog(`API ERROR: ${error.message}`, 'danger');
+    return null;
+  }
+}
         function displayTableData(data) {
             const table = document.getElementById('dataTable');
             table.innerHTML = '';
