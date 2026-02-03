@@ -1,4 +1,4 @@
-// /api/admin/database.js - UPDATED TO MATCH FRONTEND
+// /api/admin/database.js - UPDATED WITH NULL DATA FIX
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -151,22 +151,34 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    // 6. Signature validation with HMAC - UPDATED TO MATCH FRONTEND
+    // 6. Signature validation with HMAC - FIXED TO HANDLE NULL DATA
     let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
-    
-    // MATCH FRONTEND LOGIC: Include data for actions that aren't GET_ALL_TABLES or GET_TABLE
-    if (req.body.data && Object.keys(req.body.data).length > 0 && 
-        !['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-      const dataString = typeof req.body.data === 'string' 
-        ? req.body.data 
-        : JSON.stringify(req.body.data);
-      signatureMessage += `:${dataString}`;
+
+    // FIX: Properly handle null/undefined data for GET_TABLE/GET_ALL_TABLES
+    if (req.body.data !== undefined && req.body.data !== null) {
+      // Check if data is an object with keys
+      if (typeof req.body.data === 'object' && Object.keys(req.body.data).length > 0) {
+        // Only include data in signature for non-read actions
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          const dataString = JSON.stringify(req.body.data);
+          signatureMessage += `:${dataString}`;
+        }
+        // For GET_TABLE/GET_ALL_TABLES, data might contain table/limit properties
+        // but these should NOT be included in the signature
+      } else if (typeof req.body.data === 'string' && req.body.data.trim() !== '') {
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          signatureMessage += `:${req.body.data}`;
+        }
+      }
     }
 
     console.log('🔐 BACKEND SIGNATURE MESSAGE:', {
       action: action,
-      hasData: !!(req.body.data && Object.keys(req.body.data).length > 0),
-      includedData: !['GET_ALL_TABLES', 'GET_TABLE'].includes(action),
+      hasData: req.body.data !== undefined && req.body.data !== null,
+      dataValue: req.body.data,
+      includedInSignature: !['GET_ALL_TABLES', 'GET_TABLE'].includes(action) && 
+                          req.body.data && 
+                          Object.keys(req.body.data || {}).length > 0,
       message: signatureMessage.substring(0, 100) + '...'
     });
 
