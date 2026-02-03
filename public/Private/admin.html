@@ -1082,14 +1082,13 @@ async function makeSecureRequest(action, data = {}) {
       throw new Error('Signature generation failed');
     }
 
-    // 3. Build request data
-    const requestData = {
-      password: password,
-      timestamp: timestamp, // This matches what both validators use
-      signature: signature,
-      action: action,
-      ...data
-    };
+    const signature = await generateSignature(
+    password, 
+    timestamp, 
+    action, 
+    action === 'GET_ALL_TABLES' ? null : data  // Don't include data for GET_ALL_TABLES
+  );
+  
 
     addLog(`API: Sending ${action} request...`, 'info');
 
