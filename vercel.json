@@ -1,11 +1,5 @@
 {
   "rewrites": [
- 
-    {
-      "source": "/((?!api|_next|static|.*\\..*).*)",
-      "destination": "/api/wildcard-redirect"
-    },
-  
     {
       "source": "/",
       "destination": "/selector.html"
@@ -30,13 +24,16 @@
       "source": "/config.json",
       "destination": "/config.json"
     },
-   
     {
       "source": "/api/random-urls",
       "destination": "/api/random-urls"
     },
     {
       "source": "/api/wildcard-redirect",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
