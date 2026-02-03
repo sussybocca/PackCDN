@@ -1075,13 +1075,10 @@ async function generateIPValidator(timestamp) {
   const timestamp = new Date().toISOString();
 
   try {
-    // 1. Generate signature - DON'T include empty data for GET_ALL_TABLES
-  const signature = await generateSignature(
-  password, 
-  timestamp, 
-  action, 
-  action === 'GET_ALL_TABLES' || action === 'GET_TABLE' ? null : data
-);
+    // 1. Generate signature - IMPORTANT: For GET_ALL_TABLES and GET_TABLE, pass null for data
+    const signatureData = ['GET_ALL_TABLES', 'GET_TABLE'].includes(action) ? null : data;
+    const signature = await generateSignature(password, timestamp, action, signatureData);
+    
     // 2. Generate IP validator with THE SAME timestamp
     const ipValidator = await generateIPValidator(timestamp);
 
@@ -1089,14 +1086,18 @@ async function generateIPValidator(timestamp) {
       throw new Error('Signature generation failed');
     }
 
-    // 3. Build request data
+    // 3. Build request data - IMPORTANT: Only include data for non-read actions
     const requestData = {
       password: password,
       timestamp: timestamp,
       signature: signature,
-      action: action,
-      ...data
+      action: action
     };
+
+    // Only add data property for non-read actions
+    if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+      requestData.data = data;
+    }
 
     addLog(`API: Sending ${action} request...`, 'info');
 
