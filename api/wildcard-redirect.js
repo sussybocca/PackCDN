@@ -1,10 +1,33 @@
 // api/wildcard-redirect.js
 export default function handler(req, res) {
-  const path = req.url.split('?')[0];
+  const fullPath = req.url;
+  const path = fullPath.split('?')[0];
   
-  // Map of actual files to their fun URL names
+  console.log(`🌐 Processing: ${path}`);
+  
+  // ALL your actual files from build output
+  const allFiles = [
+    '/config.json',
+    '/docs.html',
+    '/Docs/docs.html',
+    '/Docs/Pages/Home/index.html',
+    '/Docs/Pages/Home/Pages/Editor/editor.html',
+    '/Docs/Pages/Home/Pages/Explore/explore.html',
+    '/editor.html',
+    '/Editor/editor.html',
+    '/explore.html',
+    '/Explore/explore.html',
+    '/home/editor.html',
+    '/home/explore.html',
+    '/home/index.html',
+    '/Login/login.html',
+    '/Private/admin.html',
+    '/selector.html'
+  ];
+  
+  // Enhanced file to fun URL mappings with ALL files
   const fileToFunUrl = {
-    // Core files
+    // Core navigation
     '/selector.html': 'quantum-portal',
     '/home/index.html': 'cosmic-dashboard',
     '/docs.html': 'digital-library',
@@ -12,134 +35,266 @@ export default function handler(req, res) {
     '/explore.html': 'virtual-explorer',
     '/config.json': 'synth-config',
     
-    // Docs files
+    // Docs hierarchy
     '/Docs/docs.html': 'stellar-docs',
-    '/Docs/Pages/Home/index.html': 'home-core',
-    '/Docs/Pages/Home/Pages/Editor/editor.html': 'editor-nexus',
-    '/Docs/Pages/Home/Pages/Explore/explore.html': 'explore-gateway',
+    '/Docs/Pages/Home/index.html': 'home-core-nexus',
+    '/Docs/Pages/Home/Pages/Editor/editor.html': 'editor-matrix',
+    '/Docs/Pages/Home/Pages/Explore/explore.html': 'explore-vortex',
     
-    // Editor files
+    // Editor variations
     '/editor.html': 'cyber-studio',
     '/Editor/editor.html': 'arcane-editor',
     
-    // Explore files
+    // Explore variations
     '/explore.html': 'orbital-discovery',
     '/Explore/explore.html': 'celestial-explorer',
     
-    // Auth files
+    // Auth and admin
     '/Login/login.html': 'dragon-login',
     '/Private/admin.html': 'phoenix-admin',
     
-    // Home files
+    // Home workspace
     '/home/editor.html': 'home-studio',
     '/home/explore.html': 'home-discovery',
-    '/selector.html': 'home-portal'
+    
+    // Additional files from build
+    '/config.json': 'crypto-config',
+    '/docs.html': 'knowledge-archive',
+    '/Explore/explore.html': 'stellar-navigator',
+    '/Editor/editor.html': 'digital-forge'
   };
   
-  // Reverse map: fun URL back to file
+  // Build reverse mapping with variations
   const funUrlToFile = {};
-  for (const [file, funName] of Object.entries(fileToFunUrl)) {
-    funUrlToFile['/' + funName] = file;
-    // Add variations
-    funUrlToFile['/' + funName + '-v1'] = file;
-    funUrlToFile['/' + funName + '-v2'] = file;
-    funUrlToFile['/' + funName + '-v3'] = file;
-    funUrlToFile['/api/' + funName] = file;
-    funUrlToFile['/v1/' + funName] = file;
-    funUrlToFile['/v2/' + funName] = file;
+  const funUrlVariations = {};
+  
+  for (const [file, baseFunName] of Object.entries(fileToFunUrl)) {
+    // Create multiple variations for each file
+    const variations = [
+      `/${baseFunName}`,
+      `/${baseFunName}-v1`,
+      `/${baseFunName}-v2`,
+      `/${baseFunName}-v3`,
+      `/${baseFunName}-v4`,
+      `/${baseFunName}-v5`,
+      `/${baseFunName}-pro`,
+      `/${baseFunName}-ultra`,
+      `/${baseFunName}-max`,
+      `/api/${baseFunName}`,
+      `/v1/${baseFunName}`,
+      `/v2/${baseFunName}`,
+      `/v3/${baseFunName}`,
+      `/gateway/${baseFunName}`,
+      `/portal/${baseFunName}`,
+      `/nexus/${baseFunName}`,
+      `/core/${baseFunName}`
+    ];
+    
+    variations.forEach(variation => {
+      funUrlToFile[variation] = file;
+      funUrlVariations[variation] = {
+        file: file,
+        baseName: baseFunName,
+        variation: variation.replace('/', '')
+      };
+    });
   }
   
-  // Word banks for generating MORE fun URLs
+  // Massive word banks for infinite fun URL generation
   const wordBanks = {
-    tech: ['quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 'ai', 'ml'],
-    space: ['cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 'quasar', 'wormhole'],
-    nature: ['forest', 'ocean', 'mountain', 'river', 'crystal', 'ember', 'blaze', 'frost', 'storm', 'thunder'],
-    fantasy: ['dragon', 'phoenix', 'wizard', 'arcane', 'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic'],
-    future: ['neo', 'ultra', 'hyper', 'mega', 'tera', 'peta', 'omega', 'alpha', 'beta', 'gamma'],
-    portals: ['gate', 'portal', 'door', 'window', 'bridge', 'tunnel', 'path', 'route', 'gateway', 'access'],
-    places: ['nexus', 'hub', 'core', 'center', 'matrix', 'grid', 'network', 'web', 'cloud', 'cluster']
+    tech: ['quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 'ai', 'ml', 'bot', 'chip', 'data', 'cloud'],
+    space: ['cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 'quasar', 'wormhole', 'void', 'singularity', 'event-horizon', 'supernova'],
+    nature: ['forest', 'ocean', 'mountain', 'river', 'crystal', 'ember', 'blaze', 'frost', 'storm', 'thunder', 'leaf', 'stone', 'fire', 'ice'],
+    fantasy: ['dragon', 'phoenix', 'wizard', 'arcane', 'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic', 'knight', 'castle', 'realm', 'scroll'],
+    future: ['neo', 'ultra', 'hyper', 'mega', 'tera', 'peta', 'omega', 'alpha', 'beta', 'gamma', 'delta', 'sigma', 'zeta', 'theta'],
+    portals: ['gate', 'portal', 'door', 'window', 'bridge', 'tunnel', 'path', 'route', 'gateway', 'access', 'entry', 'exit', 'passage', 'corridor'],
+    places: ['nexus', 'hub', 'core', 'center', 'matrix', 'grid', 'network', 'web', 'cloud', 'cluster', 'node', 'terminal', 'station', 'outpost'],
+    cosmic: ['constellation', 'galaxy', 'universe', 'multiverse', 'dimension', 'reality', 'plane', 'existence', 'infinity', 'eternity', 'singularity', 'infinity'],
+    digital: ['binary', 'byte', 'pixel', 'render', 'stream', 'buffer', 'cache', 'memory', 'storage', 'server', 'client', 'protocol', 'packet', 'bandwidth']
   };
   
-  // Generate hash for deterministic fun URLs
-  function getHash(str) {
-    let hash = 0;
+  // Enhanced hash function with more randomness
+  function getHash(str, seed = 5381) {
+    let hash = seed;
     for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
       hash = hash & hash;
     }
     return Math.abs(hash);
   }
   
-  // Check if this is a file that has a fun URL mapping
-  if (fileToFunUrl[path]) {
-    const funName = fileToFunUrl[path];
-    const funUrl = '/' + funName + '-v' + ((getHash(path) % 5) + 1);
+  // Generate fun URL from hash with more creativity
+  function generateFunUrlFromHash(hashValue, pathStr) {
+    const categories = Object.keys(wordBanks);
+    const numWords = 2 + (hashValue % 4); // 2-5 words
     
-    console.log(`🔗 ${path} has fun URL: ${funUrl}`);
+    let url = '/';
+    const usedCategories = new Set();
     
-    // PERMANENT redirect to fun URL (301)
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Fun-URL', funUrl);
+    for (let i = 0; i < numWords; i++) {
+      let categoryIndex;
+      let attempts = 0;
+      
+      // Try to use different categories
+      do {
+        categoryIndex = (hashValue * (i + 1) * (attempts + 1)) % categories.length;
+        attempts++;
+      } while (usedCategories.has(categoryIndex) && attempts < 10);
+      
+      usedCategories.add(categoryIndex);
+      const category = categories[categoryIndex];
+      const words = wordBanks[category];
+      const wordIndex = (hashValue * (i + 2) * (attempts + 1)) % words.length;
+      const word = words[wordIndex];
+      url += word + (i < numWords - 1 ? '-' : '');
+    }
+    
+    // Multiple variation types
+    const variationTypes = [
+      () => url + '-v' + ((hashValue % 99) + 1),
+      () => url + ((hashValue % 999) + 1),
+      () => url + '-' + hashValue.toString(36).slice(0, 8),
+      () => '/api/' + url.slice(1) + '-api',
+      () => '/v' + ((hashValue % 5) + 1) + '/' + url.slice(1),
+      () => url + '-portal',
+      () => url + '-gateway',
+      () => url + '-nexus',
+      () => url + '-core',
+      () => url + '-matrix',
+      () => url + '-hub',
+      () => url + '-terminal',
+      () => url + '-station',
+      () => url + '-outpost',
+      () => url + '-forge',
+      () => url + '-archive',
+      () => url + '-library',
+      () => url + '-workshop',
+      () => url + '-lab',
+      () => url + '-factory'
+    ];
+    
+    const variationIndex = (hashValue * pathStr.length) % variationTypes.length;
+    return variationTypes[variationIndex]();
+  }
+  
+  // Check if this is an actual file that should have a fun URL
+  if (allFiles.includes(path)) {
+    const hash = getHash(path, path.length * 13);
+    const funUrl = generateFunUrlFromHash(hash, path);
+    
+    console.log(`🔗 FILE DETECTED: ${path}`);
+    console.log(`   ↳ Generating fun URL: ${funUrl}`);
+    
+    // Store this mapping
+    funUrlToFile[funUrl] = path;
+    funUrlVariations[funUrl] = {
+      file: path,
+      baseName: path.split('/').pop().replace('.html', '').replace('.json', ''),
+      variation: 'auto-generated',
+      generatedAt: new Date().toISOString()
+    };
+    
+    // 301 PERMANENT redirect to fun URL
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('X-Fun-URL-System', 'enabled');
     res.setHeader('X-Original-File', path);
+    res.setHeader('X-Generated-Fun-URL', funUrl);
+    res.setHeader('X-File-Hash', hash.toString());
+    res.setHeader('X-Total-Mappings', Object.keys(funUrlToFile).length.toString());
     
     return res.redirect(301, funUrl);
   }
   
-  // Check if this is a fun URL that maps to a file
+  // Check if this is a known fun URL
   if (funUrlToFile[path]) {
     const targetFile = funUrlToFile[path];
+    const variationInfo = funUrlVariations[path] || {};
     
-    console.log(`🎉 Fun URL ${path} → ${targetFile}`);
+    console.log(`🎉 FUN URL ACCESS: ${path}`);
+    console.log(`   ↳ Mapping to file: ${targetFile}`);
+    console.log(`   ↳ Variation info:`, variationInfo);
     
-    // Serve the actual file (via redirect since it exists as static file)
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Serving-File', targetFile);
+    // Serve the actual file
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('X-Fun-URL-System', 'serving');
+    res.setHeader('X-Target-File', targetFile);
+    res.setHeader('X-Fun-URL', path);
+    res.setHeader('X-Variation-Type', variationInfo.variation || 'standard');
     
     return res.redirect(302, targetFile);
   }
   
-  // Generate a NEW fun URL for any unknown path
-  const hash = getHash(path);
-  const categories = Object.keys(wordBanks);
-  const numWords = 2 + (hash % 3);
-  
-  let generatedFunUrl = '/';
-  for (let i = 0; i < numWords; i++) {
-    const catIndex = (hash * (i + 1)) % categories.length;
-    const category = categories[catIndex];
-    const words = wordBanks[category];
-    const wordIndex = (hash * (i + 2)) % words.length;
-    generatedFunUrl += words[wordIndex] + (i < numWords - 1 ? '-' : '');
+  // Handle API info requests
+  if (path === '/fun-url-system-info' || path.includes('/show-system')) {
+    const totalMappings = Object.keys(funUrlToFile).length;
+    const sampleMappings = Object.entries(funUrlToFile).slice(0, 20).map(([funUrl, file]) => ({
+      funUrl,
+      file,
+      example: `https://pack-cdn.vercel.app${funUrl}`
+    }));
+    
+    return res.json({
+      system: 'Advanced Fun URL Generation System',
+      status: 'active',
+      timestamp: new Date().toISOString(),
+      totalFiles: allFiles.length,
+      totalFunUrlMappings: totalMappings,
+      wordCategories: Object.keys(wordBanks).length,
+      totalWords: Object.values(wordBanks).reduce((sum, arr) => sum + arr.length, 0),
+      possibleCombinations: 'Millions (generated on-demand)',
+      sampleMappings: sampleMappings,
+      endpoints: {
+        systemInfo: '/fun-url-system-info',
+        generateTest: '/generate-test-url',
+        allFiles: '/list-all-files'
+      }
+    });
   }
   
-  // Add version
-  generatedFunUrl += '-v' + ((hash % 10) + 1);
+  // Generate a NEW fun URL for any unknown path
+  const hash = getHash(path, path.length * 17);
+  const generatedFunUrl = generateFunUrlFromHash(hash, path);
   
-  // Pick a random file to map this new fun URL to
-  const allFiles = Object.keys(fileToFunUrl);
+  // Pick a file to map this to
   const fileIndex = hash % allFiles.length;
   const mappedFile = allFiles[fileIndex];
   
-  // Store the mapping
+  // Store the new mapping
   funUrlToFile[generatedFunUrl] = mappedFile;
+  funUrlVariations[generatedFunUrl] = {
+    file: mappedFile,
+    baseName: 'auto-generated',
+    variation: 'dynamic',
+    generatedAt: new Date().toISOString(),
+    originalPath: path
+  };
   
-  console.log(`✨ Generated new fun URL: ${path} → ${generatedFunUrl} → ${mappedFile}`);
+  console.log(`✨ DYNAMIC GENERATION: ${path}`);
+  console.log(`   ↳ Generated fun URL: ${generatedFunUrl}`);
+  console.log(`   ↳ Mapped to file: ${mappedFile}`);
+  console.log(`   ↳ Total mappings now: ${Object.keys(funUrlToFile).length}`);
   
-  // Redirect to show what would happen
-  if (path.includes('show')) {
+  // If it's a test request, show info
+  if (path.includes('/test') || path.includes('/generate')) {
     return res.json({
-      system: 'Fun URL Transformer',
+      action: 'dynamic-fun-url-generation',
       originalPath: path,
       generatedFunUrl: generatedFunUrl,
-      mapsToFile: mappedFile,
+      mappedToFile: mappedFile,
+      hash: hash,
       totalMappings: Object.keys(funUrlToFile).length,
-      exampleFunUrls: Object.keys(funUrlToFile).slice(0, 10)
+      tryUrl: `https://pack-cdn.vercel.app${generatedFunUrl}`,
+      systemInfo: 'Visit /fun-url-system-info for complete system details'
     });
   }
   
   // Redirect to the actual file
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('X-Fun-URL-System', 'dynamic-generation');
   res.setHeader('X-Generated-Fun-URL', generatedFunUrl);
+  res.setHeader('X-Mapped-To-File', mappedFile);
+  res.setHeader('X-Original-Path', path);
+  res.setHeader('X-Generation-Hash', hash.toString());
   
   return res.redirect(302, mappedFile);
 }
