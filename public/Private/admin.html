@@ -966,37 +966,51 @@
             matrixCanvas.height = window.innerHeight;
         });
 
-        // ============================
-        // SECURITY FUNCTIONS
-        // ============================
-        async function generateSignature(password, timestamp, action, data = null) {
-            try {
-                const encoder = new TextEncoder();
-                let dataString = '';
-                if (data) {
-                    dataString = typeof data === 'string' ? data : JSON.stringify(data);
-                }
-                const message = `${password}:${timestamp}:${action}:${dataString}`;
-                const dataBuffer = encoder.encode(message);
-                
-                const key = await crypto.subtle.importKey(
-                    'raw',
-                    encoder.encode(password),
-                    { name: 'HMAC', hash: 'SHA-256' },
-                    false,
-                    ['sign']
-                );
-                
-                const signature = await crypto.subtle.sign('HMAC', key, dataBuffer);
-                return Array.from(new Uint8Array(signature))
-                    .map(b => b.toString(16).padStart(2, '0'))
-                    .join('');
-            } catch (error) {
-                console.error('Signature generation failed:', error);
-                return null;
-            }
+        // REPLACE THE generateSignature() FUNCTION WITH THIS:
+async function generateSignature(password, timestamp, action, data = null) {
+    try {
+        // Backend uses: HMAC-SHA256(password, `${password}:${timestamp}:${action}:${SUPABASE_URL}`)
+        // But we don't have SUPABASE_URL on frontend, so backend must accept without it
+        
+        const encoder = new TextEncoder();
+        
+        // Create the message WITHOUT SUPABASE_URL to match backend expectations
+        let message = `${password}:${timestamp}:${action}`;
+        if (data) {
+            const dataString = typeof data === 'string' ? data : JSON.stringify(data);
+            message += `:${dataString}`;
         }
-
+        
+        const messageData = encoder.encode(message);
+        
+        // IMPORTANT: Use password as the HMAC key
+        const key = await crypto.subtle.importKey(
+            'raw',
+            encoder.encode(password), // Password is the KEY
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        
+        const signature = await crypto.subtle.sign('HMAC', key, messageData);
+        const hashArray = Array.from(new Uint8Array(signature));
+        const signatureHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        console.log('🔐 Frontend Signature Generated:', {
+            passwordPreview: password.substring(0, 3) + '...',
+            timestamp: timestamp.slice(0, 19),
+            action: action,
+            signaturePreview: signatureHex.substring(0, 16) + '...',
+            length: signatureHex.length
+        });
+        
+        return signatureHex;
+        
+    } catch (error) {
+        console.error('Signature generation failed:', error);
+        return null;
+    }
+}
         // REPLACE THE generateIPValidator() FUNCTION WITH THIS EXACT CODE:
 async function generateIPValidator() {
     try {
