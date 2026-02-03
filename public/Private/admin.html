@@ -973,8 +973,13 @@
     // Get SUPABASE_URL from currentSession or environment
     const supabaseUrl = currentSession.supabaseUrl || 'https://legmizhfmslpdviijtwt.supabase.co';
     
-    // Create the message WITH SUPABASE_URL to match backend
-    let message = `${password}:${timestamp}:${action}:${supabaseUrl}`;
+    // =========== FIX THIS PART ===========
+    // MASK the URL to match backend (use '***.supabase.co' instead of actual)
+    const maskedUrl = supabaseUrl.replace(/\/\/(.*?)\.supabase\.co/, '//***.supabase.co');
+    
+    // Create the message WITH MASKED SUPABASE_URL to match backend
+    let message = `${password}:${timestamp}:${action}:${maskedUrl}`;
+    // =========== END FIX ===========
     
     // Check if data should be included - FIXED to handle null properly
     if (data !== null && data !== undefined) {
@@ -993,6 +998,7 @@
     }
     
     console.log('🔐 FRONTEND FINAL SIGNATURE MESSAGE:', message.substring(0, 100) + '...');
+    console.log('🔐 FRONTEND MASKED URL:', maskedUrl);
     
     const messageData = encoder.encode(message);
     
