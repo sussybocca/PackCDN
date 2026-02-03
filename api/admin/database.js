@@ -1,4 +1,4 @@
-// /api/admin/database.js - ACTUALLY FIXED
+// /api/admin/database.js - FINALLY FIXED
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -47,7 +47,7 @@ const withSecurity = (handler) => async (req, res) => {
     // Get timestamp from request
     const timestamp = req.body?.timestamp || ''
     
-    // Parse IP validation from request headers - FRONTEND IS SENDING: SHA256(password + timestamp.slice(0, 10))
+    // Parse IP validation from request headers
     const requestIPHash = req.headers['x-ip-validator']
     
     // Generate expected hash: SHA256(ADMIN_PASSWORD + timestamp.slice(0, 10))
@@ -55,7 +55,7 @@ const withSecurity = (handler) => async (req, res) => {
       .createHash('sha256')
       .update(ADMIN_PASSWORD + timestamp.slice(0, 10))
       .digest('hex')
-      .slice(0, 32) // Frontend sends 32 chars
+      .slice(0, 32)
 
     console.log('🔐 IP VALIDATOR DEBUG:', {
       received: requestIPHash?.substring(0, 8) + '...',
@@ -68,18 +68,6 @@ const withSecurity = (handler) => async (req, res) => {
     // Enhanced IP validation
     if (!requestIPHash || requestIPHash !== expectedIPHash) {
       console.warn(`🚨 Firewall blocked: Invalid IP validator from ${clientIP}`)
-      console.warn(`Expected (first 16): ${expectedIPHash.substring(0, 16)}`)
-      console.warn(`Received (first 16): ${requestIPHash?.substring(0, 16) || 'none'}`)
-      
-      // Log potential attack attempt
-      const attackLog = {
-        timestamp: new Date().toISOString(),
-        ip: clientIP,
-        userAgent: req.headers['user-agent'],
-        attemptedAction: req.body?.action || 'unknown'
-      }
-      console.warn('Potential attack:', attackLog)
-      
       return res.status(403).json({ 
         error: 'Firewall violation - Invalid request signature',
         timestamp: new Date().toISOString(),
@@ -151,45 +139,57 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    // 6. SIGNATURE VALIDATION - ACTUALLY FIXED THIS TIME
-    let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
-
-    // THE ACTUAL FIX: Frontend doesn't send 'data' field for GET_TABLE/GET_ALL_TABLES
-    // So we need to check if it EXISTS, not just if it's not null/undefined
-    const hasDataField = 'data' in req.body;
-    const bodyData = req.body.data;
-    
-    console.log('🔐 DATA FIELD CHECK:', {
-      action: action,
-      hasDataField: hasDataField,
-      dataValue: bodyData,
-      dataType: typeof bodyData
-    });
-
-    // Only include data in signature if:
-    // 1. The 'data' field EXISTS in the request (hasDataField is true)
-    // 2. The data has actual content (not empty object/string)
-    // 3. The action is NOT GET_ALL_TABLES or GET_TABLE
-    if (hasDataField && bodyData !== null && bodyData !== undefined) {
-      if (typeof bodyData === 'object' && Object.keys(bodyData).length > 0) {
-        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-          const dataString = JSON.stringify(bodyData);
-          signatureMessage += `:${dataString}`;
-        }
-      } else if (typeof bodyData === 'string' && bodyData.trim() !== '') {
-        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
-          signatureMessage += `:${bodyData}`;
-        }
-      }
+    // 6. PASSWORD VALIDATION (must come before signature check)
+    if (password !== ADMIN_PASSWORD) {
+      console.warn(`🚨 Failed password attempt from IP: ${clientIP}`)
+      return res.status(401).json({ 
+        error: 'Unauthorized access',
+        firewall: 'password-validation'
+      })
     }
 
-    console.log('🔐 BACKEND SIGNATURE MESSAGE:', {
+    // 7. SIGNATURE VALIDATION - FIXED VERSION
+    // Start with the base message that BOTH frontend and backend agree on
+    let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
+    
+    // Get the data from request body
+    const bodyData = req.body.data;
+    
+    console.log('🔐 SIGNATURE DEBUG - START:', {
       action: action,
-      hasDataField: hasDataField,
-      includedDataInSignature: signatureMessage.includes(':' + JSON.stringify(bodyData)) || 
-                               (typeof bodyData === 'string' && signatureMessage.includes(':' + bodyData)),
-      message: signatureMessage.substring(0, 100) + '...'
+      hasDataInBody: 'data' in req.body,
+      dataType: typeof bodyData,
+      dataValue: bodyData
     });
+    
+    // CRITICAL FIX: Handle data inclusion EXACTLY like frontend
+    // Frontend logic for GET_ALL_TABLES and GET_TABLE: data = null
+    if (['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+      // For these actions, frontend passes data = null, so signature should NOT include data
+      console.log('🔐 SKIPPING data for read-only actions');
+    } 
+    // For other actions (INSERT, UPDATE, DELETE, RAW_SQL)
+    else if (bodyData !== null && bodyData !== undefined) {
+      // Check if it's an object with keys
+      if (typeof bodyData === 'object' && Object.keys(bodyData).length > 0) {
+        const dataString = JSON.stringify(bodyData);
+        signatureMessage += `:${dataString}`;
+        console.log('🔐 INCLUDING object data:', dataString.substring(0, 50) + '...');
+      } 
+      // Check if it's a non-empty string
+      else if (typeof bodyData === 'string' && bodyData.trim() !== '') {
+        signatureMessage += `:${bodyData}`;
+        console.log('🔐 INCLUDING string data:', bodyData.substring(0, 50) + '...');
+      }
+      else {
+        console.log('🔐 NO data to include (empty or invalid)');
+      }
+    }
+    else {
+      console.log('🔐 NO data field or data is null/undefined');
+    }
+
+    console.log('🔐 BACKEND FINAL SIGNATURE MESSAGE:', signatureMessage.substring(0, 100) + '...');
 
     // IMPORTANT: Use password as HMAC key (matches frontend)
     const expectedSignature = crypto
@@ -197,7 +197,7 @@ const withSecurity = (handler) => async (req, res) => {
       .update(signatureMessage)
       .digest('hex')
 
-    console.log('🔐 SIGNATURE DEBUG:', {
+    console.log('🔐 SIGNATURE COMPARISON:', {
       received: signature?.substring(0, 16) + '...',
       expected: expectedSignature?.substring(0, 16) + '...',
       matches: signature === expectedSignature
@@ -205,18 +205,10 @@ const withSecurity = (handler) => async (req, res) => {
 
     if (signature !== expectedSignature) {
       console.warn(`🚨 Invalid signature from IP: ${clientIP}`)
+      console.warn('Expected message was:', signatureMessage)
       return res.status(401).json({ 
         error: 'Invalid request signature',
         firewall: 'signature-validation'
-      })
-    }
-
-    // 7. Password validation
-    if (password !== ADMIN_PASSWORD) {
-      console.warn(`🚨 Failed password attempt from IP: ${clientIP}`)
-      return res.status(401).json({ 
-        error: 'Unauthorized access',
-        firewall: 'password-validation'
       })
     }
 
@@ -253,7 +245,7 @@ const withSecurity = (handler) => async (req, res) => {
   }
 }
 
-// Main handler with full database management - UNCHANGED
+// Main handler with full database management
 export default withSecurity(async (req, res, supabase, clientIP) => {
   try {
     const { action, table, data, query, id, limit = 1000 } = req.body
