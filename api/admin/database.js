@@ -1,4 +1,4 @@
-// /api/admin/database.js - FINALLY FIXED
+// /api/admin/database.js - FIXED WITH MASKED URL
 
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
@@ -148,9 +148,12 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    // 7. SIGNATURE VALIDATION - FIXED VERSION
+    // 7. SIGNATURE VALIDATION - FIXED WITH MASKED URL
+    // Get masked URL for signature (EXACTLY matches frontend)
+    const maskedSupabaseUrl = SUPABASE_URL.replace(/\/\/(.*?)\.supabase\.co/, '//***.supabase.co');
+    
     // Start with the base message that BOTH frontend and backend agree on
-    let signatureMessage = `${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`;
+    let signatureMessage = `${password}:${bodyTimestamp}:${action}:${maskedSupabaseUrl}`;
     
     // Get the data from request body
     const bodyData = req.body.data;
@@ -159,11 +162,11 @@ const withSecurity = (handler) => async (req, res) => {
       action: action,
       hasDataInBody: 'data' in req.body,
       dataType: typeof bodyData,
-      dataValue: bodyData
+      dataValue: bodyData,
+      maskedUrl: maskedSupabaseUrl
     });
     
     // CRITICAL FIX: Handle data inclusion EXACTLY like frontend
-    // Frontend logic for GET_ALL_TABLES and GET_TABLE: data = null
     if (['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
       // For these actions, frontend passes data = null, so signature should NOT include data
       console.log('🔐 SKIPPING data for read-only actions');
@@ -195,21 +198,26 @@ const withSecurity = (handler) => async (req, res) => {
     const expectedSignature = crypto
       .createHmac('sha256', password)
       .update(signatureMessage)
-      .digest('hex')
+      .digest('hex');
 
     console.log('🔐 SIGNATURE COMPARISON:', {
       received: signature?.substring(0, 16) + '...',
       expected: expectedSignature?.substring(0, 16) + '...',
-      matches: signature === expectedSignature
-    })
+      matches: signature === expectedSignature,
+      receivedFull: signature,
+      expectedFull: expectedSignature
+    });
 
     if (signature !== expectedSignature) {
-      console.warn(`🚨 Invalid signature from IP: ${clientIP}`)
-      console.warn('Expected message was:', signatureMessage)
+      console.warn(`🚨 Invalid signature from IP: ${clientIP}`);
+      console.warn('Expected message was:', signatureMessage);
+      console.warn('Full expected signature:', expectedSignature);
+      console.warn('Full received signature:', signature);
       return res.status(401).json({ 
         error: 'Invalid request signature',
-        firewall: 'signature-validation'
-      })
+        firewall: 'signature-validation',
+        details: 'Signature mismatch - check URL format'
+      });
     }
 
     // 8. Create Supabase client with service role key
@@ -232,16 +240,16 @@ const withSecurity = (handler) => async (req, res) => {
     )
 
     // 9. All security checks passed - proceed to handler
-    console.log(`✅ Secure access granted for action: ${action} from IP: ${clientIP}`)
-    return handler(req, res, supabase, clientIP)
+    console.log(`✅ Secure access granted for action: ${action} from IP: ${clientIP}`);
+    return handler(req, res, supabase, clientIP);
 
   } catch (error) {
-    console.error('❌ Security middleware error:', error)
+    console.error('❌ Security middleware error:', error);
     return res.status(500).json({ 
       error: 'Security check failed',
       details: 'Internal server error',
       firewall: 'error'
-    })
+    });
   }
 }
 
