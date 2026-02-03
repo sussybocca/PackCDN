@@ -2,47 +2,27 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/selector.html"
     },
     {
       "source": "/home",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/home/index.html"
     },
     {
       "source": "/docs",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/docs.html"
     },
     {
       "source": "/editor",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/editor.html"
     },
     {
       "source": "/explore",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/explore.html"
     },
     {
       "source": "/config.json",
-      "destination": "/api/wildcard-redirect"
-    },
-    {
-      "source": "/Docs/:path*",
-      "destination": "/api/wildcard-redirect"
-    },
-    {
-      "source": "/Editor/:path*",
-      "destination": "/api/wildcard-redirect"
-    },
-    {
-      "source": "/Explore/:path*",
-      "destination": "/api/wildcard-redirect"
-    },
-    {
-      "source": "/Login/:path*",
-      "destination": "/api/wildcard-redirect"
-    },
-    {
-      "source": "/Private/:path*",
-      "destination": "/api/wildcard-redirect"
+      "destination": "/config.json"
     },
     {
       "source": "/api/random-urls",
@@ -53,7 +33,7 @@
       "destination": "/api/wildcard-redirect"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\..*).*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
@@ -61,32 +41,32 @@
     {
       "source": "/portal",
       "destination": "/",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/gateway",
       "destination": "/home",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/library",
       "destination": "/docs",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/workshop",
       "destination": "/editor",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/discover",
       "destination": "/explore",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/settings",
       "destination": "/config.json",
-      "permanent": false
+      "permanent": true
     }
   ],
   "headers": [
