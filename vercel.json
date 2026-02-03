@@ -1,6 +1,50 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/home",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/editor",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/explore",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/config.json",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/Docs/:path*",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/Editor/:path*",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/Explore/:path*",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/Login/:path*",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
+      "source": "/Private/:path*",
+      "destination": "/api/wildcard-redirect"
+    },
+    {
       "source": "/api/random-urls",
       "destination": "/api/random-urls"
     },
