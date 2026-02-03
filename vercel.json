@@ -32,9 +32,8 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-   
     {
-      "source": "/((?!.*\\..*).*)",
+      "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
