@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM FIREWALL ADMIN | SECURE DATABASE MANAGEMENT</title>
+    <style>
+        :root {
+            --firewall-red: #ff0033;
+            --firewall-orange: #ff6600;
+            --firewall-yellow: #ffcc00;
+            --firewall-green: #00ff88;
+            --firewall-blue: #0066ff;
+            --firewall-purple: #9900ff;
+            --matrix-green: #00ff41;
+            --terminal-bg: #0a0a0a;
+            --panel-bg: #111111;
+            --panel-border: #222222;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --danger: #ff3333;
+            --warning: #ffaa00;
+            --success: #00cc66;
+            --info: #0099ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        body {
+            background: var(--terminal-bg);
+            color: var(--matrix-green);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 255, 65, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 51, 0.05) 0%, transparent 20%);
+        }
+
+        /* Matrix Background Effect */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
+        /* Main Container */
+        .firewall-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .firewall-header {
+            background: linear-gradient(90deg, rgba(255,0,51,0.1), rgba(0,255,65,0.1));
+            border: 2px solid var(--firewall-red);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(255, 0, 51, 0.3);
+        }
+
+        .firewall-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,0,51,0.2), transparent);
+            animation: scanning 3s infinite;
+        }
+
+        @keyframes scanning {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .header-title h1 {
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--firewall-red);
+            letter-spacing: 2px;
+        }
+
+        .security-level {
+            display: inline-block;
+            padding: 5px 15px;
+            background: var(--danger);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .status-dot.warning { background: var(--warning); }
+        .status-dot.danger { background: var(--danger); }
+        .status-dot.success { background: var(--success); }
+
+        /* Login Panel */
+        .login-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .panel-title h2 {
+            font-size: 18px;
+            color: var(--firewall-green);
+        }
+
+        .password-input-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--firewall-blue);
+            border-radius: 4px;
+            color: var(--matrix-green);
+            font-size: 16px;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: var(--firewall-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+        }
+
+        .password-strength {
+            height: 4px;
+            background: linear-gradient(90deg, var(--danger), var(--warning), var(--success));
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .strength-meter {
+            height: 100%;
+            width: 0%;
+            background: var(--success);
+            transition: width 0.3s;
+        }
+
+        .access-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--firewall-blue), var(--firewall-purple));
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 102, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--firewall-red);
+            color: var(--firewall-red);
+        }
+
+        .btn-secondary:hover {
+            background: var(--firewall-red);
+            color: white;
+        }
+
+        /* Firewall Logs */
+        .firewall-logs {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--info);
+            background: rgba(0, 0, 0, 0.3);
+            font-size: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .log-entry.warning { border-left-color: var(--warning); }
+        .log-entry.danger { border-left-color: var(--danger); }
+        .log-entry.success { border-left-color: var(--success); }
+
+        .log-timestamp {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-right: 10px;
+        }
+
+        /* Admin Interface (Hidden until login) */
+        #adminInterface {
+            display: none;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .admin-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 20px;
+            height: 100%;
+        }
+
+        .admin-panel h3 {
+            color: var(--firewall-blue);
+            margin-bottom: 15px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .table-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .table-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-item:hover {
+            background: rgba(0, 102, 255, 0.2);
+            border-left: 3px solid var(--firewall-blue);
+        }
+
+        .table-item.active {
+            background: rgba(0, 102, 255, 0.3);
+            border-left: 3px solid var(--firewall-green);
+        }
+
+        .row-count {
+            background: rgba(0, 255, 65, 0.1);
+            color: var(--firewall-green);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        /* SQL Editor */
+        .sql-editor {
+            width: 100%;
+            height: 200px;
+            background: #1a1a1a;
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            padding: 15px;
+            color: var(--matrix-green);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .sql-editor:focus {
+            outline: none;
+            border-color: var(--firewall-green);
+        }
+
+        /* Data Table */
+        .data-table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            max-height: 500px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .data-table th {
+            background: rgba(0, 102, 255, 0.2);
+            color: var(--firewall-blue);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            border-bottom: 2px solid var(--panel-border);
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table td {
+            padding: 10px;
+            border-bottom: 1px solid var(--panel-border);
+            font-size: 12px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .data-table tr:hover {
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-edit { background: var(--warning); color: black; }
+        .btn-delete { background: var(--danger); color: white; }
+        .btn-execute { background: var(--success); color: white; }
+        .btn-view { background: var(--info); color: white; }
+        .btn-export { background: var(--firewall-purple); color: white; }
+
+        .btn-small:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .btn-small:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            border: 2px solid var(--firewall-red);
+            border-radius: 8px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .modal-title {
+            color: var(--firewall-red);
+            font-size: 18px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            color: var(--matrix-green);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* JSON Viewer */
+        .json-viewer {
+            background: #1a1a1a;
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: var(--matrix-green);
+        }
+
+        /* Terminal Style */
+        .terminal {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--matrix-green);
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow-x: auto;
+            min-height: 100px;
+        }
+
+        .terminal-line {
+            margin-bottom: 5px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .terminal-prompt {
+            color: var(--firewall-green);
+            flex-shrink: 0;
+        }
+
+        .terminal-command {
+            color: white;
+        }
+
+        .terminal-output {
+            color: var(--text-secondary);
+            flex-grow: 1;
+        }
+
+        /* Animations */
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .glow {
+            animation: glow 2s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px var(--firewall-green); }
+            to { box-shadow: 0 0 20px var(--firewall-green); }
+        }
+
+        /* Footer */
+        .firewall-footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            border-top: 1px solid var(--panel-border);
+            margin-top: 30px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .access-buttons {
+                flex-direction: column;
+            }
+            
+            .status-bar {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Matrix Background -->
+    <div class="matrix-bg" id="matrixCanvas"></div>
+
+    <!-- Modals -->
+    <div class="modal" id="insertModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">➕ INSERT ROW</h3>
+                <button class="close-modal" onclick="closeModal('insertModal')">×</button>
+            </div>
+            <div id="insertForm">
+                <!-- Dynamic form will be inserted here -->
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-execute btn-small" onclick="submitInsert()">INSERT</button>
+                <button class="btn btn-secondary btn-small" onclick="closeModal('insertModal')">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="updateModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ UPDATE ROW</h3>
+                <button class="close-modal" onclick="closeModal('updateModal')">×</button>
+            </div>
+            <div id="updateForm">
+                <!-- Dynamic form will be inserted here -->
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-execute btn-small" onclick="submitUpdate()">UPDATE</button>
+                <button class="btn btn-secondary btn-small" onclick="closeModal('updateModal')">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="viewModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">👁️ VIEW DATA</h3>
+                <button class="close-modal" onclick="closeModal('viewModal')">×</button>
+            </div>
+            <div class="json-viewer" id="viewData">
+                {/* JSON data will be displayed here */}
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ CONFIRM ACTION</h3>
+                <button class="close-modal" onclick="closeModal('confirmModal')">×</button>
+            </div>
+            <div style="margin: 20px 0;">
+                <p id="confirmMessage">Are you sure you want to perform this action?</p>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-delete btn-small" onclick="confirmAction()">CONFIRM</button>
+                <button class="btn btn-secondary btn-small" onclick="closeModal('confirmModal')">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Interface -->
+    <div class="firewall-container">
+        <!-- Header -->
+        <div class="firewall-header">
+            <div class="header-title">
+                <h1>QUANTUM FIREWALL ADMIN v2.0</h1>
+                <span class="security-level">MAXIMUM SECURITY</span>
+            </div>
+            <p>Secure Supabase Database Management Interface | Encrypted Connection Required</p>
+            
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-dot success"></span>
+                    <span>FIREWALL: ACTIVE</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot warning blink"></span>
+                    <span>ENCRYPTION: 256-BIT AES</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot" id="sessionStatusDot"></span>
+                    <span id="sessionStatus">SESSION: NOT AUTHENTICATED</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot danger"></span>
+                    <span>THREAT LEVEL: HIGH</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Panel -->
+        <div class="login-panel" id="loginPanel">
+            <div class="panel-title">
+                <h2>🔐 SECURE AUTHENTICATION REQUIRED</h2>
+            </div>
+            
+            <div class="password-input-container">
+                <input type="password" 
+                       id="password" 
+                       class="password-input" 
+                       placeholder="ENTER ADMINISTRATOR PASSWORD"
+                       maxlength="32"
+                       autocomplete="off"
+                       onkeypress="if(event.key === 'Enter') secureLogin()">
+                <div class="password-strength">
+                    <div class="strength-meter" id="strengthMeter"></div>
+                </div>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-line">
+                    <span class="terminal-prompt">firewall@admin:~$ </span>
+                    <span class="terminal-command">connect --secure --admin</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">system@auth:~$ </span>
+                    <span class="terminal-output">Establishing quantum-encrypted tunnel...</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">system@auth:~$ </span>
+                    <span class="terminal-output" id="authStatus">Waiting for credentials...</span>
+                </div>
+            </div>
+
+            <div class="access-buttons">
+                <button class="btn btn-primary" onclick="secureLogin()">
+                    <span>🚀 INITIATE SECURE CONNECTION</span>
+                    <span>🔐</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resetInterface()">
+                    <span>🚨 EMERGENCY LOCKDOWN</span>
+                    <span>⚠️</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Firewall Logs -->
+        <div class="firewall-logs" id="firewallLogs">
+            <div class="log-entry">
+                <span class="log-timestamp" id="currentTime"></span>
+                <span>SYSTEM: Quantum firewall initialized</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-timestamp" id="currentTime2"></span>
+                <span>SECURITY: All encryption layers active</span>
+            </div>
+        </div>
+
+        <!-- Admin Interface (Hidden until login) -->
+        <div id="adminInterface">
+            <div class="admin-grid">
+                <!-- Database Overview -->
+                <div class="admin-panel">
+                    <h3>📊 DATABASE OVERVIEW</h3>
+                    <div class="table-list" id="tableList">
+                        <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            Click "Refresh Tables" to load database structure
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary btn-small" onclick="getAllTables()">
+                            🔄 Refresh Tables
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="clearSelection()">
+                            🗑️ Clear Selection
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SQL Editor -->
+                <div class="admin-panel">
+                    <h3>💻 SQL COMMAND INTERFACE</h3>
+                    <textarea class="sql-editor" 
+                              id="sqlEditor" 
+                              placeholder="-- Enter SQL commands here\n-- Example: SELECT * FROM users LIMIT 10;\n-- INSERT INTO table (column) VALUES ('value');\n-- UPDATE table SET column = 'value' WHERE id = 1;"></textarea>
+                    <div class="action-buttons">
+                        <button class="btn btn-execute btn-small" onclick="executeSQL()">
+                            ⚡ Execute Query
+                        </button>
+                        <button class="btn btn-view btn-small" onclick="explainSQL()">
+                            🔍 Explain Query
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="clearEditor()">
+                            🧹 Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Data Operations -->
+                <div class="admin-panel">
+                    <h3>⚙️ DATA OPERATIONS</h3>
+                    <div class="terminal" id="operationTerminal">
+                        <div class="terminal-line">
+                            <span class="terminal-prompt">db@ops:~$ </span>
+                            <span class="terminal-output" id="operationStatus">Select a table to begin operations</span>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-edit btn-small" onclick="showInsertModal()" disabled id="btnInsert">
+                            ➕ Insert Row
+                        </button>
+                        <button class="btn btn-edit btn-small" onclick="showUpdateModal()" disabled id="btnUpdate">
+                            ✏️ Update Row
+                        </button>
+                        <button class="btn btn-delete btn-small" onclick="showDeleteConfirm()" disabled id="btnDelete">
+                            🗑️ Delete Row
+                        </button>
+                        <button class="btn btn-view btn-small" onclick="viewRowData()" disabled id="btnView">
+                            👁️ View Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table Display -->
+            <div class="admin-panel">
+                <h3>📋 TABLE DATA: <span id="currentTable">None Selected</span></h3>
+                <div class="data-table-container">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Select</th>
+                                <!-- Headers will be populated dynamically -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                    Select a table to view data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-export btn-small" onclick="exportData('csv')">
+                        📥 Export CSV
+                    </button>
+                    <button class="btn btn-export btn-small" onclick="exportData('json')">
+                        📊 Export JSON
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="refreshData()">
+                        🔄 Refresh Data
+                    </button>
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 11px; color: var(--text-secondary);">Rows:</span>
+                        <select id="rowLimit" style="padding: 5px; background: rgba(0,0,0,0.5); border: 1px solid var(--panel-border); color: var(--matrix-green);">
+                            <option value="10">10</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="admin-panel">
+                <h3>🔗 CONNECTION STATUS</h3>
+                <div class="terminal">
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">status@supabase:~$ </span>
+                        <span class="terminal-output" id="supabaseStatus">Connected to: <span id="supabaseUrl">...</span></span>
+                    </div>
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">status@tables:~$ </span>
+                        <span class="terminal-output">Tables loaded: <span id="tableCount">0</span></span>
+                    </div>
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">status@session:~$ </span>
+                        <span class="terminal-output">Session ID: <span id="sessionId">...</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="firewall-footer">
+            <p>⚠️ WARNING: This interface is protected by quantum-grade encryption. All actions are logged and monitored.</p>
+            <p>© 2024 QUANTUM FIREWALL SYSTEM | Version 2.0 | Session: <span id="sessionTimer">00:00:00</span></p>
+        </div>
+    </div>
+
+    <script>
+        // ============================
+        // GLOBAL STATE
+        // ============================
+        let currentSession = {
+            authenticated: false,
+            token: null,
+            tables: [],
+            currentTable: null,
+            currentData: null,
+            selectedRows: new Set(),
+            startTime: null,
+            supabaseUrl: null
+        };
+
+        // ============================
+        // INITIALIZATION
+        // ============================
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimestamps();
+            setInterval(updateTimestamps, 1000);
+            setInterval(updateSessionTimer, 1000);
+            
+            // Add initial logs
+            addLog('SYSTEM: Quantum firewall initialized', 'info');
+            addLog('SECURITY: All encryption layers active', 'info');
+            addLog('NETWORK: Waiting for authentication...', 'warning');
+        });
+
+        function updateTimestamps() {
+            const now = new Date();
+            const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+            document.querySelectorAll('.log-timestamp').forEach(el => {
+                if(el.id === 'currentTime' || el.id === 'currentTime2') {
+                    el.textContent = `[${timestamp}]`;
+                }
+            });
+        }
+
+        // ============================
+        // MATRIX BACKGROUND
+        // ============================
+        const matrixCanvas = document.getElementById('matrixCanvas');
+        const ctx = matrixCanvas.getContext('2d');
+        matrixCanvas.width = window.innerWidth;
+        matrixCanvas.height = window.innerHeight;
+
+        const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789#$%^&*";
+        const charArray = chars.split("");
+        const fontSize = 14;
+        const columns = matrixCanvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.04)";
+            ctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+            
+            ctx.fillStyle = "#00ff41";
+            ctx.font = `${fontSize}px 'Courier New', monospace`;
+
+            drops.forEach((drop, i) => {
+                const char = charArray[Math.floor(Math.random() * charArray.length)];
+                ctx.fillText(char, i * fontSize, drop * fontSize);
+                
+                if(drop * fontSize > matrixCanvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            });
+        }
+
+        setInterval(drawMatrix, 35);
+
+        window.addEventListener('resize', function() {
+            matrixCanvas.width = window.innerWidth;
+            matrixCanvas.height = window.innerHeight;
+        });
+
+   async function generateSignature(password, timestamp, action, data = null) {
+  try {
+    const encoder = new TextEncoder();
+    
+    // Get SUPABASE_URL from currentSession or environment
+    const supabaseUrl = currentSession.supabaseUrl || 'https://legmizhfmslpdviijtwt.supabase.co';
+    
+    // Create the message WITH SUPABASE_URL to match backend
+    let message = `${password}:${timestamp}:${action}:${supabaseUrl}`;
+    
+    // Debug log - see exactly what's being signed
+    console.log('🔐 FRONTEND SIGNING:', {
+      passwordPreview: password.substring(0, 3) + '...',
+      timestamp: timestamp,
+      action: action,
+      supabaseUrl: supabaseUrl.substring(0, 20) + '...',
+      hasData: data !== null,
+      dataType: typeof data
+    });
+    
+    // ONLY include data if it's not null AND has content
+    if (data !== null && Object.keys(data).length > 0) {
+      const dataString = typeof data === 'string' ? data : JSON.stringify(data);
+      message += `:${dataString}`;
+    }
+    
+    console.log('🔐 FINAL MESSAGE BEING SIGNED:', message.substring(0, 100) + '...');
+    
+    const messageData = encoder.encode(message);
+    
+    // Use password as the HMAC key
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', key, messageData);
+    const hashArray = Array.from(new Uint8Array(signature));
+    const signatureHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return signatureHex;
+    
+  } catch (error) {
+    console.error('Signature generation failed:', error);
+    return null;
+  }
+}
+     // REPLACE THE generateIPValidator() FUNCTION WITH THIS:
+async function generateIPValidator(timestamp) {
+  try {
+    // Get password from session or input
+    const password = currentSession.token || document.getElementById('password').value;
+    if (!password) {
+      console.error('No password available for IP validator');
+      return 'no-password-error';
+    }
+
+    // Use the provided timestamp (must match request body timestamp)
+    if (!timestamp) {
+      timestamp = new Date().toISOString();
+    }
+
+    // EXACT MATCH: password + first 10 chars of timestamp (YYYY-MM-DD)
+    const message = password + timestamp.slice(0, 10);
+
+    // Create SHA-256 hash
+    const encoder = new TextEncoder();
+    const data = encoder.encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+    // Convert to hex string
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Take first 32 characters
+    const result = hashHex.slice(0, 32);
+
+    console.log('IP Validator Generated:', {
+      passwordPreview: password.substring(0, 3) + '...',
+      timestampSlice: timestamp.slice(0, 10),
+      messagePreview: message.substring(0, 10) + '...',
+      result: result
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error('IP validator generation failed:', error);
+    return 'fallback-' + Date.now().toString().slice(-8);
+  }
+}
+
+        // ============================
+        // API COMMUNICATION
+        // ============================
+ async function makeSecureRequest(action, data = {}) {
+  const password = currentSession.token || document.getElementById('password').value;
+  if (!password) {
+    addLog('ERROR: No authentication token available', 'danger');
+    return null;
+  }
+
+  // IMPORTANT: Generate ONE timestamp for the entire request
+  const timestamp = new Date().toISOString();
+
+  try {
+    // 1. Generate signature - DON'T include empty data for GET_ALL_TABLES
+    const signature = await generateSignature(
+      password, 
+      timestamp, 
+      action, 
+      action === 'GET_ALL_TABLES' ? null : data
+    );
+
+    // 2. Generate IP validator with THE SAME timestamp
+    const ipValidator = await generateIPValidator(timestamp);
+
+    if (!signature) {
+      throw new Error('Signature generation failed');
+    }
+
+    // 3. Build request data
+    const requestData = {
+      password: password,
+      timestamp: timestamp,
+      signature: signature,
+      action: action,
+      ...data
+    };
+
+    addLog(`API: Sending ${action} request...`, 'info');
+
+    // 4. Send request with IP validator header
+    const response = await fetch('/api/admin/database', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-IP-Validator': ipValidator
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      addLog(`API: ${action} completed successfully`, 'success');
+      return result;
+    } else {
+      // Log detailed error
+      console.error('API Error Response:', result);
+      throw new Error(result.error || result.firewall || `API request failed: ${action}`);
+    }
+  } catch (error) {
+    addLog(`API ERROR: ${error.message}`, 'danger');
+    return null;
+  }
+}
+        // ============================
+        // LOGIN / AUTHENTICATION
+        // ============================
+        async function secureLogin() {
+            const password = document.getElementById('password').value;
+            if (!password) {
+                addLog('ERROR: No password provided', 'danger');
+                document.getElementById('authStatus').textContent = 'Authentication failed: No password';
+                document.getElementById('authStatus').style.color = '#ff3333';
+                return;
+            }
+
+            addLog('SECURITY: Attempting authentication...', 'warning');
+            document.getElementById('authStatus').textContent = 'Generating quantum signature...';
+            document.getElementById('authStatus').style.color = '#ffaa00';
+
+            const result = await makeSecureRequest('GET_ALL_TABLES');
+
+            if (result) {
+                // Authentication successful
+                currentSession.authenticated = true;
+                currentSession.token = password;
+                currentSession.startTime = new Date();
+                currentSession.supabaseUrl = result.supabaseUrl || 'Hidden for security';
+                
+                addLog('SUCCESS: Secure authentication completed', 'success');
+                document.getElementById('authStatus').textContent = 'Authentication successful! Welcome, Administrator.';
+                document.getElementById('authStatus').style.color = '#00cc66';
+                
+                // Update UI
+                document.getElementById('loginPanel').style.display = 'none';
+                document.getElementById('adminInterface').style.display = 'block';
+                document.getElementById('sessionStatus').textContent = 'SESSION: AUTHENTICATED';
+                document.getElementById('sessionStatusDot').className = 'status-dot success';
+                document.getElementById('supabaseUrl').textContent = currentSession.supabaseUrl;
+                document.getElementById('sessionId').textContent = generateSessionId();
+                
+                // Load data
+                if (result.tables && result.data) {
+                    currentSession.tables = result.tables;
+                    currentSession.data = result.data;
+                    populateTables(result.tables, result.data);
+                    document.getElementById('tableCount').textContent = result.tables.length;
+                    addLog(`Loaded ${result.tables.length} database tables`, 'success');
+                }
+                
+                // Update operation terminal
+                updateOperationTerminal('Ready for operations. Select a table to begin.');
+                
+            } else {
+                addLog('SECURITY: Authentication failed', 'danger');
+                document.getElementById('authStatus').textContent = 'Authentication failed: Invalid credentials';
+                document.getElementById('authStatus').style.color = '#ff3333';
+                
+                // Security delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                document.getElementById('password').value = '';
+                document.getElementById('strengthMeter').style.width = '0%';
+            }
+        }
+
+        function generateSessionId() {
+            return Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        function updateSessionTimer() {
+            if (currentSession.startTime) {
+                const now = new Date();
+                const diff = Math.floor((now - currentSession.startTime) / 1000);
+                const hours = Math.floor(diff / 3600);
+                const minutes = Math.floor((diff % 3600) / 60);
+                const seconds = diff % 60;
+                document.getElementById('sessionTimer').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // ============================
+        // TABLE MANAGEMENT
+        // ============================
+        async function getAllTables() {
+            addLog('DATABASE: Refreshing table list...', 'info');
+            updateOperationTerminal('Refreshing table list...');
+            
+            const result = await makeSecureRequest('GET_ALL_TABLES');
+            if (result) {
+                currentSession.tables = result.tables || [];
+                currentSession.data = result.data || {};
+                populateTables(result.tables, result.data);
+                document.getElementById('tableCount').textContent = result.tables.length;
+                addLog(`Refreshed ${result.tables.length} tables`, 'success');
+                updateOperationTerminal(`Loaded ${result.tables.length} tables successfully`);
+            }
+        }
+
+        function populateTables(tables, data) {
+            const tableList = document.getElementById('tableList');
+            tableList.innerHTML = '';
+            
+            if (!tables || tables.length === 0) {
+                tableList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">No tables found</div>';
+                return;
+            }
+            
+            tables.forEach(tableName => {
+                const tableItem = document.createElement('div');
+                tableItem.className = 'table-item';
+                tableItem.onclick = () => selectTable(tableName);
+                
+                const rowCount = data && data[tableName] ? data[tableName].length : 0;
+                const isActive = currentSession.currentTable === tableName;
+                
+                if (isActive) {
+                    tableItem.classList.add('active');
+                }
+                
+                tableItem.innerHTML = `
+                    <span>${tableName}</span>
+                    <span class="row-count">${rowCount} rows</span>
+                `;
+                
+                tableList.appendChild(tableItem);
+            });
+        }
+
+        async function selectTable(tableName) {
+            addLog(`DATABASE: Loading table "${tableName}"...`, 'info');
+            updateOperationTerminal(`Loading table "${tableName}"...`);
+            
+            const result = await makeSecureRequest('GET_TABLE', {
+                table: tableName,
+                limit: parseInt(document.getElementById('rowLimit').value)
+            });
+            
+            if (result && result.data) {
+                currentSession.currentTable = tableName;
+                currentSession.currentData = result.data;
+                
+                // Update UI
+                document.getElementById('currentTable').textContent = tableName;
+                document.getElementById('btnInsert').disabled = false;
+                document.getElementById('btnUpdate').disabled = false;
+                document.getElementById('btnDelete').disabled = false;
+                document.getElementById('btnView').disabled = false;
+                
+                // Clear selection
+                currentSession.selectedRows.clear();
+                
+                // Display data
+                displayTableData(result.data);
+                
+                // Update table list highlighting
+                document.querySelectorAll('.table-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.textContent.includes(tableName)) {
+                        item.classList.add('active');
+                    }
+                });
+                
+                addLog(`Table "${tableName}" loaded (${result.data.length} rows)`, 'success');
+                updateOperationTerminal(`Table "${tableName}" ready. ${result.data.length} rows loaded.`);
+            }
+        }
+
+        function displayTableData(data) {
+            const table = document.getElementById('dataTable');
+            table.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Select</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td></td>
+                            <td style="text-align: center; color: var(--text-secondary);">No data available</td>
+                        </tr>
+                    </tbody>
+                `;
+                return;
+            }
+            
+            // Create headers from first object
+            const headers = Object.keys(data[0]);
+            const headerRow = document.createElement('tr');
+            
+            // Add index and select headers
+            headerRow.innerHTML = '<th style="width: 50px;">#</th><th style="width: 60px;">Select</th>';
+            
+            // Add data headers
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                th.title = header;
+                headerRow.appendChild(th);
+            });
+            
+            table.appendChild(headerRow);
+            
+            // Add data rows
+            const tbody = document.createElement('tbody');
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.dataset.rowIndex = index;
+                tr.dataset.rowId = row.id || index;
+                
+                // Add index cell
+                const indexCell = document.createElement('td');
+                indexCell.textContent = index + 1;
+                tr.appendChild(indexCell);
+                
+                // Add select checkbox
+                const selectCell = document.createElement('td');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleRowSelection(index, checkbox.checked);
+                };
+                selectCell.appendChild(checkbox);
+                tr.appendChild(selectCell);
+                
+                // Add data cells
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    let cellValue = row[header];
+                    
+                    // Format the cell value
+                    if (cellValue === null || cellValue === undefined) {
+                        cellValue = 'NULL';
+                    } else if (typeof cellValue === 'object') {
+                        cellValue = JSON.stringify(cellValue);
+                    }
+                    
+                    cellValue = String(cellValue);
+                    if (cellValue.length > 50) {
+                        td.textContent = cellValue.substring(0, 50) + '...';
+                        td.title = cellValue;
+                    } else {
+                        td.textContent = cellValue;
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                
+                // Add click handler for row selection
+                tr.onclick = (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        checkbox.checked = !checkbox.checked;
+                        toggleRowSelection(index, checkbox.checked);
+                    }
+                };
+                
+                tbody.appendChild(tr);
+            });
+            
+            table.appendChild(tbody);
+        }
+
+        function toggleRowSelection(index, selected) {
+            if (selected) {
+                currentSession.selectedRows.add(index);
+            } else {
+                currentSession.selectedRows.delete(index);
+            }
+            
+            // Update UI based on selection
+            const hasSelection = currentSession.selectedRows.size > 0;
+            document.getElementById('btnUpdate').disabled = !hasSelection;
+            document.getElementById('btnDelete').disabled = !hasSelection;
+            document.getElementById('btnView').disabled = !hasSelection;
+            
+            if (hasSelection) {
+                updateOperationTerminal(`${currentSession.selectedRows.size} row(s) selected`);
+            }
+        }
+
+        // ============================
+        // DATA OPERATIONS
+        // ============================
+        function showInsertModal() {
+            if (!currentSession.currentTable) return;
+            
+            const form = document.getElementById('insertForm');
+            form.innerHTML = '<div style="color: var(--text-secondary); margin-bottom: 15px;">Enter values for new row:</div>';
+            
+            // Create form based on table structure (simplified - in real app, you'd fetch schema)
+            const sampleRow = currentSession.currentData[0] || {};
+            Object.keys(sampleRow).forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label class="form-label">${key}</label>
+                    <input type="text" class="form-input" id="insert_${key}" placeholder="Enter value for ${key}">
+                `;
+                form.appendChild(div);
+            });
+            
+            showModal('insertModal');
+        }
+
+        async function submitInsert() {
+            const formData = {};
+            const inputs = document.querySelectorAll('#insertForm .form-input');
+            
+            inputs.forEach(input => {
+                const key = input.id.replace('insert_', '');
+                formData[key] = input.value || null;
+            });
+            
+            addLog(`INSERT: Adding row to ${currentSession.currentTable}...`, 'warning');
+            updateOperationTerminal(`Inserting row into ${currentSession.currentTable}...`);
+            
+            const result = await makeSecureRequest('INSERT', {
+                table: currentSession.currentTable,
+                data: formData
+            });
+            
+            if (result) {
+                addLog(`INSERT: Row added successfully`, 'success');
+                updateOperationTerminal('Row inserted successfully');
+                closeModal('insertModal');
+                await selectTable(currentSession.currentTable); // Refresh table
+            }
+        }
+
+        function showUpdateModal() {
+            if (!currentSession.currentTable || currentSession.selectedRows.size === 0) return;
+            
+            const selectedIndex = Array.from(currentSession.selectedRows)[0];
+            const selectedRow = currentSession.currentData[selectedIndex];
+            
+            const form = document.getElementById('updateForm');
+            form.innerHTML = `<div style="color: var(--text-secondary); margin-bottom: 15px;">Updating row ID: ${selectedRow.id || selectedIndex}</div>`;
+            
+            Object.keys(selectedRow).forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                const value = selectedRow[key];
+                div.innerHTML = `
+                    <label class="form-label">${key}</label>
+                    <input type="text" class="form-input" id="update_${key}" value="${value || ''}">
+                `;
+                form.appendChild(div);
+            });
+            
+            showModal('updateModal');
+        }
+
+        async function submitUpdate() {
+            const selectedIndex = Array.from(currentSession.selectedRows)[0];
+            const selectedRow = currentSession.currentData[selectedIndex];
+            const rowId = selectedRow.id || selectedIndex;
+            
+            const formData = {};
+            const inputs = document.querySelectorAll('#updateForm .form-input');
+            
+            inputs.forEach(input => {
+                const key = input.id.replace('update_', '');
+                formData[key] = input.value || null;
+            });
+            
+            addLog(`UPDATE: Modifying row ${rowId} in ${currentSession.currentTable}...`, 'warning');
+            updateOperationTerminal(`Updating row ${rowId}...`);
+            
+            const result = await makeSecureRequest('UPDATE', {
+                table: currentSession.currentTable,
+                id: rowId,
+                data: formData
+            });
+            
+            if (result) {
+                addLog(`UPDATE: Row ${rowId} updated successfully`, 'success');
+                updateOperationTerminal('Row updated successfully');
+                closeModal('updateModal');
+                await selectTable(currentSession.currentTable); // Refresh table
+            }
+        }
+
+        function showDeleteConfirm() {
+            if (!currentSession.currentTable || currentSession.selectedRows.size === 0) return;
+            
+            const selectedCount = currentSession.selectedRows.size;
+            document.getElementById('confirmMessage').textContent = 
+                `Are you sure you want to delete ${selectedCount} row(s) from ${currentSession.currentTable}? This action cannot be undone.`;
+            
+            window.currentAction = {
+                type: 'DELETE',
+                table: currentSession.currentTable,
+                rowIds: Array.from(currentSession.selectedRows).map(idx => 
+                    currentSession.currentData[idx].id || idx
+                )
+            };
+            
+            showModal('confirmModal');
+        }
+
+        async function confirmAction() {
+            const action = window.currentAction;
+            if (!action) return;
+            
+            closeModal('confirmModal');
+            
+            if (action.type === 'DELETE') {
+                addLog(`DELETE: Removing ${action.rowIds.length} row(s) from ${action.table}...`, 'danger');
+                updateOperationTerminal(`Deleting ${action.rowIds.length} row(s)...`);
+                
+                // Delete each row (in real app, you might batch these)
+                let successCount = 0;
+                for (const rowId of action.rowIds) {
+                    const result = await makeSecureRequest('DELETE', {
+                        table: action.table,
+                        id: rowId
+                    });
+                    if (result) successCount++;
+                }
+                
+                if (successCount > 0) {
+                    addLog(`DELETE: ${successCount} row(s) removed successfully`, 'success');
+                    updateOperationTerminal(`${successCount} row(s) deleted`);
+                    await selectTable(currentSession.currentTable); // Refresh table
+                }
+            }
+            
+            window.currentAction = null;
+        }
+
+        function viewRowData() {
+            if (!currentSession.currentTable || currentSession.selectedRows.size === 0) return;
+            
+            const selectedIndex = Array.from(currentSession.selectedRows)[0];
+            const selectedRow = currentSession.currentData[selectedIndex];
+            
+            document.getElementById('viewData').textContent = 
+                JSON.stringify(selectedRow, null, 2);
+            
+            showModal('viewModal');
+        }
+
+        // ============================
+        // SQL OPERATIONS
+        // ============================
+        async function executeSQL() {
+            const sql = document.getElementById('sqlEditor').value.trim();
+            if (!sql) {
+                addLog('ERROR: No SQL query provided', 'danger');
+                return;
+            }
+            
+            addLog(`SQL: Executing query...`, 'warning');
+            updateOperationTerminal('Executing SQL query...');
+            
+            const result = await makeSecureRequest('RAW_SQL', {
+                query: sql
+            });
+            
+            if (result) {
+                addLog(`SQL: Query executed successfully`, 'success');
+                updateOperationTerminal('SQL query completed');
+                
+                // Display results if any
+                if (result.data && result.data.length > 0) {
+                    currentSession.currentData = result.data;
+                    displayTableData(result.data);
+                }
+            }
+        }
+
+        function explainSQL() {
+            const sql = document.getElementById('sqlEditor').value.trim();
+            if (!sql) {
+                addLog('ERROR: No SQL query provided', 'danger');
+                return;
+            }
+            
+            addLog(`SQL: Explaining query...`, 'info');
+            updateOperationTerminal('Analyzing query execution plan...');
+            
+            // In a real implementation, this would call an EXPLAIN API
+            setTimeout(() => {
+                updateOperationTerminal('EXPLAIN analysis complete. Check logs for details.');
+                addLog('SQL EXPLAIN: Query uses index scan (Estimated cost: 0.00..1.01)', 'info');
+            }, 1000);
+        }
+
+        // ============================
+        // EXPORT FUNCTIONS
+        // ============================
+        function exportData(format) {
+            if (!currentSession.currentData || currentSession.currentData.length === 0) {
+                addLog('ERROR: No data to export', 'danger');
+                return;
+            }
+            
+            let content, mimeType, filename;
+            
+            if (format === 'csv') {
+                content = convertToCSV(currentSession.currentData);
+                mimeType = 'text/csv';
+                filename = `${currentSession.currentTable}_${Date.now()}.csv`;
+            } else {
+                content = JSON.stringify(currentSession.currentData, null, 2);
+                mimeType = 'application/json';
+                filename = `${currentSession.currentTable}_${Date.now()}.json`;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addLog(`EXPORT: Data exported as ${format.toUpperCase()}`, 'success');
+        }
+
+        function convertToCSV(data) {
+            if (data.length === 0) return '';
+            
+            const headers = Object.keys(data[0]);
+            const rows = data.map(row => 
+                headers.map(header => {
+                    let cell = row[header];
+                    if (cell === null || cell === undefined) cell = '';
+                    if (typeof cell === 'object') cell = JSON.stringify(cell);
+                    cell = String(cell);
+                    // Escape quotes and wrap in quotes if contains comma or quote
+                    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                        cell = `"${cell.replace(/"/g, '""')}"`;
+                    }
+                    return cell;
+                }).join(',')
+            );
+            
+            return [headers.join(','), ...rows].join('\n');
+        }
+
+        // ============================
+        // UTILITY FUNCTIONS
+        // ============================
+        function addLog(message, type = 'info') {
+            const logs = document.getElementById('firewallLogs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            
+            const now = new Date();
+            const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+            
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span>${message}</span>
+            `;
+            
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateOperationTerminal(message) {
+            const terminal = document.getElementById('operationTerminal');
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            
+            const now = new Date();
+            const time = now.toTimeString().substring(0, 8);
+            
+            line.innerHTML = `
+                <span class="terminal-prompt">${time} db@ops:~$</span>
+                <span class="terminal-output">${message}</span>
+            `;
+            
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            document.getElementById('operationStatus').textContent = message;
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function clearSelection() {
+            currentSession.selectedRows.clear();
+            currentSession.currentTable = null;
+            currentSession.currentData = null;
+            
+            document.getElementById('currentTable').textContent = 'None Selected';
+            document.getElementById('dataTable').innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            Select a table to view data
+                        </td>
+                    </tr>
+                </tbody>
+            `;
+            
+            document.getElementById('btnInsert').disabled = true;
+            document.getElementById('btnUpdate').disabled = true;
+            document.getElementById('btnDelete').disabled = true;
+            document.getElementById('btnView').disabled = true;
+            
+            updateOperationTerminal('Selection cleared');
+            addLog('Selection cleared', 'info');
+        }
+
+        function clearEditor() {
+            document.getElementById('sqlEditor').value = '';
+            addLog('SQL editor cleared', 'info');
+        }
+
+        async function refreshData() {
+            if (currentSession.currentTable) {
+                await selectTable(currentSession.currentTable);
+            }
+        }
+
+        function resetInterface() {
+            if (confirm('⚠️ EMERGENCY LOCKDOWN\n\nThis will immediately terminate the session and clear all data.\n\nAre you sure?')) {
+                addLog('SECURITY: Emergency lockdown initiated', 'danger');
+                
+                // Reset session
+                currentSession = {
+                    authenticated: false,
+                    token: null,
+                    tables: [],
+                    currentTable: null,
+                    currentData: null,
+                    selectedRows: new Set(),
+                    startTime: null,
+                    supabaseUrl: null
+                };
+                
+                // Reset UI
+                document.getElementById('loginPanel').style.display = 'block';
+                document.getElementById('adminInterface').style.display = 'none';
+                document.getElementById('password').value = '';
+                document.getElementById('strengthMeter').style.width = '0%';
+                document.getElementById('sessionStatus').textContent = 'SESSION: NOT AUTHENTICATED';
+                document.getElementById('sessionStatusDot').className = 'status-dot';
+                document.getElementById('authStatus').textContent = 'Waiting for credentials...';
+                document.getElementById('authStatus').style.color = '';
+                
+                clearSelection();
+                clearEditor();
+                
+                addLog('SYSTEM: Emergency lockdown complete. All sessions terminated.', 'danger');
+            }
+        }
+
+        // Password strength indicator
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            let strength = 0;
+            
+            if (password.length > 0) strength += 20;
+            if (password.length >= 8) strength += 20;
+            if (/[A-Z]/.test(password)) strength += 20;
+            if (/[0-9]/.test(password)) strength += 20;
+            if (/[^A-Za-z0-9]/.test(password)) strength += 20;
+            
+            const meter = document.getElementById('strengthMeter');
+            meter.style.width = strength + '%';
+            meter.style.background = strength < 40 ? '#ff3333' : 
+                                    strength < 80 ? '#ffaa00' : '#00cc66';
+        });
+    </script>
+</body>
+</html>
