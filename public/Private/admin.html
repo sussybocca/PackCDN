@@ -986,11 +986,13 @@
       dataType: typeof data
     });
     
-    // ONLY include data if it's not null AND has content
-    if (data !== null && Object.keys(data).length > 0) {
-      const dataString = typeof data === 'string' ? data : JSON.stringify(data);
-      message += `:${dataString}`;
-    }
+    
+    // In generateSignature(), change the data inclusion logic:
+if (data !== null && Object.keys(data).length > 0 && 
+    !['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+  const dataString = typeof data === 'string' ? data : JSON.stringify(data);
+  message += `:${dataString}`;
+}
     
     console.log('🔐 FINAL MESSAGE BEING SIGNED:', message.substring(0, 100) + '...');
     
