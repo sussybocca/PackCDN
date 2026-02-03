@@ -1,4 +1,4 @@
-// /api/publish-pack.js
+// /api/publish.js
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
