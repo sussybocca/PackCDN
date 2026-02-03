@@ -1077,17 +1077,12 @@ async function generateIPValidator(timestamp) {
     return null;
   }
 
-  // IMPORTANT: Generate ONE timestamp for the entire request
   const timestamp = new Date().toISOString();
 
   try {
-    console.log('🔐 FRONTEND DEBUG REQUEST:', {
-      action: action,
-      timestamp: timestamp,
-      params: requestParams
-    });
+    console.log('🔐 FRONTEND REQUEST:', { action, params: requestParams });
 
-    // 1. Generate signature - Handle different actions differently
+    // Generate signature - Handle different actions differently
     let signatureData = null;
     
     if (['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
@@ -1096,21 +1091,20 @@ async function generateIPValidator(timestamp) {
     } else if (action === 'RAW_SQL') {
       // For SQL, include the query string in signature
       signatureData = { query: requestParams.query };
-    } else {
+    } else if (action === 'INSERT' || action === 'UPDATE' || action === 'DELETE') {
       // For INSERT/UPDATE/DELETE, include the data object
       signatureData = requestParams.data || requestParams;
     }
     
     const signature = await generateSignature(password, timestamp, action, signatureData);
     
-    // 2. Generate IP validator with THE SAME timestamp
     const ipValidator = await generateIPValidator(timestamp);
 
     if (!signature) {
       throw new Error('Signature generation failed');
     }
 
-    // 3. Build request data - MATCHES BACKEND EXPECTATIONS
+    // Build request - MATCH BACKEND EXPECTATIONS
     const requestData = {
       password: password,
       timestamp: timestamp,
@@ -1122,30 +1116,29 @@ async function generateIPValidator(timestamp) {
     if (action === 'GET_TABLE') {
       requestData.table = requestParams.table;
       requestData.limit = requestParams.limit || 100;
-    } else if (action === 'RAW_SQL') {
+    } 
+    // FIX: Backend expects query directly in req.body for RAW_SQL
+    else if (action === 'RAW_SQL') {
       requestData.query = requestParams.query;
-    } else if (action === 'INSERT' || action === 'UPDATE' || action === 'DELETE') {
-      // For these actions, backend expects data in req.body.data
-      requestData.data = requestParams.data || requestParams;
-      if (action === 'UPDATE' || action === 'DELETE') {
-        requestData.id = requestParams.id;
-      }
-      if (action === 'UPDATE') {
-        requestData.table = requestParams.table;
-      }
-      if (action === 'DELETE') {
-        requestData.table = requestParams.table;
-      }
+    } 
+    else if (action === 'INSERT') {
+      requestData.table = requestParams.table;
+      requestData.data = requestParams.data;
+    }
+    else if (action === 'UPDATE') {
+      requestData.table = requestParams.table;
+      requestData.id = requestParams.id;
+      requestData.data = requestParams.data;
+    }
+    else if (action === 'DELETE') {
+      requestData.table = requestParams.table;
+      requestData.id = requestParams.id;
     }
 
-    console.log('🔐 FRONTEND SENDING REQUEST (Formatted for Backend):', {
-      action: action,
-      fullBody: requestData
-    });
+    console.log('🔐 FRONTEND SENDING:', requestData);
 
     addLog(`API: Sending ${action} request...`, 'info');
 
-    // 4. Send request with IP validator header
     const response = await fetch('/api/admin/database', {
       method: 'POST',
       headers: {
@@ -1161,7 +1154,6 @@ async function generateIPValidator(timestamp) {
       addLog(`API: ${action} completed successfully`, 'success');
       return result;
     } else {
-      // Log detailed error
       console.error('API Error Response:', result);
       throw new Error(result.error || result.firewall || `API request failed: ${action}`);
     }
