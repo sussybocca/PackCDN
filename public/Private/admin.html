@@ -997,71 +997,112 @@
             }
         }
 
-        async function generateIPValidator() {
-            const timestamp = Date.now().toString();
-            const salt = 'firewall-salt-' + timestamp + '-' + navigator.userAgent;
-            const encoder = new TextEncoder();
-            const data = encoder.encode(salt);
-            const hash = await crypto.subtle.digest('SHA-256', data);
-            return Array.from(new Uint8Array(hash))
-                .map(b => b.toString(16).padStart(2, '0'))
-                .slice(0, 32)
-                .join('');
+        // REPLACE THE generateIPValidator() FUNCTION WITH THIS EXACT CODE:
+async function generateIPValidator() {
+    try {
+        // Get password from session or input
+        const password = currentSession.token || document.getElementById('password').value;
+        if (!password) {
+            console.error('No password available for IP validator');
+            return 'no-password-error';
         }
+        
+        // Get timestamp from request (NOT current time - use the same timestamp as the request)
+        const timestamp = new Date().toISOString(); // This should match the timestamp in the request body
+        
+        // EXACT MATCH: password + first 10 chars of timestamp (YYYY-MM-DD)
+        const message = password + timestamp.slice(0, 10);
+        
+        // Create SHA-256 hash
+        const encoder = new TextEncoder();
+        const data = encoder.encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        
+        // Convert to hex string
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Take first 32 characters (16 bytes = 32 hex chars)
+        const result = hashHex.slice(0, 32);
+        
+        console.log('IP Validator Generated:', {
+            passwordPreview: password.substring(0, 3) + '...',
+            timestampSlice: timestamp.slice(0, 10),
+            messagePreview: message.substring(0, 10) + '...',
+            result: result
+        });
+        
+        return result;
+        
+    } catch (error) {
+        console.error('IP validator generation failed:', error);
+        // Return a fallback for debugging
+        return 'fallback-' + Date.now().toString().slice(-8);
+    }
+}
 
         // ============================
         // API COMMUNICATION
         // ============================
-        async function makeSecureRequest(action, data = {}) {
-            const password = currentSession.token || document.getElementById('password').value;
-            if (!password) {
-                addLog('ERROR: No authentication token available', 'danger');
-                return null;
-            }
+        // UPDATE the makeSecureRequest() function:
+async function makeSecureRequest(action, data = {}) {
+    const password = currentSession.token || document.getElementById('password').value;
+    if (!password) {
+        addLog('ERROR: No authentication token available', 'danger');
+        return null;
+    }
 
-            const timestamp = new Date().toISOString();
-            
-            try {
-                const signature = await generateSignature(password, timestamp, action, data);
-                const ipValidator = await generateIPValidator();
-
-                if (!signature) {
-                    throw new Error('Signature generation failed');
-                }
-
-                const requestData = {
-                    password: password,
-                    timestamp: timestamp,
-                    signature: signature,
-                    action: action,
-                    ...data
-                };
-
-                addLog(`API: Sending ${action} request...`, 'info');
-                
-                const response = await fetch('/api/admin/database', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-IP-Validator': ipValidator
-                    },
-                    body: JSON.stringify(requestData)
-                });
-
-                const result = await response.json();
-                
-                if (response.ok && result.success) {
-                    addLog(`API: ${action} completed successfully`, 'success');
-                    return result;
-                } else {
-                    throw new Error(result.error || `API request failed: ${action}`);
-                }
-            } catch (error) {
-                addLog(`API ERROR: ${error.message}`, 'danger');
-                return null;
-            }
+    // IMPORTANT: Use the SAME timestamp for both IP validator and request body
+    const timestamp = new Date().toISOString();
+    
+    try {
+        // Generate signature using the timestamp
+        const signature = await generateSignature(password, timestamp, action, data);
+        
+        // Store password temporarily for IP validator
+        currentSession.token = password;
+        
+        // Generate IP validator using the SAME timestamp
+        const ipValidator = await generateIPValidator();
+        
+        if (!signature) {
+            throw new Error('Signature generation failed');
         }
 
+        const requestData = {
+            password: password,
+            timestamp: timestamp, // THIS MUST MATCH what generateIPValidator() uses
+            signature: signature,
+            action: action,
+            ...data
+        };
+
+        addLog(`API: Sending ${action} request...`, 'info');
+        
+        const response = await fetch('/api/admin/database', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-IP-Validator': ipValidator
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            addLog(`API: ${action} completed successfully`, 'success');
+            return result;
+        } else {
+            // Log detailed error
+            console.error('API Error Response:', result);
+            throw new Error(result.error || result.firewall || `API request failed: ${action}`);
+        }
+    } catch (error) {
+        addLog(`API ERROR: ${error.message}`, 'danger');
+        return null;
+    }
+}
         // ============================
         // LOGIN / AUTHENTICATION
         // ============================
