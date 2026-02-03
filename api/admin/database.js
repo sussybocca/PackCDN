@@ -1,4 +1,5 @@
-// /api/admin/database.js
+// /api/admin/database.js - REPLACE THE ENTIRE FILE WITH THIS:
+
 import { createClient } from '@supabase/supabase-js'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
@@ -43,24 +44,33 @@ const withSecurity = (handler) => async (req, res) => {
     // 2. IP-based firewall with hashed validation
     const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip
     
-    // Generate IP validation hash using ADMIN_PASSWORD as salt
-    const ipValidator = crypto
-      .createHmac('sha256', ADMIN_PASSWORD)
-      .update(clientIP + SUPABASE_URL.slice(-20))
-      .digest('hex')
-      .slice(0, 16)
+    // Get timestamp from request
+    const timestamp = req.body?.timestamp || ''
     
-    // Parse IP validation from request headers
+    // Parse IP validation from request headers - FRONTEND IS SENDING: SHA256(password + timestamp.slice(0, 10))
     const requestIPHash = req.headers['x-ip-validator']
+    
+    // Generate expected hash: SHA256(ADMIN_PASSWORD + timestamp.slice(0, 10))
     const expectedIPHash = crypto
       .createHash('sha256')
-      .update(ADMIN_PASSWORD + clientIP)
+      .update(ADMIN_PASSWORD + timestamp.slice(0, 10))
       .digest('hex')
-      .slice(0, 32)
+      .slice(0, 32) // Frontend sends 32 chars
+
+    console.log('🔐 IP VALIDATOR DEBUG:', {
+      received: requestIPHash?.substring(0, 8) + '...',
+      expected: expectedIPHash.substring(0, 8) + '...',
+      password: ADMIN_PASSWORD?.substring(0, 3) + '...',
+      timestampSlice: timestamp.slice(0, 10),
+      formula: 'SHA256(password + timestamp.slice(0, 10))'
+    })
 
     // Enhanced IP validation
-    if (!requestIPHash || requestIPHash !== ipValidator) {
+    if (!requestIPHash || requestIPHash !== expectedIPHash) {
       console.warn(`🚨 Firewall blocked: Invalid IP validator from ${clientIP}`)
+      console.warn(`Expected (first 16): ${expectedIPHash.substring(0, 16)}`)
+      console.warn(`Received (first 16): ${requestIPHash?.substring(0, 16) || 'none'}`)
+      
       // Log potential attack attempt
       const attackLog = {
         timestamp: new Date().toISOString(),
@@ -73,7 +83,8 @@ const withSecurity = (handler) => async (req, res) => {
       return res.status(403).json({ 
         error: 'Firewall violation - Invalid request signature',
         timestamp: new Date().toISOString(),
-        firewall: 'high-security'
+        firewall: 'high-security',
+        hint: 'IP validator must be SHA256(password + YYYY-MM-DD)'
       })
     }
 
@@ -119,9 +130,9 @@ const withSecurity = (handler) => async (req, res) => {
       })
     }
 
-    const { password, timestamp, signature, action } = req.body
+    const { password, timestamp: bodyTimestamp, signature, action } = req.body
 
-    if (!password || !timestamp || !signature || !action) {
+    if (!password || !bodyTimestamp || !signature || !action) {
       return res.status(400).json({ 
         error: 'Missing required fields',
         required: ['password', 'timestamp', 'signature', 'action']
@@ -129,7 +140,7 @@ const withSecurity = (handler) => async (req, res) => {
     }
 
     // 5. Timestamp validation (prevent replay attacks)
-    const requestTime = new Date(timestamp).getTime()
+    const requestTime = new Date(bodyTimestamp).getTime()
     const currentTime = Date.now()
     const timeDiff = Math.abs(currentTime - requestTime)
     
@@ -143,8 +154,14 @@ const withSecurity = (handler) => async (req, res) => {
     // 6. Signature validation with HMAC
     const expectedSignature = crypto
       .createHmac('sha256', ADMIN_PASSWORD)
-      .update(`${password}:${timestamp}:${action}:${SUPABASE_URL}`)
+      .update(`${password}:${bodyTimestamp}:${action}:${SUPABASE_URL}`)
       .digest('hex')
+
+    console.log('🔐 SIGNATURE DEBUG:', {
+      received: signature.substring(0, 16) + '...',
+      expected: expectedSignature.substring(0, 16) + '...',
+      matches: signature === expectedSignature
+    })
 
     if (signature !== expectedSignature) {
       console.warn(`🚨 Invalid signature from IP: ${clientIP}`)
@@ -267,7 +284,8 @@ export default withSecurity(async (req, res, supabase, clientIP) => {
           tables: tables.map(t => t.table_name),
           stats: tableStats,
           data: allTablesData,
-          limit: limit
+          limit: limit,
+          supabaseUrl: process.env.SUPABASE_URL?.replace(/\/\/(.*?)\.supabase\.co/, '//***.supabase.co') // Masked
         })
 
       case 'GET_TABLE':
@@ -438,12 +456,3 @@ export default withSecurity(async (req, res, supabase, clientIP) => {
     })
   }
 })
-
-// Client-side helper for generating signatures
-export function generateClientSignature(password, timestamp, action, supabaseUrl) {
-  const crypto = require('crypto')
-  return crypto
-    .createHmac('sha256', password)
-    .update(`${password}:${timestamp}:${action}:${supabaseUrl}`)
-    .digest('hex')
-}
