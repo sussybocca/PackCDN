@@ -9,7 +9,7 @@
       "destination": "/home/index.html"
     },
     {
-      "source": "/docs", 
+      "source": "/docs",
       "destination": "/docs.html"
     },
     {
@@ -25,6 +25,38 @@
       "destination": "/config.json"
     }
   ],
+  "redirects": [
+    {
+      "source": "/portal",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/gateway",
+      "destination": "/home",
+      "permanent": false
+    },
+    {
+      "source": "/library",
+      "destination": "/docs",
+      "permanent": false
+    },
+    {
+      "source": "/workshop",
+      "destination": "/editor",
+      "permanent": false
+    },
+    {
+      "source": "/discover",
+      "destination": "/explore",
+      "permanent": false
+    },
+    {
+      "source": "/settings",
+      "destination": "/config.json",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/config.json",
@@ -33,6 +65,15 @@
           "key": "Content-Type",
           "value": "application/json"
         },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/*.json",
+      "headers": [
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
