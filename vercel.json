@@ -32,8 +32,9 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
+    // FIXED: Wildcard that excludes files with extensions
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\..*).*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
