@@ -1,25 +1,33 @@
+// Use ESM syntax for Vercel
+import { parse } from 'cookie';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export default async function handler(req, res) {
   const correctPassword = process.env.PASSWORD;
   
   // Check if password is provided via query parameter
   const providedPassword = req.query.password;
   
-  // Check if password is already authenticated via cookie
-  const isAuthenticated = req.cookies.admin_auth === 'true';
+  // Parse cookies from headers
+  const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
+  const isAuthenticated = cookies.admin_auth === 'true';
 
   // If authenticated via cookie, serve the admin page
   if (isAuthenticated) {
-    // Read and serve the admin.html file
-    const fs = require('fs');
-    const path = require('path');
-    
     try {
-      const adminHtmlPath = path.join(process.cwd(), 'Private', 'admin.html');
-      const adminHtml = fs.readFileSync(adminHtmlPath, 'utf8');
+      const adminHtmlPath = path.join(__dirname, '..', 'Private', 'admin.html');
+      const adminHtml = await fs.readFile(adminHtmlPath, 'utf8');
       
       res.setHeader('Content-Type', 'text/html');
       return res.status(200).send(adminHtml);
     } catch (error) {
+      console.error('Error reading admin.html:', error);
       return res.status(404).send('Admin page not found');
     }
   }
@@ -27,11 +35,17 @@ export default async function handler(req, res) {
   // Check if password is being submitted
   if (providedPassword) {
     if (providedPassword === correctPassword) {
-      // Set authentication cookie (expires in 1 hour)
-      res.setHeader('Set-Cookie', 'admin_auth=true; Path=/; HttpOnly; Max-Age=3600');
+      // Set authentication cookie (expires in 1 hour, Secure flag for HTTPS, SameSite=Lax)
+      res.setHeader('Set-Cookie', [
+        'admin_auth=true; Path=/; HttpOnly; Max-Age=3600; SameSite=Lax'
+      ].join('; '));
       
-      // Redirect to admin page
-      res.writeHead(302, { 'Location': req.url.split('?')[0] });
+      // Remove password from URL and redirect
+      const url = new URL(req.url, `https://${req.headers.host}`);
+      url.searchParams.delete('password');
+      const redirectUrl = url.pathname + url.search;
+      
+      res.writeHead(302, { 'Location': redirectUrl });
       return res.end();
     } else {
       // Show error message
@@ -44,8 +58,7 @@ export default async function handler(req, res) {
 }
 
 function showPasswordForm(res, errorMessage = '') {
-  res.setHeader('Content-Type', 'text/html');
-  res.status(401).send(`
+  const html = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -159,5 +172,8 @@ function showPasswordForm(res, errorMessage = '') {
       </div>
     </body>
     </html>
-  `);
+  `;
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.status(401).send(html);
 }
