@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    
     {
       "source": "/",
       "destination": "/selector.html"
@@ -24,6 +25,8 @@
       "source": "/config.json",
       "destination": "/config.json"
     },
+    
+  
     {
       "source": "/api/random-urls",
       "destination": "/api/random-urls"
@@ -44,7 +47,12 @@
       "source": "/api/create-page",
       "destination": "/api/create-page"
     },
+    {
+      "source": "/api/Pages/Explore/explore-pages",
+      "destination": "/api/Pages/Explore/explore-pages"
+    },
 
+  
     {
       "source": "/@quantum",
       "destination": "/selector.html"
@@ -114,11 +122,19 @@
       "destination": "/dev-panel.html"
     },
 
+    
+    {
+      "source": "@:username",
+      "destination": "/api/wildcard-redirect"
+    },
+    
+    
     {
       "source": "/@:username",
       "destination": "/api/wildcard-redirect"
     },
 
+    
     {
       "source": "/selector.html",
       "destination": "/@quantum"
@@ -188,16 +204,19 @@
       "destination": "/@random"
     },
 
+    
     {
       "source": "/@embed/:url*",
       "destination": "/embed.html?url=:url*"
     },
 
+    
     {
       "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
+  
   "redirects": [
     {
       "source": "/portal",
@@ -238,8 +257,15 @@
       "source": "/create",
       "destination": "/@random",
       "permanent": true
+    },
+    
+    {
+      "source": "/explore-old",
+      "destination": "/api/Pages/Explore/explore-pages",
+      "permanent": true
     }
   ],
+  
   "headers": [
     {
       "source": "/config.json",
@@ -266,8 +292,22 @@
           "value": "ALLOWALL"
         }
       ]
+    },
+    {
+      "source": "/api/Pages/Explore/explore-pages",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=60"
+        }
+      ]
     }
   ],
+  
   "cleanUrls": false,
   "trailingSlash": false
 }
