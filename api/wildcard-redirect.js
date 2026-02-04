@@ -1,4 +1,4 @@
-// /api/wildcard-redirect.js - FIXED VERSION
+// /api/wildcard-redirect.js - FIXED & ENHANCED VERSION
 import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase
@@ -42,123 +42,97 @@ export default async function handler(req, res) {
     'explorervortex', 'homestudio', 'homediscovery', 'random', 'embed'
   ];
   
-  // --- NEW LOGIC: Handle @username without slash ---
-  
-  // Extract @username from path (handle both /@username and @username)
+  // --- FIX: Handle @random correctly ---
+  // Extract @username from path
   let username = null;
   if (path.startsWith('/@')) {
     username = path.substring(2).split('?')[0].split('/')[0];
   } else if (path.startsWith('@') && path.length > 1) {
+    // Handle direct @username (no slash)
     username = path.substring(1).split('?')[0].split('/')[0];
   }
   
-  // Handle @username (user pages from Supabase)
+  // SPECIAL CASE: @random should go directly to dev-panel
+  if (username === 'random') {
+    console.log(`🎨 Dev Panel: ${path} → /dev-panel.html`);
+    return res.redirect(302, '/dev-panel.html');
+  }
+  
+  // Handle @embed - Embedded websites
+  if (username === 'embed' && path.includes('/')) {
+    const embedPath = path.includes('@embed/') 
+      ? path.split('@embed/')[1] 
+      : path.split('embed/')[1];
+    if (embedPath) {
+      const embedUrl = decodeURIComponent(embedPath);
+      console.log(`🌐 Embed Request: ${path} → /embed.html?url=${embedUrl}`);
+      return res.redirect(302, `/embed.html?url=${encodeURIComponent(embedUrl)}`);
+    }
+  }
+  
+  // --- Handle user pages from Supabase ---
   if (username && !reservedNames.includes(username)) {
     try {
-      // Fetch page from Supabase - FIXED: Use proper error handling
+      // Fetch page from Supabase
       const { data: page, error } = await supabase
         .from('user_pages')
         .select('*')
         .eq('page_id', username)
         .eq('is_public', true)
-        .maybeSingle(); // Changed from .single() to .maybeSingle()
+        .maybeSingle();
       
       if (error) {
         console.log(`❌ Supabase query error for @${username}:`, error.message);
-        // Fall through to original logic
+        // Fall through
       } else if (page) {
-        console.log(`📝 User Page Found: @${username} - "${page.title}"`);
+        console.log(`📝 User Page Found: @${username} - "${page.title}" (Type: ${page.page_type})`);
         
-        // Increment view count (don't await, just fire and forget)
-        try {
-          await supabase
-            .from('user_pages')
-            .update({ views: (page.views || 0) + 1 })
-            .eq('id', page.id);
-        } catch (updateError) {
-          console.log(`⚠️ Could not update view count for @${username}:`, updateError.message);
-        }
+        // Increment view count
+        supabase
+          .from('user_pages')
+          .update({ views: (page.views || 0) + 1 })
+          .eq('id', page.id)
+          .then(() => console.log(`📈 View count updated for @${username}`))
+          .catch(e => console.log(`⚠️ View count update failed:`, e.message));
         
-        // Render the page
+        // Render the page based on type
         return res.send(renderUserPage(username, page));
       } else {
         console.log(`📭 No page found for @${username}, falling back to original logic`);
-        // Page doesn't exist, fall through to original logic
+        // Continue to original logic
       }
     } catch (error) {
       console.log(`❌ Error loading user page @${username}:`, error.message);
-      // Fall through to original logic
+      // Fall through
     }
   }
   
   // --- ORIGINAL LOGIC (for backward compatibility) ---
   
-  // MASSIVE 100+ WORD BANKS FOR ENCRYPTED CODES - COMPLETE VERSION
+  // MASSIVE 100+ WORD BANKS FOR ENCRYPTED CODES
   const wordBanks = {
-    // 100+ tech words
     tech: [
       'quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 
       'ai', 'machine', 'learning', 'bot', 'data', 'cloud', 'server', 'client', 'network',
       'protocol', 'binary', 'byte', 'pixel', 'render', 'stream', 'buffer', 'cache',
       'memory', 'storage', 'database', 'api', 'sdk', 'framework', 'library', 'module',
-      'interface', 'terminal', 'console', 'shell', 'kernel', 'driver', 'firmware', 'hardware',
-      'software', 'application', 'website', 'webapp', 'mobile', 'desktop', 'laptop', 'tablet',
-      'phone', 'router', 'switch', 'firewall', 'encrypt', 'decrypt', 'hash', 'encode', 'decode',
-      'compress', 'decompress', 'upload', 'download', 'sync', 'backup', 'restore', 'migrate',
-      'deploy', 'host', 'domain', 'subdomain', 'dns', 'ip', 'tcp', 'udp', 'http', 'https',
-      'ssl', 'tls', 'ssh', 'ftp', 'smtp', 'imap', 'pop3', 'json', 'xml', 'html', 'css', 'js',
-      'python', 'java', 'cpp', 'csharp', 'go', 'rust', 'ruby', 'php', 'sql', 'nosql', 'redis',
-      'mongodb', 'mysql', 'postgres', 'graphql', 'rest', 'soap', 'websocket', 'grpc'
+      'interface', 'terminal', 'console', 'shell', 'kernel', 'driver', 'firmware', 'hardware'
     ],
-    
-    // 100+ space/science words
     space: [
       'cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 
       'quasar', 'wormhole', 'blackhole', 'singularity', 'eventhorizon', 'supernova', 
-      'constellation', 'galaxy', 'universe', 'multiverse', 'dimension', 'reality', 
-      'planet', 'star', 'moon', 'sun', 'comet', 'asteroid', 'meteor', 'meteorite',
-      'gravity', 'relativity', 'quantum', 'particle', 'atom', 'molecule', 'proton',
-      'neutron', 'electron', 'photon', 'neutrino', 'boson', 'fermion', 'quark', 'lepton',
-      'hadron', 'meson', 'baryon', 'gluon', 'higgs', 'darkmatter', 'darkenergy', 'antimatter',
-      'entropy', 'thermodynamics', 'kinetic', 'potential', 'velocity', 'acceleration',
-      'momentum', 'inertia', 'friction', 'resistance', 'conductivity', 'superconductivity',
-      'semiconductor', 'insulator', 'conductor', 'magnet', 'magnetic', 'electric', 'voltage',
-      'current', 'resistance', 'capacitance', 'inductance', 'transistor', 'diode', 'led',
-      'laser', 'photonics', 'optics', 'refraction', 'reflection', 'diffraction', 'interference',
-      'wavelength', 'frequency', 'amplitude', 'hertz', 'decibel', 'lumen', 'candela', 'lux'
+      'constellation', 'galaxy', 'universe', 'multiverse', 'dimension', 'reality'
     ],
-    
-    // 100+ fantasy/magic words
     fantasy: [
       'dragon', 'phoenix', 'wizard', 'mage', 'sorcerer', 'warlock', 'witch', 'arcane',
-      'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic', 'magical', 'knight',
-      'castle', 'realm', 'kingdom', 'empire', 'dungeon', 'labyrinth', 'maze', 'crypt',
-      'tomb', 'temple', 'shrine', 'altar', 'ritual', 'ceremony', 'incantation', 'chant',
-      'potion', 'elixir', 'brew', 'alchemy', 'alchemist', 'scroll', 'tome',
-      'grimoire', 'codex', 'manuscript', 'artifact', 'relic', 'amulet', 'talisman',
-      'trinket', 'orb', 'crystal', 'gem', 'jewel', 'diamond', 'ruby', 'emerald', 'sapphire',
-      'amethyst', 'topaz', 'opal', 'pearl', 'obsidian', 'quartz', 'mineral',
-      'ore', 'metal', 'gold', 'silver', 'platinum', 'copper', 'iron', 'steel', 'bronze',
-      'brass', 'titanium', 'tungsten', 'uranium', 'plutonium', 'mercury', 'lead', 'tin',
-      'zinc', 'nickel', 'cobalt', 'chromium', 'manganese', 'silicon', 'germanium', 'arsenic'
+      'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic', 'magical', 'knight'
     ],
-    
-    // 100+ nature/earth words
     nature: [
       'forest', 'jungle', 'rainforest', 'woodland', 'grove', 'thicket', 'copse', 'orchard',
-      'vineyard', 'farm', 'field', 'meadow', 'pasture', 'prairie', 'savanna', 'steppe',
-      'tundra', 'taiga', 'desert', 'dunes', 'oasis', 'ocean', 'sea', 'lake', 'river',
-      'stream', 'creek', 'brook', 'rivulet', 'waterfall', 'cascade', 'rapids', 'whirlpool',
-      'estuary', 'delta', 'bay', 'gulf', 'cove', 'inlet', 'fjord', 'archipelago', 'island',
-      'peninsula', 'isthmus', 'cape', 'headland', 'cliff', 'bluff', 'canyon', 'gorge',
-      'ravine', 'valley', 'dale', 'glen', 'basin', 'depression', 'crater', 'caldera',
-      'volcano', 'geyser', 'hotspring', 'fumarole', 'solfatara', 'mudpot', 'lava', 'magma',
-      'igneous', 'sedimentary', 'metamorphic', 'rock', 'stone', 'boulder', 'pebble', 'gravel',
-      'sand', 'silt', 'clay', 'loam', 'humus', 'soil', 'dirt', 'earth', 'mud', 'sludge'
+      'vineyard', 'farm', 'field', 'meadow', 'pasture', 'prairie', 'savanna', 'steppe'
     ]
   };
   
-  // Combine all words into one massive array (400+ words)
   const allWords = [
     ...wordBanks.tech,
     ...wordBanks.space,
@@ -166,7 +140,7 @@ export default async function handler(req, res) {
     ...wordBanks.nature
   ];
   
-  // Hash function for deterministic generation
+  // Hash function
   function getHash(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -176,73 +150,48 @@ export default async function handler(req, res) {
     return Math.abs(hash);
   }
   
-  // Generate encrypted code using word banks
+  // Generate encrypted code
   function generateEncryptedCode(input) {
     const hash = getHash(input);
-    
-    // Format: @word1-word2-number
     const word1 = allWords[(hash * 1) % allWords.length];
     const word2 = allWords[(hash * 3) % allWords.length];
     const number = (hash % 9999).toString().padStart(4, '0');
     
-    // Create variations
     const formats = [
       `@${word1}-${word2}-${number}`,
       `@${word1.slice(0, 3)}-${word2.slice(0, 3)}-${number}`,
       `@${word1}-${number}-${word2}`,
-      `@${word1.slice(0, 4)}${word2.slice(0, 3)}${number.slice(0, 3)}`,
-      `@${word1}${word2.slice(0, 2)}${number}`
+      `@${word1.slice(0, 4)}${word2.slice(0, 3)}${number.slice(0, 3)}`
     ];
     
     return formats[hash % formats.length].toLowerCase();
   }
   
-  // Generate fun @username from input
+  // Generate fun @username
   function generateFunUsername(input) {
     const code = generateEncryptedCode(input + Date.now() + Math.random());
-    return `/${code}`; // Returns like /@quantum-dragon-0420
+    return `/${code}`;
   }
   
-  // In-memory storage for mappings
+  // In-memory storage
   const urlMappings = new Map();
   
-  // Initialize with some sample mappings using word banks
+  // Initialize with some sample mappings
   for (let i = 0; i < Math.min(20, allPages.length); i++) {
     const funUrl = generateFunUsername(`init${i}${allPages[i]}`);
     urlMappings.set(funUrl, allPages[i]);
   }
   
-  // --- SPECIAL HANDLERS (UPDATED) ---
-  
-  // Handle @random - Developer Panel
-  if (username === 'random') {
-    console.log(`🎨 Dev Panel: ${path} → /dev-panel.html`);
-    return res.redirect(302, '/dev-panel.html');
-  }
-  
-  // Handle @embed - Embedded websites
-  if (username === 'embed' && path.includes('/')) {
-    const embedPath = path.split('@embed/')[1] || path.split('embed/')[1];
-    if (embedPath) {
-      const embedUrl = decodeURIComponent(embedPath);
-      console.log(`🌐 Embed Request: ${path} → /embed.html?url=${embedUrl}`);
-      return res.redirect(302, `/embed.html?url=${encodeURIComponent(embedUrl)}`);
-    }
-  }
-  
-  // Handle reserved names (redirect to /@name for consistency)
+  // Handle reserved names redirect
   if (username && reservedNames.includes(username) && !path.startsWith('/@')) {
     return res.redirect(301, `/@${username}${path.substring(username.length + 1)}`);
   }
   
-  // Handle /@ paths (backward compatibility)
+  // Handle /@ paths for backward compatibility
   if (path.startsWith('/@')) {
     const pathUsername = path.substring(2).split('?')[0].split('/')[0];
     
-    // If it's a reserved name, redirect without slash?
-    if (reservedNames.includes(pathUsername)) {
-      // Keep as is for system pages
-    } else {
+    if (!reservedNames.includes(pathUsername)) {
       // Check Supabase for user page
       try {
         const { data: page } = await supabase
@@ -257,7 +206,6 @@ export default async function handler(req, res) {
           return res.redirect(301, `@${pathUsername}`);
         }
       } catch (error) {
-        // Continue with original logic
         console.log(`ℹ️ No Supabase page for /@${pathUsername}:`, error.message);
       }
     }
@@ -265,15 +213,11 @@ export default async function handler(req, res) {
   
   // Check if it's a file path that should get a fun URL
   if (allPages.includes(path)) {
-    // Generate encrypted code for this file
     const funUrl = generateFunUsername(path + Date.now());
-    
-    // Store mapping
     urlMappings.set(funUrl, path);
     
     console.log(`📄 File: ${path} → ${funUrl}`);
     
-    // 301 Permanent redirect to encrypted URL
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Encrypted-URL', funUrl);
     res.setHeader('X-Original-File', path);
@@ -283,28 +227,22 @@ export default async function handler(req, res) {
   
   // Handle @ paths - ANY @anything gets mapped
   if (path.startsWith('/@')) {
-    // Check if we already have this mapping
     if (urlMappings.has(path)) {
       const targetFile = urlMappings.get(path);
       console.log(`🔑 Known @path: ${path} → ${targetFile}`);
       
-      // Serve the file
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Target-File', targetFile);
       
       return res.redirect(302, targetFile);
     }
     
-    // NEW @path - map to random page
     const randomIndex = Math.floor(Math.random() * allPages.length);
     const targetFile = allPages[randomIndex];
     
-    // Store the mapping
     urlMappings.set(path, targetFile);
-    
     console.log(`✨ NEW @path: ${path} → ${targetFile}`);
     
-    // Serve the file
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-New-Mapping', 'true');
     res.setHeader('X-Target-File', targetFile);
@@ -312,12 +250,11 @@ export default async function handler(req, res) {
     return res.redirect(302, targetFile);
   }
   
-  // Handle direct requests to embed.html with query params
+  // Handle direct requests to embed.html
   if (path === '/embed.html' && queryParams.has('url')) {
     const embedUrl = queryParams.get('url');
     console.log(`🌐 Direct Embed: ${path}?url=${embedUrl}`);
     
-    // Return the embed page directly
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -326,9 +263,6 @@ export default async function handler(req, res) {
         </head>
         <body>
           <p>Redirecting to embedded page...</p>
-          <script>
-            window.location.href = "/@embed/${encodeURIComponent(embedUrl)}";
-          </script>
         </body>
       </html>
     `);
@@ -336,7 +270,6 @@ export default async function handler(req, res) {
   
   // Show system info
   if (path === '/url-system' || path === '/info') {
-    // Get stats from Supabase
     let pageCount = 0;
     let topPages = [];
     
@@ -345,9 +278,7 @@ export default async function handler(req, res) {
         .from('user_pages')
         .select('*', { count: 'exact', head: true });
       
-      if (!error) {
-        pageCount = count || 0;
-      }
+      if (!error) pageCount = count || 0;
       
       const { data, error: topError } = await supabase
         .from('user_pages')
@@ -356,27 +287,25 @@ export default async function handler(req, res) {
         .order('views', { ascending: false })
         .limit(10);
       
-      if (!topError) {
-        topPages = data || [];
-      }
+      if (!topError) topPages = data || [];
     } catch (error) {
       console.log('Supabase stats error:', error.message);
     }
     
-    // Generate sample codes
     const samples = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 10; i++) {
       samples.push(generateFunUsername(`sample${i}`));
     }
     
     return res.json({
-      system: 'Pack CDN URL System v3.0',
+      system: 'Pack CDN URL System v3.1',
       status: 'active',
       features: [
         '@username - User pages (Supabase)',
         '@random - Developer Panel',
         '@embed/* - Embedded websites',
-        'Encrypted URLs'
+        'Encrypted URLs',
+        'HTML Content Rendering'
       ],
       stats: {
         userPages: pageCount,
@@ -385,34 +314,13 @@ export default async function handler(req, res) {
         totalWords: allWords.length,
         totalMappings: urlMappings.size
       },
-      sampleUrls: samples.slice(0, 10),
+      sampleUrls: samples,
       usage: [
-        'https://pack-cdn.vercel.app@username - Access user page',
-        'https://pack-cdn.vercel.app/@username - Alternative access',
-        'https://pack-cdn.vercel.app@random - Create pages',
-        'https://pack-cdn.vercel.app@embed/url - Embed websites'
+        'pack-cdn.vercel.app@username - Access user page',
+        'pack-cdn.vercel.app/@username - Alternative access',
+        'pack-cdn.vercel.app@random - Create pages',
+        'pack-cdn.vercel.app@embed/url - Embed websites'
       ]
-    });
-  }
-  
-  // Generate test batch
-  if (path === '/generate-batch') {
-    const batch = [];
-    for (let i = 0; i < 50; i++) {
-      const code = generateFunUsername(`batch${i}${Date.now()}`);
-      const page = allPages[i % allPages.length];
-      batch.push({
-        encryptedUrl: code,
-        mapsTo: page,
-        fullUrl: `https://pack-cdn.vercel.app${code}`
-      });
-    }
-    
-    return res.json({
-      action: 'batch-generation',
-      count: batch.length,
-      generated: batch,
-      note: '50 encrypted URLs generated'
     });
   }
   
@@ -421,12 +329,10 @@ export default async function handler(req, res) {
   const randomIndex = Math.floor(Math.random() * allPages.length);
   const targetFile = allPages[randomIndex];
   
-  // Store mapping
   urlMappings.set(funUrl, targetFile);
   
   console.log(`🚀 Random path: ${path} → ${funUrl} → ${targetFile}`);
   
-  // Redirect to the encrypted URL
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Generated-URL', funUrl);
   res.setHeader('X-Target-File', targetFile);
@@ -434,47 +340,71 @@ export default async function handler(req, res) {
   return res.redirect(302, funUrl);
 }
 
-// Enhanced renderUserPage with Supabase data - COMPLETE FUNCTION
+// ENHANCED renderUserPage with proper HTML handling
 function renderUserPage(username, pageData) {
-  const safeContent = pageData.content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  console.log(`🖥️ Rendering page @${username} of type: ${pageData.page_type}`);
   
+  // Get safe content based on page type
+  let contentHtml = '';
   const tags = pageData.tags || [];
   const views = pageData.views || 0;
   const created = new Date(pageData.created_at).toLocaleDateString();
   
-  let contentHtml = '';
-  if (pageData.page_type === 'embed') {
-    contentHtml = `
-      <div style="width: 100%; height: 600px; border-radius: 15px; overflow: hidden;">
-        <iframe 
-          src="${pageData.content}" 
-          style="width:100%; height:100%; border:none;"
-          allow="camera; microphone; geolocation"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-          title="${pageData.title}"
-        ></iframe>
-      </div>
-      <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
-        <strong>Embedded URL:</strong> <a href="${pageData.content}" target="_blank">${pageData.content}</a>
-      </div>
-    `;
-  } else {
-    contentHtml = pageData.content;
+  switch(pageData.page_type) {
+    case 'html':
+      // For HTML pages, render the HTML directly (sanitized)
+      contentHtml = sanitizeHTML(pageData.content || '');
+      break;
+      
+    case 'embed':
+      // For embed pages
+      const embedUrl = pageData.content || '';
+      contentHtml = `
+        <div class="embed-container">
+          <iframe 
+            src="${embedUrl}" 
+            style="width:100%; height:80vh; border:none; border-radius:15px;"
+            allow="camera; microphone; geolocation; fullscreen"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+            title="${pageData.title}"
+          ></iframe>
+          <div class="embed-info">
+            <strong>Embedded URL:</strong> 
+            <a href="${embedUrl}" target="_blank" rel="noopener noreferrer">${embedUrl}</a>
+          </div>
+        </div>
+      `;
+      break;
+      
+    case 'markdown':
+      // For markdown (you would need a markdown parser)
+      contentHtml = `<div class="markdown-content">${escapeHTML(pageData.content || '')}</div>`;
+      break;
+      
+    case 'dashboard':
+      // For dashboard with multiple files
+      const files = pageData.files || [];
+      if (files.length > 0) {
+        contentHtml = renderMultiFileDashboard(files, username);
+      } else {
+        contentHtml = `<div class="single-file">${escapeHTML(pageData.content || '')}</div>`;
+      }
+      break;
+      
+    default:
+      // Plain text or unknown type
+      contentHtml = `<div class="plain-content">${escapeHTML(pageData.content || '')}</div>`;
   }
   
   return `
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
     <title>${pageData.title} | @${username} | Pack CDN</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta property="og:title" content="${pageData.title}">
-    <meta property="og:description" content="User-created page on Pack CDN">
+    <meta property="og:description" content="${pageData.description || 'User-created page on Pack CDN'}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://pack-cdn.vercel.app@${username}">
     <style>
@@ -484,6 +414,7 @@ function renderUserPage(username, pageData) {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
         color: #333;
+        line-height: 1.6;
       }
       .container { 
         max-width: 1200px; 
@@ -506,6 +437,7 @@ function renderUserPage(username, pageData) {
         box-shadow: 0 25px 70px rgba(0,0,0,0.1);
         min-height: 500px;
         margin-bottom: 30px;
+        overflow-x: auto;
       }
       .user-badge {
         display: inline-block;
@@ -518,9 +450,6 @@ function renderUserPage(username, pageData) {
         margin: 20px 0;
         text-decoration: none;
         transition: transform 0.3s;
-      }
-      .user-badge:hover {
-        transform: scale(1.05);
       }
       .page-stats {
         display: flex;
@@ -584,12 +513,6 @@ function renderUserPage(username, pageData) {
         border-radius: 20px;
         font-size: 0.9rem;
         color: #495057;
-        transition: all 0.3s;
-      }
-      .tag:hover {
-        background: #667eea;
-        color: white;
-        transform: translateY(-2px);
       }
       .page-footer {
         text-align: center;
@@ -599,37 +522,61 @@ function renderUserPage(username, pageData) {
         border-radius: 15px;
         color: #666;
       }
-      .page-footer a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 600;
-      }
       h1 {
         font-size: 2.8rem;
         margin-bottom: 10px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
       }
+      .embed-container {
+        margin: 20px 0;
+      }
+      .embed-info {
+        margin-top: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+      
+      /* Multi-file dashboard styles */
+      .file-nav {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .file-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .file-tab {
+        padding: 10px 20px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .file-tab.active {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+      }
+      .file-content {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        min-height: 300px;
+      }
+      
       @media (max-width: 768px) {
-        .container {
-          padding: 15px;
-        }
-        .page-header, .page-content {
-          padding: 25px;
-        }
-        h1 {
-          font-size: 2rem;
-        }
-        .action-bar {
-          flex-direction: column;
-          align-items: stretch;
-        }
-        .btn {
-          width: 100%;
-          justify-content: center;
-        }
+        .container { padding: 15px; }
+        .page-header, .page-content { padding: 25px; }
+        h1 { font-size: 2rem; }
+        .action-bar { flex-direction: column; }
       }
     </style>
   </head>
@@ -642,19 +589,26 @@ function renderUserPage(username, pageData) {
       </div>
       
       <div class="page-header">
-        <h1>${pageData.title}</h1>
-        <a href="@${username}" class="user-badge">@${username}</a>
+        <h1>${escapeHTML(pageData.title)}</h1>
+        <div class="user-badge">@${username}</div>
+        
+        ${pageData.description ? `
+          <p style="margin: 20px 0; color: #666; font-size: 1.1rem;">
+            ${escapeHTML(pageData.description)}
+          </p>
+        ` : ''}
         
         ${tags.length > 0 ? `
           <div class="tags">
-            ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+            ${tags.map(tag => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}
           </div>
         ` : ''}
         
         <div class="page-stats">
           <div class="stat-item">👁️ ${views} views</div>
           <div class="stat-item">📅 Created ${created}</div>
-          <div class="stat-item">🔄 Version ${pageData.version || 1}</div>
+          <div class="stat-item">🔄 ${pageData.version || 'v1'}</div>
+          ${pageData.page_type ? `<div class="stat-item">📄 ${pageData.page_type}</div>` : ''}
         </div>
       </div>
       
@@ -674,27 +628,84 @@ function renderUserPage(username, pageData) {
     </div>
     
     <script>
-      // Execute any JavaScript in the content (for HTML pages)
+      // Execute scripts for HTML pages safely
       if ('${pageData.page_type}' === 'html' || '${pageData.page_type}' === 'dashboard') {
-        const contentDiv = document.getElementById('content');
-        const scripts = contentDiv.getElementsByTagName('script');
-        for (let script of scripts) {
-          try {
-            const newScript = document.createElement('script');
-            newScript.textContent = script.textContent;
-            document.head.appendChild(newScript);
-          } catch (e) {
-            console.warn('Could not execute script:', e);
+        setTimeout(() => {
+          const contentDiv = document.getElementById('content');
+          const scripts = contentDiv.getElementsByTagName('script');
+          for (let script of scripts) {
+            try {
+              const newScript = document.createElement('script');
+              newScript.textContent = script.textContent;
+              document.body.appendChild(newScript);
+            } catch (e) {
+              console.warn('Script execution skipped:', e.message);
+            }
           }
-        }
+        }, 100);
       }
       
-      // Analytics
-      window.addEventListener('load', () => {
-        console.log('Page @${username} loaded successfully');
+      // Multi-file tab functionality
+      document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('file-tab')) {
+          const tabs = document.querySelectorAll('.file-tab');
+          tabs.forEach(tab => tab.classList.remove('active'));
+          e.target.classList.add('active');
+          
+          const fileId = e.target.dataset.file;
+          const contents = document.querySelectorAll('.file-content-item');
+          contents.forEach(content => {
+            content.style.display = content.id === fileId ? 'block' : 'none';
+          });
+        }
       });
+      
+      console.log('📄 Page @${username} loaded');
     </script>
   </body>
 </html>
+  `;
+}
+
+// Helper functions
+function escapeHTML(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function sanitizeHTML(html) {
+  // Basic sanitization - in production use DOMPurify or similar
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+="[^"]*"/g, '')
+    .replace(/javascript:/gi, '');
+}
+
+function renderMultiFileDashboard(files, username) {
+  if (files.length === 0) return '<p>No files in this dashboard.</p>';
+  
+  const tabs = files.map((file, index) => `
+    <div class="file-tab ${index === 0 ? 'active' : ''}" data-file="file-${index}">
+      ${file.name || `File ${index + 1}`} (${file.type || 'html'})
+    </div>
+  `).join('');
+  
+  const contents = files.map((file, index) => `
+    <div id="file-${index}" class="file-content-item" style="${index === 0 ? '' : 'display: none;'}">
+      ${file.type === 'html' ? file.content : `<pre>${escapeHTML(file.content)}</pre>`}
+    </div>
+  `).join('');
+  
+  return `
+    <div class="file-nav">
+      <h3>📁 Multi-File Dashboard</h3>
+      <div class="file-tabs">
+        ${tabs}
+      </div>
+    </div>
+    <div class="file-content">
+      ${contents}
+    </div>
   `;
 }
