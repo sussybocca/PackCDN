@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     } = req.query;
 
     const pageNum = parseInt(page);
-    const limitNum = parseInt(limit) > 100 ? 100 : parseInt(limit); // Cap at 100
+    const limitNum = parseInt(limit) > 100 ? 100 : parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
     const useAdvancedSearch = advanced === 'true';
 
@@ -93,24 +93,12 @@ export default async function handler(req, res) {
         views,
         downloads,
         publisher_id,
-        pack_metadata!left (
-          package_type,
-          sandbox_level,
-          requires_verification,
-          verification_status,
-          file_count,
-          total_size
-        ),
-        pack_versions!inner (
-          version,
-          version_number,
-          created_at
-        ),
-        pack_collaborators (
-          user_id,
-          permission_level
-        )
-      `)
+        package_type,
+        last_accessed,
+        publish_ip,
+        encrypted_key,
+        files
+      `, { count: 'exact' })
       .eq('is_public', true);
 
     // Apply basic filters (backward compatible)
@@ -129,56 +117,15 @@ export default async function handler(req, res) {
 
     // Package type filter
     if (type && ['basic', 'standard', 'advanced'].includes(type)) {
-      if (useAdvancedSearch) {
-        query = query.eq('pack_metadata.package_type', type);
-      } else {
-        // Legacy fallback: check if package_type exists in packs table
-        const { data: hasColumn } = await supabase
-          .rpc('column_exists', { table_name: 'packs', column_name: 'package_type' });
-        
-        if (hasColumn) {
-          query = query.eq('package_type', type);
-        }
-      }
-    }
-
-    // Language filter (new)
-    if (language && useAdvancedSearch) {
-      // Determine language from file extensions
-      const languageExts = {
-        javascript: ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx'],
-        python: ['py', 'pyc', 'pyo'],
-        wasm: ['wasm'],
-        json: ['json'],
-        markdown: ['md', 'markdown']
-      };
-
-      if (languageExts[language]) {
-        // Note: This is a simplified approach. In production, you'd want to
-        // check actual file extensions in the files column or metadata
-        query = query.ilike('pack_json', `%${language}%`);
-      }
+      query = query.eq('package_type', type);
     }
 
     // Version range filter
-    if (minVersion || maxVersion) {
-      // Using pack_versions subquery
-      if (useAdvancedSearch) {
-        if (minVersion) {
-          query = query.gte('pack_versions.version', minVersion);
-        }
-        if (maxVersion) {
-          query = query.lte('pack_versions.version', maxVersion);
-        }
-      } else {
-        // Legacy: filter on main version field
-        if (minVersion) {
-          query = query.gte('version', minVersion);
-        }
-        if (maxVersion) {
-          query = query.lte('version', maxVersion);
-        }
-      }
+    if (minVersion) {
+      query = query.gte('version', minVersion);
+    }
+    if (maxVersion) {
+      query = query.lte('version', maxVersion);
     }
 
     // Boolean filters
@@ -192,27 +139,6 @@ export default async function handler(req, res) {
     
     if (hasTests === 'true') {
       query = query.or('name.ilike.%test%,name.ilike.%spec%');
-    }
-    
-    if (verified === 'true' && useAdvancedSearch) {
-      query = query.eq('pack_metadata.verification_status', 'verified');
-    }
-
-    // Dependency filter
-    if (dependency && useAdvancedSearch) {
-      // Join with pack_dependencies table
-      const { data: depPacks } = await supabase
-        .from('pack_dependencies')
-        .select('pack_id')
-        .ilike('dependency_name', `%${dependency}%`);
-      
-      if (depPacks && depPacks.length > 0) {
-        const packIds = depPacks.map(dep => dep.pack_id);
-        query = query.in('id', packIds);
-      } else {
-        // Return empty result if no packages have this dependency
-        query = query.eq('id', 'no-match-123');
-      }
     }
 
     // Author/Publisher filter
@@ -260,98 +186,285 @@ export default async function handler(req, res) {
     }
 
     // Get total count first for pagination
-    const { count, error: countError } = await query
-      .select('*', { count: 'exact', head: true });
+    const { count, error: countError } = await query;
     
     if (countError) throw countError;
 
     // Apply pagination
     query = query.range(offset, offset + limitNum - 1);
 
-    // Execute query
-    const { data, error } = await query;
+    // Execute query for packs
+    const { data: packs, error } = await query;
     
     if (error) throw error;
 
-    // Process and enhance results
-    const enhancedPacks = await Promise.all(
-      (data || []).map(async pack => {
-        const enhancedPack = {
-          id: pack.id,
-          urlId: pack.url_id,
-          name: pack.name,
-          version: pack.version,
-          cdnUrl: pack.cdn_url,
-          workerUrl: pack.worker_url,
-          isPublic: pack.is_public,
-          createdAt: pack.created_at,
-          updatedAt: pack.updated_at,
-          views: pack.views,
-          downloads: pack.downloads,
-          publisherId: pack.publisher_id
-        };
+    // If no packs found, return empty
+    if (!packs || packs.length === 0) {
+      return res.status(200).json({
+        success: true,
+        packs: [],
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: pageNum > 1
+        },
+        filters: {
+          applied: {
+            q: q || null,
+            type: type || null,
+            language: language || null,
+            sort: sort || 'relevance'
+          },
+          available: AVAILABLE_FILTERS
+        },
+        metadata: {
+          processingTime: Date.now(),
+          advancedSearch: useAdvancedSearch,
+          includeMetadata: includeMetadata === 'true'
+        }
+      });
+    }
 
-        // Parse pack_json
+    // Get pack IDs for fetching additional data
+    const packIds = packs.map(pack => pack.id);
+
+    // Fetch additional data from other tables if advanced search is enabled
+    let metadataMap = {};
+    let versionsMap = {};
+    let collaboratorsMap = {};
+    let dependenciesMap = {};
+    let changesMap = {};
+
+    if (useAdvancedSearch) {
+      // Fetch metadata
+      try {
+        const { data: metadata, error: metaError } = await supabase
+          .from('pack_metadata')
+          .select('*')
+          .in('pack_id', packIds);
+
+        if (!metaError && metadata) {
+          metadata.forEach(meta => {
+            metadataMap[meta.pack_id] = meta;
+          });
+        }
+      } catch (metaErr) {
+        console.warn('Error fetching metadata:', metaErr.message);
+      }
+
+      // Fetch versions
+      try {
+        const { data: versions, error: versionsError } = await supabase
+          .from('pack_versions')
+          .select('*')
+          .in('pack_id', packIds)
+          .order('version_number', { ascending: false });
+
+        if (!versionsError && versions) {
+          versionsMap = versions.reduce((acc, version) => {
+            if (!acc[version.pack_id]) {
+              acc[version.pack_id] = [];
+            }
+            acc[version.pack_id].push(version);
+            return acc;
+          }, {});
+        }
+      } catch (versionsErr) {
+        console.warn('Error fetching versions:', versionsErr.message);
+      }
+
+      // Fetch collaborators
+      try {
+        const { data: collaborators, error: collabError } = await supabase
+          .from('pack_collaborators')
+          .select('*')
+          .in('pack_id', packIds);
+
+        if (!collabError && collaborators) {
+          collaboratorsMap = collaborators.reduce((acc, collab) => {
+            if (!acc[collab.pack_id]) {
+              acc[collab.pack_id] = [];
+            }
+            acc[collab.pack_id].push(collab);
+            return acc;
+          }, {});
+        }
+      } catch (collabErr) {
+        console.warn('Error fetching collaborators:', collabErr.message);
+      }
+
+      // Fetch dependencies if dependency filter is active
+      if (dependency) {
         try {
-          const packJson = JSON.parse(pack.pack_json);
-          enhancedPack.description = packJson.description || '';
-          enhancedPack.author = packJson.author || '';
-          enhancedPack.keywords = packJson.keywords || [];
-          enhancedPack.homepage = packJson.homepage || '';
-          enhancedPack.repository = packJson.repository || '';
-          enhancedPack.license = packJson.license || '';
-        } catch (e) {
-          enhancedPack.description = '';
-          enhancedPack.author = '';
-          enhancedPack.keywords = [];
-        }
+          const { data: deps, error: depError } = await supabase
+            .from('pack_dependencies')
+            .select('*')
+            .in('pack_id', packIds)
+            .ilike('dependency_name', `%${dependency}%`);
 
-        // Add metadata if available and requested
-        if (includeMetadata === 'true' && pack.pack_metadata && pack.pack_metadata.length > 0) {
-          const metadata = pack.pack_metadata[0];
-          enhancedPack.packageType = metadata.package_type || 'basic';
-          enhancedPack.sandboxLevel = metadata.sandbox_level || 'basic';
-          enhancedPack.requiresVerification = metadata.requires_verification || false;
-          enhancedPack.verificationStatus = metadata.verification_status || 'unverified';
-          enhancedPack.fileCount = metadata.file_count || 0;
-          enhancedPack.totalSize = metadata.total_size || 0;
-          
-          // Calculate language distribution from file extensions
-          if (useAdvancedSearch) {
-            enhancedPack.languages = await detectLanguages(pack.id);
+          if (!depError && deps) {
+            deps.forEach(dep => {
+              if (!dependenciesMap[dep.pack_id]) {
+                dependenciesMap[dep.pack_id] = [];
+              }
+              dependenciesMap[dep.pack_id].push(dep.dependency_name);
+            });
           }
-        } else {
-          enhancedPack.packageType = 'basic'; // Default for backward compatibility
+        } catch (depErr) {
+          console.warn('Error fetching dependencies:', depErr.message);
         }
+      }
 
-        // Add version info
-        if (pack.pack_versions && pack.pack_versions.length > 0) {
-          enhancedPack.versions = pack.pack_versions.map(v => ({
-            version: v.version,
-            versionNumber: v.version_number,
-            createdAt: v.created_at
-          }));
-          enhancedPack.latestVersion = pack.pack_versions[0].version;
-          enhancedPack.versionCount = pack.pack_versions.length;
+      // Fetch recent changes
+      try {
+        const { data: changes, error: changesError } = await supabase
+          .from('pack_changes')
+          .select('*')
+          .in('pack_id', packIds)
+          .order('created_at', { ascending: false })
+          .limit(3 * packIds.length); // Get recent changes for all packs
+
+        if (!changesError && changes) {
+          changesMap = changes.reduce((acc, change) => {
+            if (!acc[change.pack_id]) {
+              acc[change.pack_id] = [];
+            }
+            if (acc[change.pack_id].length < 3) { // Limit to 3 recent changes per pack
+              acc[change.pack_id].push(change);
+            }
+            return acc;
+          }, {});
         }
+      } catch (changesErr) {
+        console.warn('Error fetching changes:', changesErr.message);
+      }
+    }
 
-        // Add collaborators if available
-        if (pack.pack_collaborators && pack.pack_collaborators.length > 0) {
-          enhancedPack.collaborators = pack.pack_collaborators.map(c => ({
-            userId: c.user_id,
-            permissionLevel: c.permission_level
-          }));
-          enhancedPack.collaboratorCount = pack.pack_collaborators.length;
+    // Process and enhance results
+    const enhancedPacks = packs.map(pack => {
+      const enhancedPack = {
+        id: pack.id,
+        urlId: pack.url_id,
+        name: pack.name,
+        version: pack.version,
+        cdnUrl: pack.cdn_url,
+        workerUrl: pack.worker_url,
+        isPublic: pack.is_public,
+        createdAt: pack.created_at,
+        updatedAt: pack.updated_at,
+        lastAccessed: pack.last_accessed,
+        views: pack.views,
+        downloads: pack.downloads,
+        publisherId: pack.publisher_id,
+        packageType: pack.package_type || 'basic',
+        publishIp: pack.publish_ip,
+        hasEncryption: !!pack.encrypted_key
+      };
+
+      // Parse pack_json
+      try {
+        const packJson = JSON.parse(pack.pack_json);
+        enhancedPack.description = packJson.description || '';
+        enhancedPack.author = packJson.author || '';
+        enhancedPack.keywords = packJson.keywords || [];
+        enhancedPack.homepage = packJson.homepage || '';
+        enhancedPack.repository = packJson.repository || '';
+        enhancedPack.license = packJson.license || '';
+        enhancedPack.main = packJson.main || 'index.js';
+        enhancedPack.scripts = packJson.scripts || {};
+        enhancedPack.dependencies = packJson.dependencies || {};
+        enhancedPack.devDependencies = packJson.devDependencies || {};
+      } catch (e) {
+        enhancedPack.description = '';
+        enhancedPack.author = '';
+        enhancedPack.keywords = [];
+        enhancedPack.dependencies = {};
+      }
+
+      // Add metadata if available
+      if (includeMetadata === 'true' && metadataMap[pack.id]) {
+        const metadata = metadataMap[pack.id];
+        enhancedPack.sandboxLevel = metadata.sandbox_level || 'basic';
+        enhancedPack.requiresVerification = metadata.requires_verification || false;
+        enhancedPack.verificationStatus = metadata.verification_status || 'unverified';
+        enhancedPack.fileCount = metadata.file_count || 0;
+        enhancedPack.totalSize = metadata.total_size || 0;
+        
+        // Calculate languages from files if available
+        if (pack.files && typeof pack.files === 'object') {
+          enhancedPack.languages = detectLanguagesFromFiles(pack.files);
         }
+      }
 
-        // Calculate relevance score for search results
-        if (q) {
-          enhancedPack.relevanceScore = calculateRelevanceScore(enhancedPack, q);
+      // Add version info
+      if (versionsMap[pack.id] && versionsMap[pack.id].length > 0) {
+        enhancedPack.versions = versionsMap[pack.id].map(v => ({
+          version: v.version,
+          versionNumber: v.version_number,
+          checksum: v.checksum,
+          createdAt: v.created_at,
+          publisherId: v.publisher_id
+        }));
+        enhancedPack.latestVersion = versionsMap[pack.id][0].version;
+        enhancedPack.versionCount = versionsMap[pack.id].length;
+      }
+
+      // Add collaborators
+      if (collaboratorsMap[pack.id] && collaboratorsMap[pack.id].length > 0) {
+        enhancedPack.collaborators = collaboratorsMap[pack.id].map(c => ({
+          userId: c.user_id,
+          permissionLevel: c.permission_level,
+          invitedBy: c.invited_by,
+          acceptedAt: c.accepted_at
+        }));
+        enhancedPack.collaboratorCount = collaboratorsMap[pack.id].length;
+      }
+
+      // Add dependencies
+      if (dependenciesMap[pack.id]) {
+        enhancedPack.dependencyList = dependenciesMap[pack.id];
+      }
+
+      // Add recent changes
+      if (changesMap[pack.id] && changesMap[pack.id].length > 0) {
+        enhancedPack.recentChanges = changesMap[pack.id].map(c => ({
+          changeType: c.change_type,
+          description: c.description,
+          userId: c.user_id,
+          createdAt: c.created_at,
+          metadata: c.metadata
+        }));
+      }
+
+      // Apply dependency filter - if dependency specified, only include packs that have it
+      if (dependency && useAdvancedSearch) {
+        const hasDependency = dependenciesMap[pack.id] && 
+          dependenciesMap[pack.id].some(dep => 
+            dep.toLowerCase().includes(dependency.toLowerCase())
+          );
+        
+        if (!hasDependency) {
+          return null; // Skip this pack
         }
+      }
 
-        return enhancedPack;
-      })
-    );
+      // Apply verification filter
+      if (verified === 'true' && useAdvancedSearch) {
+        if (enhancedPack.verificationStatus !== 'verified') {
+          return null; // Skip this pack
+        }
+      }
+
+      // Calculate relevance score for search results
+      if (q) {
+        enhancedPack.relevanceScore = calculateRelevanceScore(enhancedPack, q);
+      }
+
+      return enhancedPack;
+    }).filter(pack => pack !== null); // Remove null packs from filtering
 
     // Apply relevance sorting if search query exists
     let sortedPacks = enhancedPacks;
@@ -380,14 +493,24 @@ export default async function handler(req, res) {
           q: q || null,
           type: type || null,
           language: language || null,
-          sort: sort || 'relevance'
+          sort: sort || 'relevance',
+          minDownloads: parseInt(minDownloads) || null,
+          minViews: parseInt(minViews) || null,
+          verified: verified === 'true' || null,
+          hasReadme: hasReadme === 'true' || null,
+          hasLicense: hasLicense === 'true' || null,
+          hasTests: hasTests === 'true' || null,
+          dependency: dependency || null,
+          author: author || null
         },
         available: AVAILABLE_FILTERS
       },
       metadata: {
         processingTime: Date.now(),
         advancedSearch: useAdvancedSearch,
-        includeMetadata: includeMetadata === 'true'
+        includeMetadata: includeMetadata === 'true',
+        totalPacks: count || 0,
+        filteredPacks: sortedPacks.length
       }
     };
 
@@ -409,6 +532,10 @@ export default async function handler(req, res) {
       statusCode = 504;
       errorMessage = 'Search timeout. Try simplifying your query.';
       errorCode = 'TIMEOUT';
+    } else if (error.message.includes('rate limit')) {
+      statusCode = 429;
+      errorMessage = 'Rate limit exceeded. Please try again later.';
+      errorCode = 'RATE_LIMIT';
     }
 
     res.status(statusCode).json({
@@ -443,6 +570,11 @@ function calculateRelevanceScore(pack, searchQuery) {
     score += keywordMatches * SEARCH_WEIGHTS.KEYWORD_MATCH;
   }
   
+  // Author match
+  if (pack.author && pack.author.toLowerCase().includes(query)) {
+    score += SEARCH_WEIGHTS.DESCRIPTION_MATCH;
+  }
+  
   // Popularity boost
   score += Math.log10(pack.downloads + 1) * SEARCH_WEIGHTS.POPULARITY;
   
@@ -453,51 +585,99 @@ function calculateRelevanceScore(pack, searchQuery) {
     score += SEARCH_WEIGHTS.RECENCY * (30 - daysOld) / 30;
   }
   
+  // Verification boost
+  if (pack.verificationStatus === 'verified') {
+    score += 5;
+  }
+  
+  // Recent activity boost
+  if (pack.recentChanges && pack.recentChanges.length > 0) {
+    const latestChange = new Date(pack.recentChanges[0].createdAt);
+    const daysSinceChange = (Date.now() - latestChange.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceChange < 7) {
+      score += 3;
+    }
+  }
+  
   return score;
 }
 
-// Helper function to detect languages from a package
-async function detectLanguages(packId) {
+// Helper function to detect languages from files
+function detectLanguagesFromFiles(files) {
+  const languages = new Set();
+  const extMap = {
+    'js': 'javascript',
+    'mjs': 'javascript',
+    'cjs': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'javascript',
+    'tsx': 'javascript',
+    'py': 'python',
+    'pyc': 'python',
+    'pyo': 'python',
+    'wasm': 'wasm',
+    'json': 'json',
+    'md': 'markdown',
+    'markdown': 'markdown',
+    'txt': 'text',
+    'html': 'html',
+    'htm': 'html',
+    'css': 'css',
+    'scss': 'css',
+    'sass': 'css',
+    'png': 'image',
+    'jpg': 'image',
+    'jpeg': 'image',
+    'gif': 'image',
+    'svg': 'image',
+    'webp': 'image',
+    'csv': 'data',
+    'tsv': 'data',
+    'xml': 'data',
+    'yaml': 'data',
+    'yml': 'data'
+  };
+
+  Object.keys(files).forEach(filename => {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (extMap[ext]) {
+      languages.add(extMap[ext]);
+    }
+  });
+
+  if (languages.size === 0) {
+    languages.add('javascript'); // Default
+  }
+
+  return Array.from(languages);
+}
+
+// Helper function to extract description from pack_json
+function extractDescription(packJson) {
   try {
-    const { data: dependencies } = await supabase
-      .from('pack_dependencies')
-      .select('dependency_name')
-      .eq('pack_id', packId)
-      .limit(10);
-    
-    // Simplified language detection based on dependencies
-    const languages = new Set();
-    
-    if (dependencies && dependencies.length > 0) {
-      // Check for language-specific dependencies
-      const jsDeps = ['react', 'vue', 'angular', 'express', 'lodash'];
-      const pythonDeps = ['django', 'flask', 'numpy', 'pandas'];
-      
-      dependencies.forEach(dep => {
-        const depName = dep.dependency_name.toLowerCase();
-        if (jsDeps.some(jsDep => depName.includes(jsDep))) {
-          languages.add('javascript');
-        }
-        if (pythonDeps.some(pyDep => depName.includes(pyDep))) {
-          languages.add('python');
-        }
-      });
-    }
-    
-    // Default to JavaScript if no specific language detected
-    if (languages.size === 0) {
-      languages.add('javascript');
-    }
-    
-    return Array.from(languages);
-  } catch (error) {
-    return ['javascript']; // Default fallback
+    const json = typeof packJson === 'string' ? JSON.parse(packJson) : packJson;
+    return json.description || '';
+  } catch (e) {
+    return '';
   }
 }
 
-// Backward compatibility endpoint for old clients
-export const config = {
-  api: {
-    externalResolver: true,
-  },
-};
+// Helper function to extract author from pack_json
+function extractAuthor(packJson) {
+  try {
+    const json = typeof packJson === 'string' ? JSON.parse(packJson) : packJson;
+    return json.author || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+// Export for testing
+if (process.env.NODE_ENV === 'test') {
+  module.exports = {
+    calculateRelevanceScore,
+    detectLanguagesFromFiles,
+    extractDescription,
+    extractAuthor
+  };
+}
