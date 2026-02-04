@@ -32,7 +32,7 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-    // @username to file mappings (these show the actual files)
+
     {
       "source": "/@quantum",
       "destination": "/selector.html"
@@ -97,7 +97,7 @@
       "source": "/@homediscovery",
       "destination": "/home/explore.html"
     },
-    // Catch-all for everything else EXCEPT @usernames and API
+
     {
       "source": "/((?!@|api).*)",
       "destination": "/api/wildcard-redirect"
