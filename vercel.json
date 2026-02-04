@@ -2,27 +2,27 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/@quantum"
+      "destination": "/selector.html"
     },
     {
       "source": "/home",
-      "destination": "/@cosmic"
+      "destination": "/home/index.html"
     },
     {
       "source": "/docs",
-      "destination": "/@digital"
+      "destination": "/docs.html"
     },
     {
       "source": "/editor",
-      "destination": "/@neo"
+      "destination": "/editor.html"
     },
     {
       "source": "/explore",
-      "destination": "/@virtual"
+      "destination": "/explore.html"
     },
     {
       "source": "/config.json",
-      "destination": "/@synth"
+      "destination": "/config.json"
     },
     {
       "source": "/api/random-urls",
@@ -32,7 +32,7 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-
+    // @username routes - these should come BEFORE file routes
     {
       "source": "/@quantum",
       "destination": "/selector.html"
@@ -99,7 +99,77 @@
     },
 
     {
-      "source": "/((?!@|api).*)",
+      "source": "/@:username",
+      "destination": "/api/wildcard-redirect"
+    },
+
+    {
+      "source": "/selector.html",
+      "destination": "/@quantum"
+    },
+    {
+      "source": "/home/index.html",
+      "destination": "/@cosmic"
+    },
+    {
+      "source": "/docs.html",
+      "destination": "/@digital"
+    },
+    {
+      "source": "/editor.html",
+      "destination": "/@neo"
+    },
+    {
+      "source": "/explore.html",
+      "destination": "/@virtual"
+    },
+    {
+      "source": "/config.json",
+      "destination": "/@synth"
+    },
+    {
+      "source": "/Docs/docs.html",
+      "destination": "/@stellar"
+    },
+    {
+      "source": "/Editor/editor.html",
+      "destination": "/@cyber"
+    },
+    {
+      "source": "/Explore/explore.html",
+      "destination": "/@orbital"
+    },
+    {
+      "source": "/Login/login.html",
+      "destination": "/@dragon"
+    },
+    {
+      "source": "/Private/admin.html",
+      "destination": "/@phoenix"
+    },
+    {
+      "source": "/Docs/Pages/Home/index.html",
+      "destination": "/@homecore"
+    },
+    {
+      "source": "/Docs/Pages/Home/Pages/Editor/editor.html",
+      "destination": "/@editornetwork"
+    },
+    {
+      "source": "/Docs/Pages/Home/Pages/Explore/explore.html",
+      "destination": "/@explorervortex"
+    },
+    {
+      "source": "/home/editor.html",
+      "destination": "/@homestudio"
+    },
+    {
+      "source": "/home/explore.html",
+      "destination": "/@homediscovery"
+    },
+
+    {
+      "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
