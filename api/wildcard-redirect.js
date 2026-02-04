@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     try {
       // Fetch page from Supabase
       const { data: page, error } = await supabase
-        .from('User_Pages')
+        .from('user_pages')
         .select('*')
         .eq('page_id', username)
         .eq('is_public', true)
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         
         // Increment view count
         await supabase
-          .from('User_Pages')
+          .from('user_pages')
           .update({ views: page.views + 1 })
           .eq('id', page.id);
         
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
       // Check Supabase for user page
       try {
         const { data: page } = await supabase
-          .from('User_Pages')
+          .from('user_pages')
           .select('*')
           .eq('page_id', pathUsername)
           .eq('is_public', true)
@@ -334,12 +334,12 @@ export default async function handler(req, res) {
     
     try {
       const { count } = await supabase
-        .from('User_Pages')
+        .from('user_pages')
         .select('*', { count: 'exact', head: true });
       pageCount = count || 0;
       
       const { data } = await supabase
-        .from('User_Pages')
+        .from('user_pages')
         .select('page_id, title, views, created_at')
         .eq('is_public', true)
         .order('views', { ascending: false })
