@@ -2,27 +2,27 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/selector.html"
+      "destination": "/@quantum"
     },
     {
       "source": "/home",
-      "destination": "/home/index.html"
+      "destination": "/@cosmic"
     },
     {
       "source": "/docs",
-      "destination": "/docs.html"
+      "destination": "/@digital"
     },
     {
       "source": "/editor",
-      "destination": "/editor.html"
+      "destination": "/@neo"
     },
     {
       "source": "/explore",
-      "destination": "/explore.html"
+      "destination": "/@virtual"
     },
     {
       "source": "/config.json",
-      "destination": "/config.json"
+      "destination": "/@synth"
     },
     {
       "source": "/api/random-urls",
@@ -32,7 +32,7 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-    
+    // @username to file mappings (these show the actual files)
     {
       "source": "/@quantum",
       "destination": "/selector.html"
@@ -77,86 +77,61 @@
       "source": "/@phoenix",
       "destination": "/Private/admin.html"
     },
-    // Fun URL routes (keep these before catch-all)
     {
-      "source": "/quantum-portal",
-      "destination": "/selector.html"
+      "source": "/@homecore",
+      "destination": "/Docs/Pages/Home/index.html"
     },
     {
-      "source": "/cosmic-dashboard",
-      "destination": "/home/index.html"
+      "source": "/@editornetwork",
+      "destination": "/Docs/Pages/Home/Pages/Editor/editor.html"
     },
     {
-      "source": "/digital-library",
-      "destination": "/docs.html"
+      "source": "/@explorervortex",
+      "destination": "/Docs/Pages/Home/Pages/Explore/explore.html"
     },
     {
-      "source": "/neo-workshop",
-      "destination": "/editor.html"
+      "source": "/@homestudio",
+      "destination": "/home/editor.html"
     },
     {
-      "source": "/virtual-explorer",
-      "destination": "/explore.html"
+      "source": "/@homediscovery",
+      "destination": "/home/explore.html"
     },
+    // Catch-all for everything else EXCEPT @usernames and API
     {
-      "source": "/synth-config",
-      "destination": "/config.json"
-    },
-    {
-      "source": "/stellar-docs",
-      "destination": "/Docs/docs.html"
-    },
-    {
-      "source": "/cyber-studio",
-      "destination": "/Editor/editor.html"
-    },
-    {
-      "source": "/orbital-discovery",
-      "destination": "/Explore/explore.html"
-    },
-    {
-      "source": "/dragon-login",
-      "destination": "/Login/login.html"
-    },
-    {
-      "source": "/phoenix-admin",
-      "destination": "/Private/admin.html"
-    },
-    // Catch-all for everything else (MUST BE LAST)
-    {
-      "source": "/(.*)",
+      "source": "/((?!@|api).*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
   "redirects": [
     {
       "source": "/portal",
-      "destination": "/",
+      "destination": "/@quantum",
       "permanent": true
     },
     {
       "source": "/gateway",
-      "destination": "/home",
+      "destination": "/@cosmic",
       "permanent": true
     },
     {
       "source": "/library",
-      "destination": "/docs",
+      "destination": "/@digital",
       "permanent": true
     },
     {
       "source": "/workshop",
-      "destination": "/editor",
+      "destination": "/@neo",
       "permanent": true
     },
     {
       "source": "/discover",
-      "destination": "/explore",
+      "destination": "/@virtual",
       "permanent": true
     },
     {
       "source": "/settings",
-      "destination": "/config.json",
+      "destination": "/@synth",
       "permanent": true
     }
   ],
