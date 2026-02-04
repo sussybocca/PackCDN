@@ -90,7 +90,7 @@
       if (currentFilter !== 'all') params.set('type', currentFilter);
       if (currentSearch) params.set('q', currentSearch);
       
-      const response = await fetch(`/api/search?${params}`);
+      const response = await fetch(`/api/Old/search?${params}`);
       const result = await response.json();
       
       if (result.success) {
