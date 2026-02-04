@@ -1,4 +1,4 @@
-// /api/wildcard-redirect.js - COMPLETE UPDATED VERSION WITH SUPABASE
+// /api/wildcard-redirect.js - FIXED VERSION
 import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase
@@ -55,32 +55,39 @@ export default async function handler(req, res) {
   // Handle @username (user pages from Supabase)
   if (username && !reservedNames.includes(username)) {
     try {
-      // Fetch page from Supabase
+      // Fetch page from Supabase - FIXED: Use proper error handling
       const { data: page, error } = await supabase
         .from('user_pages')
         .select('*')
         .eq('page_id', username)
         .eq('is_public', true)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle()
       
       if (error) {
-        console.log(`❌ Supabase error for @${username}:`, error.message);
-      }
-      
-      if (page) {
-        console.log(`📝 User Page Found: @${username}`);
+        console.log(`❌ Supabase query error for @${username}:`, error.message);
+        // Fall through to original logic
+      } else if (page) {
+        console.log(`📝 User Page Found: @${username} - "${page.title}"`);
         
-        // Increment view count
-        await supabase
-          .from('user_pages')
-          .update({ views: page.views + 1 })
-          .eq('id', page.id);
+        // Increment view count (don't await, just fire and forget)
+        try {
+          await supabase
+            .from('user_pages')
+            .update({ views: (page.views || 0) + 1 })
+            .eq('id', page.id);
+        } catch (updateError) {
+          console.log(`⚠️ Could not update view count for @${username}:`, updateError.message);
+        }
         
         // Render the page
         return res.send(renderUserPage(username, page));
+      } else {
+        console.log(`📭 No page found for @${username}, falling back to original logic`);
+        // Page doesn't exist, fall through to original logic
       }
     } catch (error) {
       console.log(`❌ Error loading user page @${username}:`, error.message);
+      // Fall through to original logic
     }
   }
   
@@ -243,7 +250,7 @@ export default async function handler(req, res) {
           .select('*')
           .eq('page_id', pathUsername)
           .eq('is_public', true)
-          .single();
+          .maybeSingle();
         
         if (page) {
           // Redirect to @username format (no slash)
@@ -251,6 +258,7 @@ export default async function handler(req, res) {
         }
       } catch (error) {
         // Continue with original logic
+        console.log(`ℹ️ No Supabase page for /@${pathUsername}:`, error.message);
       }
     }
   }
@@ -333,18 +341,24 @@ export default async function handler(req, res) {
     let topPages = [];
     
     try {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('user_pages')
         .select('*', { count: 'exact', head: true });
-      pageCount = count || 0;
       
-      const { data } = await supabase
+      if (!error) {
+        pageCount = count || 0;
+      }
+      
+      const { data, error: topError } = await supabase
         .from('user_pages')
         .select('page_id, title, views, created_at')
         .eq('is_public', true)
         .order('views', { ascending: false })
         .limit(10);
-      topPages = data || [];
+      
+      if (!topError) {
+        topPages = data || [];
+      }
     } catch (error) {
       console.log('Supabase stats error:', error.message);
     }
@@ -431,7 +445,6 @@ function renderUserPage(username, pageData) {
   
   const tags = pageData.tags || [];
   const views = pageData.views || 0;
-  const likes = pageData.likes || 0;
   const created = new Date(pageData.created_at).toLocaleDateString();
   
   let contentHtml = '';
@@ -640,7 +653,6 @@ function renderUserPage(username, pageData) {
         
         <div class="page-stats">
           <div class="stat-item">👁️ ${views} views</div>
-          <div class="stat-item">❤️ ${likes} likes</div>
           <div class="stat-item">📅 Created ${created}</div>
           <div class="stat-item">🔄 Version ${pageData.version || 1}</div>
         </div>
@@ -667,71 +679,18 @@ function renderUserPage(username, pageData) {
         const contentDiv = document.getElementById('content');
         const scripts = contentDiv.getElementsByTagName('script');
         for (let script of scripts) {
-          const newScript = document.createElement('script');
-          newScript.textContent = script.textContent;
-          document.head.appendChild(newScript);
-        }
-        
-        // Also handle inline event handlers
-        const elementsWithInlineEvents = contentDiv.querySelectorAll('[onclick], [onload], [onmouseover]');
-        elementsWithInlineEvents.forEach(el => {
-          const attrs = el.attributes;
-          for (let attr of attrs) {
-            if (attr.name.startsWith('on')) {
-              el[attr.name] = new Function(attr.value);
-            }
+          try {
+            const newScript = document.createElement('script');
+            newScript.textContent = script.textContent;
+            document.head.appendChild(newScript);
+          } catch (e) {
+            console.warn('Could not execute script:', e);
           }
-        });
+        }
       }
-      
-      // Add like functionality
-      const likeBtn = document.createElement('button');
-      likeBtn.innerHTML = '❤️ Like';
-      likeBtn.style.cssText = \`
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        padding: 12px 24px;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        border: none;
-        border-radius: 25px;
-        cursor: pointer;
-        font-weight: 600;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 1000;
-      \`;
-      
-      likeBtn.onclick = async () => {
-        try {
-          const response = await fetch('/api/user-pages/like', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page_id: '${username}' })
-          });
-          
-          if (response.ok) {
-            likeBtn.innerHTML = '❤️ Liked!';
-            likeBtn.style.background = '#4CAF50';
-            likeBtn.disabled = true;
-            
-            // Update likes count
-            const likesElement = document.querySelector('.stat-item:nth-child(2)');
-            if (likesElement) {
-              const currentLikes = parseInt(likesElement.textContent.match(/\\d+/)[0]);
-              likesElement.innerHTML = \`❤️ \${currentLikes + 1} likes\`;
-            }
-          }
-        } catch (error) {
-          console.error('Like error:', error);
-        }
-      };
-      
-      document.body.appendChild(likeBtn);
       
       // Analytics
       window.addEventListener('load', () => {
-        // Send view event (already handled server-side)
         console.log('Page @${username} loaded successfully');
       });
     </script>
