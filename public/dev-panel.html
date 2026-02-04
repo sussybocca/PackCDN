@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dev Panel | @random</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .panel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+        }
+        
+        .panel:hover {
+            transform: translateY(-5px);
+        }
+        
+        .panel-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #f5576c;
+        }
+        
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.3);
+        }
+        
+        .page-list {
+            list-style: none;
+        }
+        
+        .page-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #f5576c;
+        }
+        
+        .page-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .page-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 5px 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn:hover {
+            background: #f0f0f0;
+        }
+        
+        .action-btn.edit { color: #2196f3; border-color: #2196f3; }
+        .action-btn.delete { color: #f44336; border-color: #f44336; }
+        .action-btn.view { color: #4caf50; border-color: #4caf50; }
+        
+        .preview-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 200px;
+            border: 2px dashed #ddd;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .export-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .export-code {
+            font-family: monospace;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+        
+        .quick-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .quick-link {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: transform 0.3s ease;
+        }
+        
+        .quick-link:hover {
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Developer Panel</h1>
+            <p class="subtitle">Create and manage pages with @random | All data stored locally</p>
+        </div>
+        
+        <div class="panel-grid">
+            <!-- Create New Page -->
+            <div class="panel">
+                <h2 class="panel-title">Create New Page</h2>
+                <div class="form-group">
+                    <label for="pageName">Page Name</label>
+                    <input type="text" id="pageName" placeholder="my-awesome-page">
+                </div>
+                <div class="form-group">
+                    <label for="pageTitle">Page Title</label>
+                    <input type="text" id="pageTitle" placeholder="My Awesome Page">
+                </div>
+                <div class="form-group">
+                    <label for="pageType">Page Type</label>
+                    <select id="pageType">
+                        <option value="html">HTML Page</option>
+                        <option value="embed">Embed Website</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="dashboard">Dashboard</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pageContent">Content (HTML/CSS/JS)</label>
+                    <textarea id="pageContent" placeholder="<h1>Hello World!</h1>
+<style>body { background: #f0f0f0; }</style>
+<script>console.log('Page loaded!')</script>"></textarea>
+                </div>
+                <button class="btn" onclick="createPage()">✨ Create Page</button>
+            </div>
+            
+            <!-- Your Pages -->
+            <div class="panel">
+                <h2 class="panel-title">Your Pages</h2>
+                <ul class="page-list" id="pageList">
+                    <!-- Pages will be loaded here -->
+                </ul>
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-state-icon">📄</div>
+                    <p>No pages created yet</p>
+                </div>
+            </div>
+            
+            <!-- Preview -->
+            <div class="panel">
+                <h2 class="panel-title">Live Preview</h2>
+                <div class="preview-container" id="previewContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👁️</div>
+                        <p>Select a page to preview</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Links -->
+        <div class="quick-links">
+            <a href="/" class="quick-link">🏠 Home</a>
+            <a href="/@cosmic" class="quick-link">🌌 Cosmic</a>
+            <a href="/@neo" class="quick-link">💻 Editor</a>
+            <a href="#" class="quick-link" onclick="exportAllPages()">📤 Export All</a>
+            <a href="#" class="quick-link" onclick="importPages()">📥 Import</a>
+            <a href="#" class="quick-link" onclick="clearAllPages()">🗑️ Clear All</a>
+        </div>
+    </div>
+    
+    <!-- Modal for Export/Import -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Export</h2>
+            <div id="modalContent">
+                <!-- Content will be inserted here -->
+            </div>
+            <button class="btn" onclick="closeModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadPages);
+        
+        // Page management
+        function loadPages() {
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            const pageList = document.getElementById('pageList');
+            const emptyState = document.getElementById('emptyState');
+            
+            pageList.innerHTML = '';
+            
+            if (pages.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            pages.forEach((page, index) => {
+                const li = document.createElement('li');
+                li.className = 'page-item';
+                li.innerHTML = `
+                    <div>
+                        <div class="page-name">${page.name}</div>
+                        <small style="color: #666;">${page.type} • ${new Date(page.created).toLocaleDateString()}</small>
+                    </div>
+                    <div class="page-actions">
+                        <button class="action-btn edit" onclick="editPage(${index})">Edit</button>
+                        <button class="action-btn view" onclick="viewPage('${page.name}')">View</button>
+                        <button class="action-btn delete" onclick="deletePage(${index})">Delete</button>
+                    </div>
+                `;
+                pageList.appendChild(li);
+            });
+        }
+        
+        function createPage() {
+            const name = document.getElementById('pageName').value.trim();
+            const title = document.getElementById('pageTitle').value.trim();
+            const type = document.getElementById('pageType').value;
+            const content = document.getElementById('pageContent').value;
+            
+            if (!name) {
+                alert('Please enter a page name');
+                return;
+            }
+            
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            
+            // Check if name exists
+            if (pages.some(p => p.name === name)) {
+                alert('Page name already exists!');
+                return;
+            }
+            
+            const page = {
+                name,
+                title: title || name,
+                type,
+                content,
+                created: new Date().toISOString(),
+                updated: new Date().toISOString()
+            };
+            
+            pages.push(page);
+            localStorage.setItem('dev_pages', JSON.stringify(pages));
+            
+            // Save individual page
+            localStorage.setItem(`page_${name}`, JSON.stringify(page));
+            
+            // Clear form
+            document.getElementById('pageName').value = '';
+            document.getElementById('pageTitle').value = '';
+            document.getElementById('pageContent').value = '';
+            
+            // Reload list
+            loadPages();
+            
+            // Preview
+            previewPage(page);
+            
+            alert(`Page "${name}" created! Access it at /@${name}`);
+        }
+        
+        function editPage(index) {
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            const page = pages[index];
+            
+            document.getElementById('pageName').value = page.name;
+            document.getElementById('pageTitle').value = page.title;
+            document.getElementById('pageType').value = page.type;
+            document.getElementById('pageContent').value = page.content;
+            
+            // Scroll to form
+            document.getElementById('pageName').scrollIntoView({ behavior: 'smooth' });
+            
+            // Update create button
+            const btn = document.querySelector('.btn');
+            btn.textContent = 'Update Page';
+            btn.onclick = () => updatePage(index);
+        }
+        
+        function updatePage(index) {
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            const page = pages[index];
+            
+            page.title = document.getElementById('pageTitle').value.trim();
+            page.type = document.getElementById('pageType').value;
+            page.content = document.getElementById('pageContent').value;
+            page.updated = new Date().toISOString();
+            
+            localStorage.setItem('dev_pages', JSON.stringify(pages));
+            localStorage.setItem(`page_${page.name}`, JSON.stringify(page));
+            
+            // Reset form
+            document.getElementById('pageName').value = '';
+            document.getElementById('pageTitle').value = '';
+            document.getElementById('pageContent').value = '';
+            
+            const btn = document.querySelector('.btn');
+            btn.textContent = '✨ Create Page';
+            btn.onclick = createPage;
+            
+            loadPages();
+            previewPage(page);
+            
+            alert('Page updated!');
+        }
+        
+        function deletePage(index) {
+            if (!confirm('Delete this page?')) return;
+            
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            const page = pages[index];
+            
+            pages.splice(index, 1);
+            localStorage.setItem('dev_pages', JSON.stringify(pages));
+            localStorage.removeItem(`page_${page.name}`);
+            
+            loadPages();
+            document.getElementById('previewContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">👁️</div>
+                    <p>Select a page to preview</p>
+                </div>
+            `;
+        }
+        
+        function viewPage(name) {
+            window.location.href = `/@${name}`;
+        }
+        
+        function previewPage(page) {
+            const preview = document.getElementById('previewContainer');
+            
+            if (page.type === 'embed') {
+                preview.innerHTML = `
+                    <div style="padding: 20px;">
+                        <h3>${page.title}</h3>
+                        <p>Embedded Website Preview</p>
+                        <div style="background: white; padding: 10px; border-radius: 8px; margin-top: 10px;">
+                            ${page.content}
+                        </div>
+                        <button class="btn" onclick="viewPage('${page.name}')" style="margin-top: 15px;">
+                            Open Page
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Create iframe for HTML preview
+                preview.innerHTML = `
+                    <iframe 
+                        srcdoc="${escapeHtml(page.content)}"
+                        style="width: 100%; height: 300px; border: none; border-radius: 8px;"
+                    ></iframe>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button class="btn" onclick="viewPage('${page.name}')">
+                            Open ${page.name}
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // Export/Import
+        function exportAllPages() {
+            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+            const data = {
+                exportDate: new Date().toISOString(),
+                version: '1.0',
+                pages: pages
+            };
+            
+            const json = JSON.stringify(data, null, 2);
+            
+            document.getElementById('modalTitle').textContent = 'Export All Pages';
+            document.getElementById('modalContent').innerHTML = `
+                <p>Copy this JSON to save your pages:</p>
+                <div class="export-box">
+                    <div class="export-code">${json}</div>
+                </div>
+                <button class="btn" onclick="downloadExport()" style="margin-top: 15px;">
+                    📥 Download JSON
+                </button>
+            `;
+            
+            document.getElementById('modal').classList.add('show');
+            
+            window.exportData = data;
+        }
+        
+        function downloadExport() {
+            const data = window.exportData;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pack-cdn-pages-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function importPages() {
+            document.getElementById('modalTitle').textContent = 'Import Pages';
+            document.getElementById('modalContent').innerHTML = `
+                <p>Paste your exported JSON:</p>
+                <textarea id="importJson" placeholder='{"pages": [...]}' rows="10" style="width: 100%;"></textarea>
+                <button class="btn" onclick="processImport()" style="margin-top: 15px;">
+                    Import Pages
+                </button>
+            `;
+            document.getElementById('modal').classList.add('show');
+        }
+        
+        function processImport() {
+            const json = document.getElementById('importJson').value;
+            try {
+                const data = JSON.parse(json);
+                if (!data.pages || !Array.isArray(data.pages)) {
+                    throw new Error('Invalid format');
+                }
+                
+                const existing = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+                const newPages = [...existing, ...data.pages];
+                
+                // Remove duplicates by name
+                const uniquePages = [];
+                const names = new Set();
+                newPages.forEach(page => {
+                    if (!names.has(page.name)) {
+                        names.add(page.name);
+                        uniquePages.push(page);
+                    }
+                });
+                
+                localStorage.setItem('dev_pages', JSON.stringify(uniquePages));
+                
+                // Save individual pages
+                uniquePages.forEach(page => {
+                    localStorage.setItem(`page_${page.name}`, JSON.stringify(page));
+                });
+                
+                closeModal();
+                loadPages();
+                alert(`Imported ${data.pages.length} pages successfully!`);
+            } catch (error) {
+                alert('Invalid JSON format: ' + error.message);
+            }
+        }
+        
+        function clearAllPages() {
+            if (!confirm('Clear ALL pages? This cannot be undone!')) return;
+            
+            localStorage.removeItem('dev_pages');
+            
+            // Remove all page_ keys
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('page_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+            
+            loadPages();
+            alert('All pages cleared!');
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+        
+        // Utility function
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                createPage();
+            }
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
