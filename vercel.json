@@ -32,7 +32,7 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
-    // @username routes - these should come BEFORE file routes
+
     {
       "source": "/@quantum",
       "destination": "/selector.html"
