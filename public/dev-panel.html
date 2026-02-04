@@ -121,6 +121,15 @@
             box-shadow: 0 10px 20px rgba(245, 87, 108, 0.3);
         }
         
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .btn-loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
         .page-list {
             list-style: none;
         }
@@ -139,6 +148,12 @@
         .page-name {
             font-weight: 600;
             color: #333;
+        }
+        
+        .page-meta {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
         }
         
         .page-actions {
@@ -248,26 +263,99 @@
         .quick-link:hover {
             transform: translateY(-3px);
         }
+        
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #f5576c;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tags-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .tag {
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .tag-remove {
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .tag-remove:hover {
+            color: #f44336;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🚀 Developer Panel</h1>
-            <p class="subtitle">Create and manage pages with @random | All data stored locally</p>
+            <p class="subtitle">Create and manage pages with Supabase API | Connected to Pack CDN</p>
         </div>
+        
+        <div id="statusMessage" class="status-message" style="display: none;"></div>
         
         <div class="panel-grid">
             <!-- Create New Page -->
             <div class="panel">
                 <h2 class="panel-title">Create New Page</h2>
                 <div class="form-group">
-                    <label for="pageName">Page Name</label>
-                    <input type="text" id="pageName" placeholder="my-awesome-page">
+                    <label for="pageName">Page ID (URL)</label>
+                    <input type="text" id="pageName" placeholder="my-page" pattern="[a-z0-9-]+" title="Lowercase letters, numbers, and hyphens only">
+                    <small style="color: #666; display: block; margin-top: 5px;">Will be accessible as @your-page-id</small>
                 </div>
                 <div class="form-group">
                     <label for="pageTitle">Page Title</label>
                     <input type="text" id="pageTitle" placeholder="My Awesome Page">
+                </div>
+                <div class="form-group">
+                    <label for="pageDescription">Description</label>
+                    <input type="text" id="pageDescription" placeholder="Brief description of your page">
                 </div>
                 <div class="form-group">
                     <label for="pageType">Page Type</label>
@@ -279,17 +367,30 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="pageContent">Content (HTML/CSS/JS)</label>
+                    <label for="pageTags">Tags (comma separated)</label>
+                    <input type="text" id="pageTags" placeholder="web, project, demo">
+                </div>
+                <div class="form-group">
+                    <label for="pageContent">Content</label>
                     <textarea id="pageContent" placeholder="<h1>Hello World!</h1>
 <style>body { background: #f0f0f0; }</style>
 <script>console.log('Page loaded!')</script>"></textarea>
                 </div>
-                <button class="btn" onclick="createPage()">✨ Create Page</button>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isPublic" checked> Make page public
+                    </label>
+                </div>
+                <button class="btn" onclick="createPage()" id="createBtn">✨ Create Page</button>
             </div>
             
             <!-- Your Pages -->
             <div class="panel">
                 <h2 class="panel-title">Your Pages</h2>
+                <div class="loading" id="loadingPages" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Loading pages...</p>
+                </div>
                 <ul class="page-list" id="pageList">
                     <!-- Pages will be loaded here -->
                 </ul>
@@ -316,16 +417,16 @@
             <a href="/" class="quick-link">🏠 Home</a>
             <a href="/@cosmic" class="quick-link">🌌 Cosmic</a>
             <a href="/@neo" class="quick-link">💻 Editor</a>
-            <a href="#" class="quick-link" onclick="exportAllPages()">📤 Export All</a>
-            <a href="#" class="quick-link" onclick="importPages()">📥 Import</a>
-            <a href="#" class="quick-link" onclick="clearAllPages()">🗑️ Clear All</a>
+            <a href="/api/Pages/Explore/explore-pages" class="quick-link">🔍 Explore Pages</a>
+            <a href="#" class="quick-link" onclick="loadPages(true)">🔄 Refresh</a>
+            <a href="#" class="quick-link" onclick="showAllPages()">📊 View All</a>
         </div>
     </div>
     
-    <!-- Modal for Export/Import -->
+    <!-- Modal for viewing all pages -->
     <div class="modal" id="modal">
         <div class="modal-content">
-            <h2 id="modalTitle">Export</h2>
+            <h2 id="modalTitle">All Public Pages</h2>
             <div id="modalContent">
                 <!-- Content will be inserted here -->
             </div>
@@ -334,162 +435,312 @@
     </div>
 
     <script>
+        // API configuration
+        const API_BASE = '/api';
+        let currentEditId = null;
+        
         // Initialize
-        document.addEventListener('DOMContentLoaded', loadPages);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPages();
+            
+            // Check for URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            if (editId) {
+                loadPageForEdit(editId);
+            }
+        });
+        
+        // Show status message
+        function showStatus(message, type = 'success') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
         
         // Page management
-        function loadPages() {
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
+        async function loadPages(showLoading = false) {
             const pageList = document.getElementById('pageList');
             const emptyState = document.getElementById('emptyState');
+            const loadingEl = document.getElementById('loadingPages');
             
-            pageList.innerHTML = '';
+            if (showLoading) {
+                loadingEl.style.display = 'block';
+                pageList.innerHTML = '';
+                emptyState.style.display = 'none';
+            }
             
-            if (pages.length === 0) {
-                emptyState.style.display = 'block';
+            try {
+                const response = await fetch(`${API_BASE}/Pages/Explore/explore-pages`);
+                if (!response.ok) throw new Error('Failed to load pages');
+                
+                const data = await response.json();
+                pageList.innerHTML = '';
+                
+                if (!data.pages || data.pages.length === 0) {
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+                
+                data.pages.forEach((page) => {
+                    const li = document.createElement('li');
+                    li.className = 'page-item';
+                    li.innerHTML = `
+                        <div>
+                            <div class="page-name">@${page.page_id}</div>
+                            <div class="page-meta">
+                                ${page.title} • ${page.views || 0} views • 
+                                ${new Date(page.created_at).toLocaleDateString()}
+                            </div>
+                            ${page.tags ? `<div style="margin-top: 5px;">${page.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>` : ''}
+                        </div>
+                        <div class="page-actions">
+                            <button class="action-btn edit" onclick="loadPageForEdit('${page.page_id}')">Edit</button>
+                            <button class="action-btn view" onclick="viewPage('${page.page_id}')">View</button>
+                            <button class="action-btn delete" onclick="deletePage('${page.page_id}')">Delete</button>
+                        </div>
+                    `;
+                    pageList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error loading pages:', error);
+                pageList.innerHTML = `<li class="page-item" style="border-color: #f44336;">
+                    <div style="color: #f44336;">Error loading pages: ${error.message}</div>
+                </li>`;
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+        
+        async function loadPageForEdit(pageId) {
+            try {
+                const response = await fetch(`${API_BASE}/Pages/Explore/explore-pages`);
+                if (!response.ok) throw new Error('Failed to load page');
+                
+                const data = await response.json();
+                const page = data.pages.find(p => p.page_id === pageId);
+                
+                if (!page) {
+                    showStatus('Page not found', 'error');
+                    return;
+                }
+                
+                // Fill form
+                document.getElementById('pageName').value = page.page_id;
+                document.getElementById('pageTitle').value = page.title;
+                document.getElementById('pageDescription').value = page.description || '';
+                document.getElementById('pageType').value = page.page_type || 'html';
+                document.getElementById('pageTags').value = page.tags ? page.tags.join(', ') : '';
+                document.getElementById('pageContent').value = page.content || '';
+                document.getElementById('isPublic').checked = page.is_public !== false;
+                
+                // Change button to update
+                const btn = document.getElementById('createBtn');
+                btn.textContent = '🔄 Update Page';
+                btn.onclick = () => updatePage(page.id);
+                
+                currentEditId = page.id;
+                
+                // Scroll to form
+                document.getElementById('pageName').scrollIntoView({ behavior: 'smooth' });
+                
+                // Preview
+                previewPage(page);
+                
+                showStatus(`Loaded page @${pageId} for editing`);
+            } catch (error) {
+                console.error('Error loading page:', error);
+                showStatus(`Error loading page: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createPage() {
+            const pageId = document.getElementById('pageName').value.trim().toLowerCase();
+            const title = document.getElementById('pageTitle').value.trim();
+            const description = document.getElementById('pageDescription').value.trim();
+            const type = document.getElementById('pageType').value;
+            const tags = document.getElementById('pageTags').value.split(',').map(t => t.trim()).filter(t => t);
+            const content = document.getElementById('pageContent').value;
+            const isPublic = document.getElementById('isPublic').checked;
+            
+            if (!pageId) {
+                showStatus('Please enter a page ID', 'error');
                 return;
             }
             
-            emptyState.style.display = 'none';
+            if (!/^[a-z0-9-]+$/.test(pageId)) {
+                showStatus('Page ID can only contain lowercase letters, numbers, and hyphens', 'error');
+                return;
+            }
             
-            pages.forEach((page, index) => {
-                const li = document.createElement('li');
-                li.className = 'page-item';
-                li.innerHTML = `
-                    <div>
-                        <div class="page-name">${page.name}</div>
-                        <small style="color: #666;">${page.type} • ${new Date(page.created).toLocaleDateString()}</small>
-                    </div>
-                    <div class="page-actions">
-                        <button class="action-btn edit" onclick="editPage(${index})">Edit</button>
-                        <button class="action-btn view" onclick="viewPage('${page.name}')">View</button>
-                        <button class="action-btn delete" onclick="deletePage(${index})">Delete</button>
+            const btn = document.getElementById('createBtn');
+            btn.textContent = 'Creating...';
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}/create-page`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        page_id: pageId,
+                        title: title || pageId,
+                        description,
+                        page_type: type,
+                        tags,
+                        content,
+                        is_public: isPublic,
+                        version: 1
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create page');
+                }
+                
+                // Clear form
+                document.getElementById('pageName').value = '';
+                document.getElementById('pageTitle').value = '';
+                document.getElementById('pageDescription').value = '';
+                document.getElementById('pageTags').value = '';
+                document.getElementById('pageContent').value = '';
+                
+                showStatus(`Page @${pageId} created successfully! Access it at @${pageId}`);
+                
+                // Reload pages
+                loadPages();
+                
+                // Preview new page
+                previewPage({
+                    page_id: pageId,
+                    title: title || pageId,
+                    page_type: type,
+                    content
+                });
+                
+            } catch (error) {
+                console.error('Error creating page:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.textContent = '✨ Create Page';
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        }
+        
+        async function updatePage(pageId) {
+            const title = document.getElementById('pageTitle').value.trim();
+            const description = document.getElementById('pageDescription').value.trim();
+            const type = document.getElementById('pageType').value;
+            const tags = document.getElementById('pageTags').value.split(',').map(t => t.trim()).filter(t => t);
+            const content = document.getElementById('pageContent').value;
+            const isPublic = document.getElementById('isPublic').checked;
+            
+            const btn = document.getElementById('createBtn');
+            btn.textContent = 'Updating...';
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}/create-page`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: currentEditId,
+                        title,
+                        description,
+                        page_type: type,
+                        tags,
+                        content,
+                        is_public: isPublic,
+                        version: 2
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to update page');
+                }
+                
+                // Reset form
+                document.getElementById('pageName').value = '';
+                document.getElementById('pageTitle').value = '';
+                document.getElementById('pageDescription').value = '';
+                document.getElementById('pageTags').value = '';
+                document.getElementById('pageContent').value = '';
+                
+                // Reset button
+                btn.textContent = '✨ Create Page';
+                btn.onclick = createPage;
+                currentEditId = null;
+                
+                showStatus('Page updated successfully!');
+                
+                // Reload pages
+                loadPages();
+                
+            } catch (error) {
+                console.error('Error updating page:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        }
+        
+        async function deletePage(pageId) {
+            if (!confirm(`Are you sure you want to delete @${pageId}? This cannot be undone!`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/create-page?id=${pageId}`, {
+                    method: 'DELETE',
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete page');
+                }
+                
+                showStatus(`Page @${pageId} deleted`);
+                loadPages();
+                
+                // Clear preview
+                document.getElementById('previewContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👁️</div>
+                        <p>Select a page to preview</p>
                     </div>
                 `;
-                pageList.appendChild(li);
-            });
-        }
-        
-        function createPage() {
-            const name = document.getElementById('pageName').value.trim();
-            const title = document.getElementById('pageTitle').value.trim();
-            const type = document.getElementById('pageType').value;
-            const content = document.getElementById('pageContent').value;
-            
-            if (!name) {
-                alert('Please enter a page name');
-                return;
+                
+            } catch (error) {
+                console.error('Error deleting page:', error);
+                showStatus(`Error: ${error.message}`, 'error');
             }
-            
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-            
-            // Check if name exists
-            if (pages.some(p => p.name === name)) {
-                alert('Page name already exists!');
-                return;
-            }
-            
-            const page = {
-                name,
-                title: title || name,
-                type,
-                content,
-                created: new Date().toISOString(),
-                updated: new Date().toISOString()
-            };
-            
-            pages.push(page);
-            localStorage.setItem('dev_pages', JSON.stringify(pages));
-            
-            // Save individual page
-            localStorage.setItem(`page_${name}`, JSON.stringify(page));
-            
-            // Clear form
-            document.getElementById('pageName').value = '';
-            document.getElementById('pageTitle').value = '';
-            document.getElementById('pageContent').value = '';
-            
-            // Reload list
-            loadPages();
-            
-            // Preview
-            previewPage(page);
-            
-            alert(`Page "${name}" created! Access it at /@${name}`);
         }
         
-        function editPage(index) {
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-            const page = pages[index];
-            
-            document.getElementById('pageName').value = page.name;
-            document.getElementById('pageTitle').value = page.title;
-            document.getElementById('pageType').value = page.type;
-            document.getElementById('pageContent').value = page.content;
-            
-            // Scroll to form
-            document.getElementById('pageName').scrollIntoView({ behavior: 'smooth' });
-            
-            // Update create button
-            const btn = document.querySelector('.btn');
-            btn.textContent = 'Update Page';
-            btn.onclick = () => updatePage(index);
-        }
-        
-        function updatePage(index) {
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-            const page = pages[index];
-            
-            page.title = document.getElementById('pageTitle').value.trim();
-            page.type = document.getElementById('pageType').value;
-            page.content = document.getElementById('pageContent').value;
-            page.updated = new Date().toISOString();
-            
-            localStorage.setItem('dev_pages', JSON.stringify(pages));
-            localStorage.setItem(`page_${page.name}`, JSON.stringify(page));
-            
-            // Reset form
-            document.getElementById('pageName').value = '';
-            document.getElementById('pageTitle').value = '';
-            document.getElementById('pageContent').value = '';
-            
-            const btn = document.querySelector('.btn');
-            btn.textContent = '✨ Create Page';
-            btn.onclick = createPage;
-            
-            loadPages();
-            previewPage(page);
-            
-            alert('Page updated!');
-        }
-        
-        function deletePage(index) {
-            if (!confirm('Delete this page?')) return;
-            
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-            const page = pages[index];
-            
-            pages.splice(index, 1);
-            localStorage.setItem('dev_pages', JSON.stringify(pages));
-            localStorage.removeItem(`page_${page.name}`);
-            
-            loadPages();
-            document.getElementById('previewContainer').innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">👁️</div>
-                    <p>Select a page to preview</p>
-                </div>
-            `;
-        }
-        
-        function viewPage(name) {
-            window.location.href = `/@${name}`;
+        function viewPage(pageId) {
+            window.location.href = `/@${pageId}`;
         }
         
         function previewPage(page) {
             const preview = document.getElementById('previewContainer');
             
-            if (page.type === 'embed') {
+            if (page.page_type === 'embed') {
                 preview.innerHTML = `
                     <div style="padding: 20px;">
                         <h3>${page.title}</h3>
@@ -497,8 +748,8 @@
                         <div style="background: white; padding: 10px; border-radius: 8px; margin-top: 10px;">
                             ${page.content}
                         </div>
-                        <button class="btn" onclick="viewPage('${page.name}')" style="margin-top: 15px;">
-                            Open Page
+                        <button class="btn btn-secondary" onclick="viewPage('${page.page_id}')" style="margin-top: 15px;">
+                            Open @${page.page_id}
                         </button>
                     </div>
                 `;
@@ -506,120 +757,83 @@
                 // Create iframe for HTML preview
                 preview.innerHTML = `
                     <iframe 
-                        srcdoc="${escapeHtml(page.content)}"
+                        srcdoc="${escapeHtml(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <style>
+                                    body { 
+                                        font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+                                        padding: 20px; 
+                                        background: white;
+                                    }
+                                    .preview-header {
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                        color: white;
+                                        padding: 20px;
+                                        border-radius: 10px;
+                                        margin-bottom: 20px;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="preview-header">
+                                    <h1>${page.title}</h1>
+                                    <p>Preview of @${page.page_id}</p>
+                                </div>
+                                ${page.content || '<p>No content yet</p>'}
+                            </body>
+                            </html>
+                        `)}"
                         style="width: 100%; height: 300px; border: none; border-radius: 8px;"
                     ></iframe>
                     <div style="margin-top: 10px; text-align: center;">
-                        <button class="btn" onclick="viewPage('${page.name}')">
-                            Open ${page.name}
+                        <button class="btn btn-secondary" onclick="viewPage('${page.page_id}')">
+                            Open @${page.page_id}
                         </button>
                     </div>
                 `;
             }
         }
         
-        // Export/Import
-        function exportAllPages() {
-            const pages = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-            const data = {
-                exportDate: new Date().toISOString(),
-                version: '1.0',
-                pages: pages
-            };
-            
-            const json = JSON.stringify(data, null, 2);
-            
-            document.getElementById('modalTitle').textContent = 'Export All Pages';
-            document.getElementById('modalContent').innerHTML = `
-                <p>Copy this JSON to save your pages:</p>
-                <div class="export-box">
-                    <div class="export-code">${json}</div>
-                </div>
-                <button class="btn" onclick="downloadExport()" style="margin-top: 15px;">
-                    📥 Download JSON
-                </button>
-            `;
-            
-            document.getElementById('modal').classList.add('show');
-            
-            window.exportData = data;
-        }
-        
-        function downloadExport() {
-            const data = window.exportData;
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `pack-cdn-pages-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        function importPages() {
-            document.getElementById('modalTitle').textContent = 'Import Pages';
-            document.getElementById('modalContent').innerHTML = `
-                <p>Paste your exported JSON:</p>
-                <textarea id="importJson" placeholder='{"pages": [...]}' rows="10" style="width: 100%;"></textarea>
-                <button class="btn" onclick="processImport()" style="margin-top: 15px;">
-                    Import Pages
-                </button>
-            `;
-            document.getElementById('modal').classList.add('show');
-        }
-        
-        function processImport() {
-            const json = document.getElementById('importJson').value;
+        async function showAllPages() {
             try {
-                const data = JSON.parse(json);
-                if (!data.pages || !Array.isArray(data.pages)) {
-                    throw new Error('Invalid format');
+                const response = await fetch(`${API_BASE}/Pages/Explore/explore-pages`);
+                if (!response.ok) throw new Error('Failed to load pages');
+                
+                const data = await response.json();
+                
+                let html = '<div style="max-height: 400px; overflow-y: auto;">';
+                
+                if (!data.pages || data.pages.length === 0) {
+                    html += '<p class="empty-state">No pages found</p>';
+                } else {
+                    html += '<ul style="list-style: none; padding: 0;">';
+                    data.pages.forEach(page => {
+                        html += `
+                            <li style="padding: 10px; border-bottom: 1px solid #eee;">
+                                <strong>@${page.page_id}</strong>: ${page.title}
+                                <div style="font-size: 0.9rem; color: #666;">
+                                    ${page.views || 0} views • ${page.page_type} • 
+                                    ${new Date(page.created_at).toLocaleDateString()}
+                                </div>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
                 }
+                html += '</div>';
                 
-                const existing = JSON.parse(localStorage.getItem('dev_pages') || '[]');
-                const newPages = [...existing, ...data.pages];
+                document.getElementById('modalTitle').textContent = `All Pages (${data.pages?.length || 0})`;
+                document.getElementById('modalContent').innerHTML = html;
+                document.getElementById('modal').classList.add('show');
                 
-                // Remove duplicates by name
-                const uniquePages = [];
-                const names = new Set();
-                newPages.forEach(page => {
-                    if (!names.has(page.name)) {
-                        names.add(page.name);
-                        uniquePages.push(page);
-                    }
-                });
-                
-                localStorage.setItem('dev_pages', JSON.stringify(uniquePages));
-                
-                // Save individual pages
-                uniquePages.forEach(page => {
-                    localStorage.setItem(`page_${page.name}`, JSON.stringify(page));
-                });
-                
-                closeModal();
-                loadPages();
-                alert(`Imported ${data.pages.length} pages successfully!`);
             } catch (error) {
-                alert('Invalid JSON format: ' + error.message);
+                document.getElementById('modalContent').innerHTML = `
+                    <div class="status-error">Error loading pages: ${error.message}</div>
+                `;
+                document.getElementById('modal').classList.add('show');
             }
-        }
-        
-        function clearAllPages() {
-            if (!confirm('Clear ALL pages? This cannot be undone!')) return;
-            
-            localStorage.removeItem('dev_pages');
-            
-            // Remove all page_ keys
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('page_')) {
-                    localStorage.removeItem(key);
-                }
-            });
-            
-            loadPages();
-            alert('All pages cleared!');
         }
         
         function closeModal() {
@@ -640,10 +854,54 @@
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
-                createPage();
+                if (currentEditId) {
+                    updatePage(currentEditId);
+                } else {
+                    createPage();
+                }
             }
             if (e.key === 'Escape') {
                 closeModal();
+            }
+        });
+        
+        // Auto-save draft in localStorage
+        const formFields = ['pageName', 'pageTitle', 'pageDescription', 'pageType', 'pageTags', 'pageContent'];
+        
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                // Load saved draft
+                const saved = localStorage.getItem(`draft_${fieldId}`);
+                if (saved && !currentEditId) {
+                    if (fieldId === 'pageType') {
+                        field.value = saved;
+                    } else {
+                        field.value = saved;
+                    }
+                }
+                
+                // Save on change
+                field.addEventListener('input', () => {
+                    if (!currentEditId) {
+                        localStorage.setItem(`draft_${fieldId}`, field.value);
+                    }
+                });
+            }
+        });
+        
+        // Clear draft button
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                if (confirm('Clear all form data?')) {
+                    formFields.forEach(fieldId => {
+                        localStorage.removeItem(`draft_${fieldId}`);
+                        const field = document.getElementById(fieldId);
+                        if (field) field.value = '';
+                    });
+                    showStatus('Form cleared');
+                }
             }
         });
     </script>
