@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    
     {
       "source": "/",
       "destination": "/selector.html"
@@ -25,8 +24,6 @@
       "source": "/config.json",
       "destination": "/config.json"
     },
-    
-  
     {
       "source": "/api/random-urls",
       "destination": "/api/random-urls"
@@ -51,8 +48,6 @@
       "source": "/api/Pages/Explore/explore-pages",
       "destination": "/api/Pages/Explore/explore-pages"
     },
-
-  
     {
       "source": "/@quantum",
       "destination": "/selector.html"
@@ -119,22 +114,16 @@
     },
     {
       "source": "/@random",
-      "destination": "/dev-panel.html"
-    },
-
-    
-    {
-      "source": "@:username",
       "destination": "/api/wildcard-redirect"
     },
-    
-    
+    {
+      "source": "/@embed/:url*",
+      "destination": "/embed.html?url=:url*"
+    },
     {
       "source": "/@:username",
       "destination": "/api/wildcard-redirect"
     },
-
-    
     {
       "source": "/selector.html",
       "destination": "/@quantum"
@@ -203,20 +192,11 @@
       "source": "/dev-panel.html",
       "destination": "/@random"
     },
-
-    
-    {
-      "source": "/@embed/:url*",
-      "destination": "/embed.html?url=:url*"
-    },
-
-    
     {
       "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
   ],
-  
   "redirects": [
     {
       "source": "/portal",
@@ -258,14 +238,12 @@
       "destination": "/@random",
       "permanent": true
     },
-    
     {
       "source": "/explore-old",
       "destination": "/api/Pages/Explore/explore-pages",
       "permanent": true
     }
   ],
-  
   "headers": [
     {
       "source": "/config.json",
@@ -305,9 +283,21 @@
           "value": "public, max-age=60"
         }
       ]
+    },
+    {
+      "source": "/api/wildcard-redirect",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; frame-src *; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:;"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
     }
   ],
-  
   "cleanUrls": false,
   "trailingSlash": false
 }
