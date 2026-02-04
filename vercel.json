@@ -32,6 +32,10 @@
       "source": "/api/wildcard-redirect",
       "destination": "/api/wildcard-redirect"
     },
+    {
+      "source": "/api/admin-auth",
+      "destination": "/api/admin-auth"
+    },
 
     {
       "source": "/@quantum",
@@ -75,7 +79,7 @@
     },
     {
       "source": "/@phoenix",
-      "destination": "/Private/admin.html"
+      "destination": "/api/admin-auth"
     },
     {
       "source": "/@homecore",
@@ -145,7 +149,7 @@
     },
     {
       "source": "/Private/admin.html",
-      "destination": "/@phoenix"
+      "destination": "/api/admin-auth"
     },
     {
       "source": "/Docs/Pages/Home/index.html",
