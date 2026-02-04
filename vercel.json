@@ -189,7 +189,7 @@
       "destination": "/@homediscovery"
     },
     {
-      "source": "/dev-panel.html",
+      "source": "/api/wildcard-redirect",
       "destination": "/@random"
     },
     {
