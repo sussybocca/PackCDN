@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Embed | Pack CDN</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+        
+        .url-bar {
+            flex: 1;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .url-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+        
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #718096;
+        }
+        
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+        
+        .iframe-container {
+            flex: 1;
+            position: relative;
+            background: white;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #4a5568;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .control-btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🌐 Pack CDN</div>
+            <div class="url-bar">
+                <input type="text" class="url-input" id="urlInput" placeholder="Enter website URL or search term...">
+                <button class="btn" onclick="loadWebsite()">Go</button>
+                <button class="btn btn-secondary" onclick="goHome()">Home</button>
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="goBack()">←</button>
+                <button class="control-btn" onclick="goForward()">→</button>
+                <button class="control-btn" onclick="reload()">↻</button>
+            </div>
+        </div>
+        
+        <div class="iframe-container">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading website...</p>
+            </div>
+            <iframe id="websiteFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals" allow="camera; microphone; geolocation"></iframe>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // Get URL from query parameters
+        const params = new URLSearchParams(window.location.search);
+        let currentUrl = params.get('url') || params.get('q');
+        
+        // If coming from @anything pattern
+        if (window.location.pathname.startsWith('/@embed/')) {
+            const encodedUrl = window.location.pathname.split('/@embed/')[1];
+            currentUrl = decodeURIComponent(encodedUrl);
+        }
+        
+        const urlInput = document.getElementById('urlInput');
+        const websiteFrame = document.getElementById('websiteFrame');
+        const loading = document.getElementById('loading');
+        const notification = document.getElementById('notification');
+        
+        // Initialize
+        if (currentUrl) {
+            urlInput.value = currentUrl;
+            loadWebsite(currentUrl);
+        }
+        
+        function loadWebsite(url = null) {
+            const inputUrl = url || urlInput.value.trim();
+            if (!inputUrl) return;
+            
+            loading.style.display = 'block';
+            websiteFrame.style.opacity = '0';
+            
+            // Process the URL
+            let targetUrl = inputUrl;
+            
+            // If it's a search term (no dots, not a URL)
+            if (!inputUrl.includes('.') && !inputUrl.includes('://')) {
+                targetUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(inputUrl)}`;
+            }
+            // If missing protocol
+            else if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+                targetUrl = 'https://' + inputUrl;
+            }
+            
+            // Update URL input
+            urlInput.value = targetUrl;
+            
+            // Update browser URL without reload
+            const embedPath = `/@embed/${encodeURIComponent(targetUrl)}`;
+            window.history.pushState({}, '', embedPath);
+            
+            // Load in iframe
+            websiteFrame.src = targetUrl;
+            
+            // Handle iframe load
+            websiteFrame.onload = () => {
+                loading.style.display = 'none';
+                websiteFrame.style.opacity = '1';
+                showNotification(`Loaded: ${new URL(targetUrl).hostname}`);
+            };
+            
+            websiteFrame.onerror = () => {
+                loading.style.display = 'none';
+                showNotification('Failed to load website. Trying proxy...', 'error');
+                // Fallback to proxy
+                websiteFrame.src = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+            };
+        }
+        
+        function goHome() {
+            window.location.href = '/';
+        }
+        
+        function goBack() {
+            if (websiteFrame.contentWindow.history.length > 1) {
+                websiteFrame.contentWindow.history.back();
+            }
+        }
+        
+        function goForward() {
+            websiteFrame.contentWindow.history.forward();
+        }
+        
+        function reload() {
+            websiteFrame.contentWindow.location.reload();
+        }
+        
+        function showNotification(message, type = 'info') {
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Handle Enter key in input
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadWebsite();
+        });
+        
+        // Handle browser navigation
+        window.addEventListener('popstate', () => {
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get('url');
+            if (url) {
+                urlInput.value = url;
+                loadWebsite(url);
+            }
+        });
+    </script>
+</body>
+</html>
