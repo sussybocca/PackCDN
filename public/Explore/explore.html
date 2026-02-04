@@ -5,55 +5,181 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8f9fa; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    header { background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    header { background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     .search-box { display: flex; gap: 10px; margin-top: 20px; }
-    .search-box input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-    .search-box button { padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    .filters { display: flex; gap: 10px; margin-top: 15px; }
-    .filter-btn { padding: 8px 16px; background: white; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; }
+    .search-box input { flex: 1; padding: 14px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; transition: border-color 0.2s; }
+    .search-box input:focus { outline: none; border-color: #667eea; }
+    .search-box button { padding: 14px 36px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; }
+    .advanced-search { margin-top: 20px; padding: 20px; background: #f8f9ff; border-radius: 8px; display: none; }
+    .advanced-search.active { display: block; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+    .filter-group { flex: 1; min-width: 200px; }
+    .filter-group label { display: block; margin-bottom: 8px; color: #4a5568; font-weight: 500; font-size: 14px; }
+    .filter-select, .filter-input { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; }
+    .toggle-advanced { background: none; border: none; color: #667eea; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    .filters { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .filter-btn { padding: 8px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 20px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
     .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
-    .packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 30px; }
-    .pack-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
-    .pack-card:hover { transform: translateY(-5px); }
-    .pack-header { display: flex; justify-content: space-between; align-items: start; }
-    .pack-type { background: #e9ecef; color: #495057; padding: 4px 10px; border-radius: 15px; font-size: 12px; }
-    .pack-name { font-size: 18px; font-weight: bold; margin: 10px 0; }
-    .pack-meta { color: #6c757d; font-size: 14px; }
-    .pack-stats { display: flex; gap: 15px; margin-top: 15px; font-size: 14px; }
-    .pack-stat { display: flex; align-items: center; gap: 5px; }
-    .empty-state { text-align: center; padding: 60px 20px; color: #6c757d; }
-    .load-more { text-align: center; margin: 40px 0; }
-    .load-btn { padding: 12px 40px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 5px; cursor: pointer; font-size: 16px; }
+    .stats-banner { display: flex; gap: 30px; background: linear-gradient(135deg, #f6f8ff 0%, #f0f4ff 100%); padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .stat-item { text-align: center; flex: 1; }
+    .stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
+    .stat-label { color: #718096; font-size: 14px; margin-top: 5px; }
+    .packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 25px; margin-top: 30px; }
+    .pack-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent; position: relative; }
+    .pack-card:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); border-color: #667eea; }
+    .pack-card.verified::before { content: "✓ Verified"; position: absolute; top: -10px; right: 15px; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .pack-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; }
+    .pack-type-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .pack-badges { display: flex; gap: 8px; margin-left: auto; }
+    .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.version { background: #e2e8f0; color: #4a5568; }
+    .badge.files { background: #fed7d7; color: #c53030; }
+    .badge.collabs { background: #c6f6d5; color: #22543d; }
+    .badge.popular { background: #fed7d7; color: #c53030; }
+    .pack-name { font-size: 20px; font-weight: 700; margin: 12px 0; color: #2d3748; }
+    .pack-desc { color: #718096; font-size: 14px; line-height: 1.5; margin-bottom: 15px; max-height: 60px; overflow: hidden; }
+    .pack-author { display: flex; align-items: center; gap: 8px; color: #718096; font-size: 13px; margin-bottom: 15px; }
+    .pack-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
+    .pack-stat { text-align: center; }
+    .stat-icon { font-size: 16px; margin-right: 5px; }
+    .stat-number { font-weight: 600; color: #2d3748; }
+    .stat-label { font-size: 12px; color: #718096; margin-top: 2px; }
+    .pack-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; }
+    .pack-date { color: #a0aec0; font-size: 12px; }
+    .pack-languages { display: flex; gap: 6px; }
+    .lang-tag { padding: 3px 8px; background: #edf2f7; color: #4a5568; border-radius: 10px; font-size: 11px; }
+    .empty-state { text-align: center; padding: 80px 20px; color: #718096; }
+    .empty-state h3 { color: #4a5568; margin-bottom: 10px; }
+    .load-more { text-align: center; margin: 50px 0; }
+    .load-btn { padding: 14px 50px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.2s; }
+    .load-btn:hover { background: #667eea; color: white; }
+    .loading { text-align: center; padding: 40px; color: #667eea; font-size: 14px; }
+    .keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+    .keyword { padding: 4px 10px; background: #edf2f7; color: #4a5568; border-radius: 12px; font-size: 11px; }
+    @media (max-width: 768px) {
+      .container { padding: 15px; }
+      .packs-grid { grid-template-columns: 1fr; }
+      .filter-row { flex-direction: column; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Explore Packs</h1>
-      <p>Discover and use packages created by the community</p>
+      <h1 style="margin: 0; color: #2d3748;">Explore Packs</h1>
+      <p style="color: #718096; margin-top: 8px;">Discover, search, and use packages created by the community</p>
       
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search packages...">
+        <input type="text" id="searchInput" placeholder="Search packages by name, description, keywords, or author...">
         <button onclick="searchPacks()">Search</button>
       </div>
       
+      <button class="toggle-advanced" onclick="toggleAdvancedSearch()">
+        🔍 Advanced Search Options
+      </button>
+      
+      <div id="advancedSearch" class="advanced-search">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Package Type</label>
+            <select class="filter-select" id="packageType">
+              <option value="">All Types</option>
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Language</label>
+            <select class="filter-select" id="language">
+              <option value="">All Languages</option>
+              <option value="javascript">JavaScript/TypeScript</option>
+              <option value="python">Python</option>
+              <option value="wasm">WebAssembly</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Sort By</label>
+            <select class="filter-select" id="sortBy">
+              <option value="relevance">Relevance</option>
+              <option value="popular">Most Popular</option>
+              <option value="newest">Newest</option>
+              <option value="updated">Recently Updated</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-group">
+            <label>Minimum Downloads</label>
+            <input type="number" class="filter-input" id="minDownloads" placeholder="e.g., 100" min="0">
+          </div>
+          <div class="filter-group">
+            <label>Minimum Views</label>
+            <input type="number" class="filter-input" id="minViews" placeholder="e.g., 1000" min="0">
+          </div>
+          <div class="filter-group">
+            <label>
+              <input type="checkbox" id="verifiedOnly" style="margin-right: 8px;">
+              Verified Packages Only
+            </label>
+            <label style="margin-top: 10px; display: block;">
+              <input type="checkbox" id="hasReadme" style="margin-right: 8px;">
+              Has README
+            </label>
+          </div>
+        </div>
+        <button onclick="applyAdvancedFilters()" style="background: #667eea; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px;">
+          Apply Filters
+        </button>
+        <button onclick="resetFilters()" style="background: none; color: #667eea; border: 1px solid #667eea; padding: 10px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px; margin-left: 10px;">
+          Reset
+        </button>
+      </div>
+      
       <div class="filters">
-        <div class="filter-btn active" data-type="all" onclick="setFilter('all')">All</div>
-        <div class="filter-btn" data-type="npm" onclick="setFilter('npm')">NPM</div>
-        <div class="filter-btn" data-type="python" onclick="setFilter('python')">Python</div>
-        <div class="filter-btn" data-type="wasm" onclick="setFilter('wasm')">WASM</div>
+        <div class="filter-btn active" data-type="all" onclick="setFilter('all')">✨ All Packs</div>
+        <div class="filter-btn" data-type="basic" onclick="setFilter('basic')">🟢 Basic</div>
+        <div class="filter-btn" data-type="standard" onclick="setFilter('standard')">🔵 Standard</div>
+        <div class="filter-btn" data-type="advanced" onclick="setFilter('advanced')">🟣 Advanced</div>
+        <div class="filter-btn" data-type="popular" onclick="setFilter('popular')">🔥 Popular</div>
+        <div class="filter-btn" data-type="verified" onclick="setFilter('verified')">✓ Verified</div>
       </div>
     </header>
+    
+    <div id="statsBanner" class="stats-banner" style="display: none;">
+      <div class="stat-item">
+        <div class="stat-value" id="totalPacks">0</div>
+        <div class="stat-label">Total Packs</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalDownloads">0</div>
+        <div class="stat-label">Total Downloads</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalViews">0</div>
+        <div class="stat-label">Total Views</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="avgFiles">0</div>
+        <div class="stat-label">Avg Files/Pack</div>
+      </div>
+    </div>
     
     <div id="packsContainer" class="packs-grid">
       <!-- Packs will be loaded here -->
     </div>
     
+    <div id="loadingIndicator" class="loading" style="display: none;">
+      Loading packs...
+    </div>
+    
     <div id="emptyState" class="empty-state" style="display: none;">
       <h3>No packs found</h3>
-      <p>Try a different search or create your own pack!</p>
-      <a href="editor.html" style="color: #667eea; text-decoration: none;">Create a Pack →</a>
+      <p>Try adjusting your search criteria or create your own pack!</p>
+      <a href="editor.html" style="color: #667eea; text-decoration: none; font-weight: 600;">🎨 Create a Pack →</a>
     </div>
     
     <div class="load-more">
@@ -66,6 +192,21 @@
     let currentFilter = 'all';
     let currentSearch = '';
     let hasMore = false;
+    let isLoading = false;
+    let totalPacks = 0;
+    let totalDownloads = 0;
+    let totalViews = 0;
+    
+    // Advanced filter state
+    let advancedFilters = {
+      packageType: '',
+      language: '',
+      sort: 'relevance',
+      minDownloads: 0,
+      minViews: 0,
+      verifiedOnly: false,
+      hasReadme: false
+    };
     
     // Load packs on page load
     window.onload = loadPacks;
@@ -76,37 +217,87 @@
     });
     
     async function loadPacks(reset = false) {
+      if (isLoading) return;
+      
       if (reset) {
         currentPage = 1;
         document.getElementById('packsContainer').innerHTML = '';
         document.getElementById('loadMoreBtn').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('loadingIndicator').style.display = 'block';
       }
       
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: 12
-      });
+      isLoading = true;
       
-      if (currentFilter !== 'all') params.set('type', currentFilter);
-      if (currentSearch) params.set('q', currentSearch);
-      
-      const response = await fetch(`/api/search?${params}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        displayPacks(result.packs);
-        hasMore = result.hasMore;
+      try {
+        const params = new URLSearchParams({
+          page: currentPage,
+          limit: 12,
+          advanced: 'true',
+          includeMetadata: 'true'
+        });
         
-        if (hasMore) {
-          document.getElementById('loadMoreBtn').style.display = 'block';
+        // Apply current filter
+        if (currentFilter !== 'all') {
+          switch(currentFilter) {
+            case 'popular':
+              params.set('sort', 'popular');
+              params.set('minDownloads', '10');
+              break;
+            case 'verified':
+              params.set('verified', 'true');
+              break;
+            default:
+              params.set('type', currentFilter);
+          }
         }
         
-        // Show/hide empty state
-        if (result.packs.length === 0 && currentPage === 1) {
-          document.getElementById('emptyState').style.display = 'block';
-        } else {
-          document.getElementById('emptyState').style.display = 'none';
+        // Apply search query
+        if (currentSearch) params.set('q', currentSearch);
+        
+        // Apply advanced filters
+        if (advancedFilters.packageType) params.set('type', advancedFilters.packageType);
+        if (advancedFilters.language) params.set('language', advancedFilters.language);
+        if (advancedFilters.sort) params.set('sort', advancedFilters.sort);
+        if (advancedFilters.minDownloads > 0) params.set('minDownloads', advancedFilters.minDownloads);
+        if (advancedFilters.minViews > 0) params.set('minViews', advancedFilters.minViews);
+        if (advancedFilters.verifiedOnly) params.set('verified', 'true');
+        if (advancedFilters.hasReadme) params.set('hasReadme', 'true');
+        
+        const response = await fetch(`/api/search?${params}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          displayPacks(result.packs);
+          hasMore = result.pagination?.hasNextPage || result.hasMore;
+          
+          if (hasMore) {
+            document.getElementById('loadMoreBtn').style.display = 'block';
+          }
+          
+          // Update stats banner
+          updateStats(result.packs, result.pagination?.total);
+          
+          // Show/hide empty state
+          if (result.packs.length === 0 && currentPage === 1) {
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('statsBanner').style.display = 'none';
+          } else {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('statsBanner').style.display = 'flex';
+          }
         }
+      } catch (error) {
+        console.error('Error loading packs:', error);
+        document.getElementById('packsContainer').innerHTML = `
+          <div style="text-align: center; grid-column: 1/-1; color: #e53e3e; padding: 40px;">
+            <h3>Error loading packs</h3>
+            <p>Please try again later</p>
+          </div>
+        `;
+      } finally {
+        isLoading = false;
+        document.getElementById('loadingIndicator').style.display = 'none';
       }
     }
     
@@ -116,20 +307,73 @@
       packs.forEach(pack => {
         const card = document.createElement('div');
         card.className = 'pack-card';
-        card.onclick = () => window.open(`https://packcdn.firefly-worker.workers.dev/pack/${pack.id}`, '_blank');
+        if (pack.verificationStatus === 'verified') {
+          card.classList.add('verified');
+        }
+        
+        card.onclick = () => window.open(pack.workerUrl || `https://packcdn.firefly-worker.workers.dev/pack/${pack.urlId}`, '_blank');
+        
+        // Prepare badges
+        const badges = [];
+        if (pack.versions && pack.versions.length > 0) {
+          badges.push(`<span class="badge version">v${pack.latestVersion || pack.version}</span>`);
+        }
+        if (pack.fileCount) {
+          badges.push(`<span class="badge files">${pack.fileCount} files</span>`);
+        }
+        if (pack.collaboratorCount > 1) {
+          badges.push(`<span class="badge collabs">${pack.collaboratorCount} collabs</span>`);
+        }
+        if (pack.downloads > 1000) {
+          badges.push(`<span class="badge popular">Popular</span>`);
+        }
+        
+        // Prepare keywords
+        const keywordsHtml = pack.keywords && pack.keywords.length > 0 
+          ? `<div class="keywords">${pack.keywords.slice(0, 5).map(kw => 
+              `<span class="keyword">${kw}</span>`).join('')}</div>`
+          : '';
+        
+        // Prepare languages
+        const languagesHtml = pack.languages && pack.languages.length > 0
+          ? `<div class="pack-languages">${pack.languages.map(lang => 
+              `<span class="lang-tag">${lang}</span>`).join('')}</div>`
+          : '';
         
         card.innerHTML = `
           <div class="pack-header">
-            <span class="pack-type">${pack.package_type.toUpperCase()}</span>
-            <span class="pack-meta">v${pack.version}</span>
+            <span class="pack-type-badge">${pack.packageType || 'basic'}</span>
+            <div class="pack-badges">
+              ${badges.join('')}
+            </div>
           </div>
-          <div class="pack-name">${pack.name}</div>
+          <div class="pack-name">${escapeHtml(pack.name)}</div>
+          ${pack.description ? `<div class="pack-desc" title="${escapeHtml(pack.description)}">${truncateText(escapeHtml(pack.description), 100)}</div>` : ''}
+          ${keywordsHtml}
+          <div class="pack-author">
+            👤 ${pack.author || 'Anonymous'}
+            ${pack.publisherId ? `<span style="color: #a0aec0;">@${pack.publisherId}</span>` : ''}
+          </div>
           <div class="pack-stats">
-            <div class="pack-stat">👁️ ${pack.views || 0} views</div>
-            <div class="pack-stat">📥 ${pack.downloads || 0} downloads</div>
+            <div class="pack-stat">
+              <div class="stat-number">${pack.views || 0}</div>
+              <div class="stat-label">Views</div>
+            </div>
+            <div class="pack-stat">
+              <div class="stat-number">${pack.downloads || 0}</div>
+              <div class="stat-label">Downloads</div>
+            </div>
+            <div class="pack-stat">
+              <div class="stat-number">${pack.versionCount || 1}</div>
+              <div class="stat-label">Versions</div>
+            </div>
           </div>
-          <div style="margin-top: 15px; font-size: 12px; color: #999;">
-            Created ${formatDate(pack.created_at)}
+          <div class="pack-meta">
+            <div class="pack-date">
+              ${formatDate(pack.createdAt)}
+              ${pack.updatedAt !== pack.createdAt ? ` • Updated ${formatDate(pack.updatedAt, true)}` : ''}
+            </div>
+            ${languagesHtml}
           </div>
         `;
         
@@ -138,7 +382,7 @@
     }
     
     function searchPacks() {
-      currentSearch = document.getElementById('searchInput').value;
+      currentSearch = document.getElementById('searchInput').value.trim();
       loadPacks(true);
     }
     
@@ -147,15 +391,90 @@
       document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.type === type);
       });
+      
+      // Reset advanced filters when using quick filters
+      if (type !== 'all') {
+        resetAdvancedFilters();
+      }
+      
       loadPacks(true);
     }
     
     function loadMore() {
-      currentPage++;
-      loadPacks(false);
+      if (hasMore && !isLoading) {
+        currentPage++;
+        loadPacks(false);
+      }
     }
     
-    function formatDate(dateString) {
+    function toggleAdvancedSearch() {
+      const advancedDiv = document.getElementById('advancedSearch');
+      advancedDiv.classList.toggle('active');
+    }
+    
+    function applyAdvancedFilters() {
+      advancedFilters = {
+        packageType: document.getElementById('packageType').value,
+        language: document.getElementById('language').value,
+        sort: document.getElementById('sortBy').value,
+        minDownloads: parseInt(document.getElementById('minDownloads').value) || 0,
+        minViews: parseInt(document.getElementById('minViews').value) || 0,
+        verifiedOnly: document.getElementById('verifiedOnly').checked,
+        hasReadme: document.getElementById('hasReadme').checked
+      };
+      
+      // Reset quick filter when using advanced
+      currentFilter = 'all';
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === 'all');
+      });
+      
+      loadPacks(true);
+    }
+    
+    function resetFilters() {
+      // Reset advanced filter inputs
+      document.getElementById('packageType').value = '';
+      document.getElementById('language').value = '';
+      document.getElementById('sortBy').value = 'relevance';
+      document.getElementById('minDownloads').value = '';
+      document.getElementById('minViews').value = '';
+      document.getElementById('verifiedOnly').checked = false;
+      document.getElementById('hasReadme').checked = false;
+      
+      resetAdvancedFilters();
+      setFilter('all');
+    }
+    
+    function resetAdvancedFilters() {
+      advancedFilters = {
+        packageType: '',
+        language: '',
+        sort: 'relevance',
+        minDownloads: 0,
+        minViews: 0,
+        verifiedOnly: false,
+        hasReadme: false
+      };
+    }
+    
+    function updateStats(packs, total) {
+      if (packs.length === 0) return;
+      
+      totalPacks = total || packs.length;
+      totalDownloads = packs.reduce((sum, pack) => sum + (pack.downloads || 0), 0);
+      totalViews = packs.reduce((sum, pack) => sum + (pack.views || 0), 0);
+      const avgFiles = packs.reduce((sum, pack) => sum + (pack.fileCount || 1), 0) / packs.length;
+      
+      document.getElementById('totalPacks').textContent = totalPacks.toLocaleString();
+      document.getElementById('totalDownloads').textContent = totalDownloads.toLocaleString();
+      document.getElementById('totalViews').textContent = totalViews.toLocaleString();
+      document.getElementById('avgFiles').textContent = avgFiles.toFixed(1);
+    }
+    
+    function formatDate(dateString, short = false) {
+      if (!dateString) return '';
+      
       const date = new Date(dateString);
       const now = new Date();
       const diff = now - date;
@@ -164,12 +483,36 @@
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
       
-      if (minutes < 60) return `${minutes}m ago`;
-      if (hours < 24) return `${hours}h ago`;
-      if (days < 7) return `${days}d ago`;
+      if (short) {
+        if (minutes < 60) return `${minutes}m`;
+        if (hours < 24) return `${hours}h`;
+        if (days < 7) return `${days}d`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
       
-      return date.toLocaleDateString();
+      if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     }
+    
+    function truncateText(text, maxLength) {
+      if (text.length <= maxLength) return text;
+      return text.substr(0, maxLength) + '...';
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Infinite scroll
+    window.addEventListener('scroll', () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+        loadMore();
+      }
+    });
   </script>
 </body>
 </html>
