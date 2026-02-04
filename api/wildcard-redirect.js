@@ -1,7 +1,8 @@
-// api/wildcard-redirect.js
+// /api/wildcard-redirect.js
 export default function handler(req, res) {
   const fullPath = req.url;
   const path = fullPath.split('?')[0];
+  const queryParams = new URLSearchParams(fullPath.split('?')[1] || '');
   
   console.log(`🔗 Processing: ${path}`);
   
@@ -22,7 +23,9 @@ export default function handler(req, res) {
     '/home/index.html',
     '/Login/login.html',
     '/Private/admin.html',
-    '/selector.html'
+    '/selector.html',
+    '/embed.html',
+    '/dev-panel.html'
   ];
   
   // MASSIVE 100+ WORD BANKS FOR ENCRYPTED CODES
@@ -144,6 +147,57 @@ export default function handler(req, res) {
     urlMappings.set(funUrl, allPages[i]);
   }
   
+  // --- SPECIAL HANDLERS ---
+  
+  // Handle @random - Developer Panel
+  if (path === '/@random') {
+    console.log(`🎨 Dev Panel: ${path} → /dev-panel.html`);
+    return res.redirect(302, '/dev-panel.html');
+  }
+  
+  // Handle @embed/ - Embedded websites
+  if (path.startsWith('/@embed/')) {
+    const embedUrl = decodeURIComponent(path.substring(8));
+    console.log(`🌐 Embed Request: ${path} → /embed.html?url=${embedUrl}`);
+    return res.redirect(302, `/embed.html?url=${encodeURIComponent(embedUrl)}`);
+  }
+  
+  // Handle user-created pages (@username from localStorage)
+  if (path.startsWith('/@') && path !== '/@random' && !path.startsWith('/@embed/')) {
+    const username = path.substring(2).split('?')[0].split('/')[0];
+    
+    // Check if this is a reserved word
+    const reserved = ['quantum', 'cosmic', 'digital', 'neo', 'virtual', 'synth', 'stellar', 
+                     'cyber', 'orbital', 'dragon', 'phoenix', 'homecore', 'editornetwork',
+                     'explorervortex', 'homestudio', 'homediscovery'];
+    
+    if (reserved.includes(username)) {
+      // Let it fall through to normal processing
+    } else {
+      // Try to load from localStorage via API
+      try {
+        // In a real serverless function, we'd need to simulate localStorage
+        // For now, we'll check if there's a page in a simulated storage
+        const pageData = getPageFromStorage(username);
+        
+        if (pageData) {
+          console.log(`📝 User Page: @${username} → Rendering custom page`);
+          
+          if (pageData.type === 'embed') {
+            // Redirect to embed page
+            return res.redirect(302, `/embed.html?url=${encodeURIComponent(pageData.content)}`);
+          } else {
+            // Render HTML page
+            return res.send(renderUserPage(username, pageData));
+          }
+        }
+      } catch (error) {
+        console.log(`❌ Error loading user page @${username}:`, error.message);
+        // Fall through to normal processing
+      }
+    }
+  }
+  
   // Check if it's a file path that should get a fun URL
   if (allPages.includes(path)) {
     // Generate encrypted code for this file
@@ -193,6 +247,28 @@ export default function handler(req, res) {
     return res.redirect(302, targetFile);
   }
   
+  // Handle direct requests to embed.html with query params
+  if (path === '/embed.html' && queryParams.has('url')) {
+    const embedUrl = queryParams.get('url');
+    console.log(`🌐 Direct Embed: ${path}?url=${embedUrl}`);
+    
+    // Return the embed page directly
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=/@embed/${encodeURIComponent(embedUrl)}">
+        </head>
+        <body>
+          <p>Redirecting to embedded page...</p>
+          <script>
+            window.location.href = "/@embed/${encodeURIComponent(embedUrl)}";
+          </script>
+        </body>
+      </html>
+    `);
+  }
+  
   // Show system info
   if (path === '/url-system' || path === '/info') {
     const totalWords = allWords.length;
@@ -205,14 +281,20 @@ export default function handler(req, res) {
     }
     
     return res.json({
-      system: 'Encrypted URL System',
+      system: 'Encrypted URL System v2.0',
       status: 'active',
+      features: ['@random dev panel', '@embed website embedding', '@username custom pages'],
       totalPages: allPages.length,
       totalWords: totalWords,
       totalMappings: totalMappings,
       wordCategories: Object.keys(wordBanks).length,
       sampleUrls: samples.slice(0, 10),
       allPages: allPages,
+      specialPaths: {
+        '/@random': 'Developer Panel (create custom pages)',
+        '/@embed/*': 'Embed external websites',
+        '/@username': 'User-created custom pages'
+      },
       usage: 'Any /@anything maps to a random page. File paths get encrypted URLs.'
     });
   }
@@ -254,4 +336,164 @@ export default function handler(req, res) {
   res.setHeader('X-Target-File', targetFile);
   
   return res.redirect(302, funUrl);
+}
+
+// Helper functions for user page storage (simulated in serverless context)
+function getPageFromStorage(username) {
+  // In a real implementation, this would access a database
+  // For now, we'll simulate with in-memory storage
+  
+  // Create some demo pages for testing
+  const demoPages = {
+    'demo': {
+      name: 'demo',
+      title: 'Demo Page',
+      type: 'html',
+      content: '<h1>Welcome to Demo Page!</h1><p>This is a user-created page via @random</p>',
+      created: new Date().toISOString()
+    },
+    'test': {
+      name: 'test',
+      title: 'Test Page',
+      type: 'embed',
+      content: 'https://example.com',
+      created: new Date().toISOString()
+    }
+  };
+  
+  return demoPages[username] || null;
+}
+
+function renderUserPage(username, pageData) {
+  const escapedContent = pageData.content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  
+  return `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>${pageData.title} | @${username} | Pack CDN</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { 
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container { 
+        max-width: 1000px; 
+        margin: 0 auto; 
+        padding: 20px;
+      }
+      .page-header {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        text-align: center;
+      }
+      .page-content {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        min-height: 500px;
+      }
+      .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .user-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-left: 10px;
+      }
+      .nav-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+      .nav-links a {
+        margin-left: 15px;
+        color: white;
+        text-decoration: none;
+      }
+      .page-footer {
+        text-align: center;
+        margin-top: 30px;
+        color: white;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="nav-bar">
+        <a href="/" class="back-link">🏠 Home</a>
+        <div class="nav-links">
+          <a href="/@random">Create Page</a>
+          <a href="/@digital">Docs</a>
+          <a href="/@neo">Editor</a>
+        </div>
+      </div>
+      
+      <div class="page-header">
+        <h1>${pageData.title}</h1>
+        <p>Created by <span class="user-badge">@${username}</span></p>
+      </div>
+      
+      <div class="page-content" id="content">
+        ${pageData.type === 'embed' 
+          ? `<iframe src="${pageData.content}" style="width:100%; height:100%; border:none; border-radius:10px;"></iframe>`
+          : pageData.content
+        }
+      </div>
+      
+      <div class="page-footer">
+        <p>Page served via Pack CDN • <a href="/@random" style="color:white;">Create your own page</a></p>
+      </div>
+    </div>
+    
+    <script>
+      // Execute any JavaScript in the content (for HTML pages)
+      if ('${pageData.type}' === 'html') {
+        const contentDiv = document.getElementById('content');
+        const scripts = contentDiv.getElementsByTagName('script');
+        for (let script of scripts) {
+          const newScript = document.createElement('script');
+          newScript.textContent = script.textContent;
+          document.head.appendChild(newScript);
+        }
+      }
+      
+      // Add edit button for page creator (simulated)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('edit') === 'true') {
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️ Edit Page';
+        editBtn.style = 'position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer;';
+        editBtn.onclick = () => {
+          localStorage.setItem('editPageData', JSON.stringify(${JSON.stringify(pageData)}));
+          window.location.href = '/@random';
+        };
+        document.body.appendChild(editBtn);
+      }
+    </script>
+  </body>
+</html>
+  `;
 }
