@@ -36,6 +36,14 @@
       "source": "/api/admin-auth",
       "destination": "/api/admin-auth"
     },
+    {
+      "source": "/api/embed-website",
+      "destination": "/api/embed-website"
+    },
+    {
+      "source": "/api/create-page",
+      "destination": "/api/create-page"
+    },
 
     {
       "source": "/@quantum",
@@ -100,6 +108,10 @@
     {
       "source": "/@homediscovery",
       "destination": "/home/explore.html"
+    },
+    {
+      "source": "/@random",
+      "destination": "/dev-panel.html"
     },
 
     {
@@ -171,6 +183,15 @@
       "source": "/home/explore.html",
       "destination": "/@homediscovery"
     },
+    {
+      "source": "/dev-panel.html",
+      "destination": "/@random"
+    },
+
+    {
+      "source": "/@embed/:url*",
+      "destination": "/embed.html?url=:url*"
+    },
 
     {
       "source": "/(.*)",
@@ -207,6 +228,16 @@
       "source": "/settings",
       "destination": "/@synth",
       "permanent": true
+    },
+    {
+      "source": "/dev",
+      "destination": "/@random",
+      "permanent": true
+    },
+    {
+      "source": "/create",
+      "destination": "/@random",
+      "permanent": true
     }
   ],
   "headers": [
@@ -220,6 +251,19 @@
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/embed.html",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval' blob:; frame-src *;"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
         }
       ]
     }
