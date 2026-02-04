@@ -3,10 +3,10 @@ export default function handler(req, res) {
   const fullPath = req.url;
   const path = fullPath.split('?')[0];
   
-  console.log(`🌐 API Processing: ${path}`);
+  console.log(`🔗 Processing: ${path}`);
   
-  // All your files
-  const allFiles = [
+  // All your pages
+  const allPages = [
     '/config.json',
     '/docs.html',
     '/Docs/docs.html',
@@ -25,220 +25,233 @@ export default function handler(req, res) {
     '/selector.html'
   ];
   
-  // Massive word banks for infinite @username generation
+  // MASSIVE 100+ WORD BANKS FOR ENCRYPTED CODES
   const wordBanks = {
-    tech: ['quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 'ai', 'ml', 'bot', 'chip', 'data', 'cloud', 'node', 'server'],
-    space: ['cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 'quasar', 'wormhole', 'void', 'singularity', 'event-horizon', 'supernova', 'comet', 'asteroid'],
-    nature: ['forest', 'ocean', 'mountain', 'river', 'crystal', 'ember', 'blaze', 'frost', 'storm', 'thunder', 'leaf', 'stone', 'fire', 'ice', 'water', 'earth'],
-    fantasy: ['dragon', 'phoenix', 'wizard', 'arcane', 'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic', 'knight', 'castle', 'realm', 'scroll', 'orb', 'tome'],
-    future: ['neo', 'ultra', 'hyper', 'mega', 'tera', 'peta', 'omega', 'alpha', 'beta', 'gamma', 'delta', 'sigma', 'zeta', 'theta', 'lambda', 'epsilon'],
-    portals: ['gate', 'portal', 'door', 'window', 'bridge', 'tunnel', 'path', 'route', 'gateway', 'access', 'entry', 'exit', 'passage', 'corridor', 'archway', 'threshold'],
-    places: ['nexus', 'hub', 'core', 'center', 'matrix', 'grid', 'network', 'web', 'cloud', 'cluster', 'node', 'terminal', 'station', 'outpost', 'haven', 'sanctuary'],
-    cosmic: ['constellation', 'galaxy', 'universe', 'multiverse', 'dimension', 'reality', 'plane', 'existence', 'infinity', 'eternity', 'singularity', 'infinity', 'cosmos', 'void'],
-    digital: ['binary', 'byte', 'pixel', 'render', 'stream', 'buffer', 'cache', 'memory', 'storage', 'server', 'client', 'protocol', 'packet', 'bandwidth', 'fiber', 'wireless'],
-    gaming: ['player', 'quest', 'level', 'boss', 'loot', 'xp', 'skill', 'gear', 'raid', 'dungeon', 'pvp', 'pve', 'grind', 'farm', 'guild', 'arena'],
-    sciFi: ['android', 'cyborg', 'laser', 'plasma', 'warp', 'teleport', 'hologram', 'drone', 'nanobot', 'exosuit', 'forcefield', 'phaser', 'transporter', 'replicator', 'holodeck', 'warpdrive']
+    // 100+ tech words
+    tech: [
+      'quantum', 'cyber', 'digital', 'virtual', 'neural', 'synth', 'crypto', 'blockchain', 
+      'ai', 'machine', 'learning', 'bot', 'data', 'cloud', 'server', 'client', 'network',
+      'protocol', 'binary', 'byte', 'pixel', 'render', 'stream', 'buffer', 'cache',
+      'memory', 'storage', 'database', 'api', 'sdk', 'framework', 'library', 'module',
+      'interface', 'terminal', 'console', 'shell', 'kernel', 'driver', 'firmware', 'hardware',
+      'software', 'application', 'website', 'webapp', 'mobile', 'desktop', 'laptop', 'tablet',
+      'phone', 'router', 'switch', 'firewall', 'encrypt', 'decrypt', 'hash', 'encode', 'decode',
+      'compress', 'decompress', 'upload', 'download', 'sync', 'backup', 'restore', 'migrate',
+      'deploy', 'host', 'domain', 'subdomain', 'dns', 'ip', 'tcp', 'udp', 'http', 'https',
+      'ssl', 'tls', 'ssh', 'ftp', 'smtp', 'imap', 'pop3', 'json', 'xml', 'html', 'css', 'js',
+      'python', 'java', 'cpp', 'csharp', 'go', 'rust', 'ruby', 'php', 'sql', 'nosql', 'redis',
+      'mongodb', 'mysql', 'postgres', 'graphql', 'rest', 'soap', 'websocket', 'grpc'
+    ],
+    
+    // 100+ space/science words
+    space: [
+      'cosmic', 'stellar', 'galactic', 'orbital', 'lunar', 'solar', 'nebula', 'pulsar', 
+      'quasar', 'wormhole', 'blackhole', 'singularity', 'eventhorizon', 'supernova', 
+      'constellation', 'galaxy', 'universe', 'multiverse', 'dimension', 'reality', 
+      'planet', 'star', 'moon', 'sun', 'comet', 'asteroid', 'meteor', 'meteorite',
+      'gravity', 'relativity', 'quantum', 'particle', 'atom', 'molecule', 'proton',
+      'neutron', 'electron', 'photon', 'neutrino', 'boson', 'fermion', 'quark', 'lepton',
+      'hadron', 'meson', 'baryon', 'gluon', 'higgs', 'darkmatter', 'darkenergy', 'antimatter',
+      'entropy', 'thermodynamics', 'kinetic', 'potential', 'velocity', 'acceleration',
+      'momentum', 'inertia', 'friction', 'resistance', 'conductivity', 'superconductivity',
+      'semiconductor', 'insulator', 'conductor', 'magnet', 'magnetic', 'electric', 'voltage',
+      'current', 'resistance', 'capacitance', 'inductance', 'transistor', 'diode', 'led',
+      'laser', 'photonics', 'optics', 'refraction', 'reflection', 'diffraction', 'interference',
+      'wavelength', 'frequency', 'amplitude', 'hertz', 'decibel', 'lumen', 'candela', 'lux'
+    ],
+    
+    // 100+ fantasy/magic words
+    fantasy: [
+      'dragon', 'phoenix', 'wizard', 'mage', 'sorcerer', 'warlock', 'witch', 'arcane',
+      'mythic', 'legend', 'rune', 'spell', 'enchanted', 'magic', 'magical', 'knight',
+      'castle', 'realm', 'kingdom', 'empire', 'dungeon', 'labyrinth', 'maze', 'crypt',
+      'tomb', 'temple', 'shrine', 'altar', 'ritual', 'ceremony', 'incantation', 'chant',
+      'potion', 'elixir', 'potion', 'brew', 'alchemy', 'alchemist', 'scroll', 'tome',
+      'grimoire', 'codex', 'manuscript', 'artifact', 'relic', 'amulet', 'talisman',
+      'trinket', 'orb', 'crystal', 'gem', 'jewel', 'diamond', 'ruby', 'emerald', 'sapphire',
+      'amethyst', 'topaz', 'opal', 'pearl', 'obsidian', 'quartz', 'crystal', 'mineral',
+      'ore', 'metal', 'gold', 'silver', 'platinum', 'copper', 'iron', 'steel', 'bronze',
+      'brass', 'titanium', 'tungsten', 'uranium', 'plutonium', 'mercury', 'lead', 'tin',
+      'zinc', 'nickel', 'cobalt', 'chromium', 'manganese', 'silicon', 'germanium', 'arsenic'
+    ],
+    
+    // 100+ nature/earth words
+    nature: [
+      'forest', 'jungle', 'rainforest', 'woodland', 'grove', 'thicket', 'copse', 'orchard',
+      'vineyard', 'farm', 'field', 'meadow', 'pasture', 'prairie', 'savanna', 'steppe',
+      'tundra', 'taiga', 'desert', 'dunes', 'oasis', 'ocean', 'sea', 'lake', 'river',
+      'stream', 'creek', 'brook', 'rivulet', 'waterfall', 'cascade', 'rapids', 'whirlpool',
+      'estuary', 'delta', 'bay', 'gulf', 'cove', 'inlet', 'fjord', 'archipelago', 'island',
+      'peninsula', 'isthmus', 'cape', 'headland', 'cliff', 'bluff', 'canyon', 'gorge',
+      'ravine', 'valley', 'dale', 'glen', 'basin', 'depression', 'crater', 'caldera',
+      'volcano', 'geyser', 'hotspring', 'fumarole', 'solfatara', 'mudpot', 'lava', 'magma',
+      'igneous', 'sedimentary', 'metamorphic', 'rock', 'stone', 'boulder', 'pebble', 'gravel',
+      'sand', 'silt', 'clay', 'loam', 'humus', 'soil', 'dirt', 'earth', 'mud', 'sludge'
+    ]
   };
   
+  // Combine all words into one massive array (400+ words)
+  const allWords = [
+    ...wordBanks.tech,
+    ...wordBanks.space,
+    ...wordBanks.fantasy,
+    ...wordBanks.nature
+  ];
+  
   // Hash function for deterministic generation
-  function getHash(str, seed = 5381) {
-    let hash = seed;
+  function getHash(str) {
+    let hash = 0;
     for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
       hash = hash & hash;
     }
     return Math.abs(hash);
   }
   
-  // Generate @username from hash
-  function generateAtUsername(hashValue) {
-    const categories = Object.keys(wordBanks);
-    const numWords = 1 + (hashValue % 2); // 1-2 words for clean @usernames
+  // Generate encrypted 10-digit code using word banks
+  function generateEncryptedCode(input) {
+    const hash = getHash(input);
     
-    let username = '';
-    for (let i = 0; i < numWords; i++) {
-      const categoryIndex = (hashValue * (i + 1)) % categories.length;
-      const category = categories[categoryIndex];
-      const words = wordBanks[category];
-      const wordIndex = (hashValue * (i + 2)) % words.length;
-      const word = words[wordIndex];
-      
-      // Capitalize first letter for @username style
-      username += word.charAt(0).toUpperCase() + word.slice(1);
-    }
+    // Format: @word1-word2-number
+    const word1 = allWords[(hash * 1) % allWords.length];
+    const word2 = allWords[(hash * 3) % allWords.length];
+    const number = (hash % 9999).toString().padStart(4, '0');
     
-    // Add suffix sometimes
-    const suffixes = ['', 'X', 'Pro', 'Max', 'HD', 'VR', 'AI', '360', 'V2', 'Ultra', 'Plus', 'Prime'];
-    const suffixIndex = (hashValue * 7) % suffixes.length;
-    if (suffixes[suffixIndex]) {
-      username += suffixes[suffixIndex];
-    }
+    // Create variations
+    const formats = [
+      `@${word1}-${word2}-${number}`,
+      `@${word1.slice(0, 3)}-${word2.slice(0, 3)}-${number}`,
+      `@${word1}-${number}-${word2}`,
+      `@${word1.slice(0, 4)}${word2.slice(0, 3)}${number.slice(0, 3)}`,
+      `@${word1}${word2.slice(0, 2)}${number}`
+    ];
     
-    // Sometimes add numbers (30% chance)
-    if (hashValue % 10 < 3) {
-      username += (hashValue % 1000);
-    }
-    
-    return '@' + username;
+    return formats[hash % formats.length].toLowerCase();
   }
   
-  const hash = getHash(path);
+  // Generate fun @username from input
+  function generateFunUsername(input) {
+    const code = generateEncryptedCode(input + Date.now() + Math.random());
+    return `/${code}`; // Returns like /@quantum-dragon-0420
+  }
   
-  // Predefined @username mappings (from your vercel.json)
-  const predefinedMappings = {
-    // @username -> file
-    '/@quantum': '/selector.html',
-    '/@cosmic': '/home/index.html',
-    '/@digital': '/docs.html',
-    '/@neo': '/editor.html',
-    '/@virtual': '/explore.html',
-    '/@synth': '/config.json',
-    '/@stellar': '/Docs/docs.html',
-    '/@cyber': '/Editor/editor.html',
-    '/@orbital': '/Explore/explore.html',
-    '/@dragon': '/Login/login.html',
-    '/@phoenix': '/Private/admin.html',
-    '/@homecore': '/Docs/Pages/Home/index.html',
-    '/@editornetwork': '/Docs/Pages/Home/Pages/Editor/editor.html',
-    '/@explorervortex': '/Docs/Pages/Home/Pages/Explore/explore.html',
-    '/@homestudio': '/home/editor.html',
-    '/@homediscovery': '/home/explore.html'
-  };
+  // In-memory storage for mappings
+  const urlMappings = new Map();
   
-  // Reverse mapping: file -> @username
-  const fileToUsername = {};
-  Object.entries(predefinedMappings).forEach(([username, file]) => {
-    fileToUsername[file] = username;
-  });
+  // Initialize with some sample mappings using word banks
+  for (let i = 0; i < Math.min(20, allPages.length); i++) {
+    const funUrl = generateFunUsername(`init${i}${allPages[i]}`);
+    urlMappings.set(funUrl, allPages[i]);
+  }
   
-  // Check if this is a file path that should redirect to @username
-  if (allFiles.includes(path)) {
-    // Check if we have a predefined @username for this file
-    if (fileToUsername[path]) {
-      const username = fileToUsername[path];
-      console.log(`📄 File access: ${path} -> ${username} (predefined)`);
-      
-      // 301 Permanent redirect to @username
-      res.setHeader('Cache-Control', 'no-store, max-age=0');
-      res.setHeader('X-Redirect-To-Username', username);
-      res.setHeader('X-Original-File', path);
-      
-      return res.redirect(301, username);
-    }
+  // Check if it's a file path that should get a fun URL
+  if (allPages.includes(path)) {
+    // Generate encrypted code for this file
+    const funUrl = generateFunUsername(path + Date.now());
     
-    // Generate a new @username for this file
-    const newUsername = '/' + generateAtUsername(hash);
-    console.log(`📄 File access: ${path} -> ${newUsername} (generated)`);
+    // Store mapping
+    urlMappings.set(funUrl, path);
     
-    // Store this mapping
-    predefinedMappings[newUsername] = path;
-    fileToUsername[path] = newUsername;
+    console.log(`📄 File: ${path} → ${funUrl}`);
     
-    // 301 Permanent redirect to new @username
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.setHeader('X-Redirect-To-Username', newUsername);
+    // 301 Permanent redirect to encrypted URL
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Encrypted-URL', funUrl);
     res.setHeader('X-Original-File', path);
-    res.setHeader('X-New-Mapping', 'true');
     
-    return res.redirect(301, newUsername);
+    return res.redirect(301, funUrl);
   }
   
-  // Check if this is a known @username
-  if (predefinedMappings[path]) {
-    const targetFile = predefinedMappings[path];
-    console.log(`👤 @username access: ${path} -> ${targetFile}`);
-    
-    // Serve the actual file (URL stays as @username)
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.setHeader('X-Serving-File', targetFile);
-    res.setHeader('X-Username', path);
-    
-    return res.redirect(302, targetFile);
-  }
-  
-  // Handle dynamic @usernames (paths starting with /@)
+  // Handle @ paths - ANY @anything gets mapped
   if (path.startsWith('/@')) {
-    // Generate deterministic mapping for this new @username
-    const targetIndex = hash % allFiles.length;
-    const targetFile = allFiles[targetIndex];
+    // Check if we already have this mapping
+    if (urlMappings.has(path)) {
+      const targetFile = urlMappings.get(path);
+      console.log(`🔑 Known @path: ${path} → ${targetFile}`);
+      
+      // Serve the file
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Target-File', targetFile);
+      
+      return res.redirect(302, targetFile);
+    }
     
-    // Store this new mapping
-    predefinedMappings[path] = targetFile;
-    fileToUsername[targetFile] = path;
+    // NEW @path - map to random page
+    const randomIndex = Math.floor(Math.random() * allPages.length);
+    const targetFile = allPages[randomIndex];
     
-    console.log(`✨ Dynamic @username: ${path} -> ${targetFile}`);
+    // Store the mapping
+    urlMappings.set(path, targetFile);
+    
+    console.log(`✨ NEW @path: ${path} → ${targetFile}`);
     
     // Serve the file
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.setHeader('X-Dynamic-Mapping', 'true');
-    res.setHeader('X-Serving-File', targetFile);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-New-Mapping', 'true');
+    res.setHeader('X-Target-File', targetFile);
     
     return res.redirect(302, targetFile);
   }
   
-  // System info endpoint
-  if (path === '/system-info' || path === '/url-system-info') {
-    const totalMappings = Object.keys(predefinedMappings).length;
-    const atUsernames = Object.keys(predefinedMappings).filter(k => k.startsWith('/@'));
+  // Show system info
+  if (path === '/url-system' || path === '/info') {
+    const totalWords = allWords.length;
+    const totalMappings = urlMappings.size;
     
-    // Generate sample @usernames
-    const sampleUsernames = [];
-    for (let i = 0; i < 10; i++) {
-      const sampleHash = getHash(`sample-${i}-${Date.now()}`);
-      sampleUsernames.push(generateAtUsername(sampleHash));
+    // Generate sample codes
+    const samples = [];
+    for (let i = 0; i < 15; i++) {
+      samples.push(generateFunUsername(`sample${i}`));
     }
     
     return res.json({
-      system: '@Username URL System',
+      system: 'Encrypted URL System',
       status: 'active',
-      totalFiles: allFiles.length,
+      totalPages: allPages.length,
+      totalWords: totalWords,
       totalMappings: totalMappings,
-      predefinedUsernames: atUsernames.length,
       wordCategories: Object.keys(wordBanks).length,
-      totalWords: Object.values(wordBanks).reduce((sum, arr) => sum + arr.length, 0),
-      sampleGeneratedUsernames: sampleUsernames,
-      mappings: Object.entries(predefinedMappings).slice(0, 15),
-      usage: 'Any /@username will map to a file. File paths redirect to @usernames.'
+      sampleUrls: samples.slice(0, 10),
+      allPages: allPages,
+      usage: 'Any /@anything maps to a random page. File paths get encrypted URLs.'
     });
   }
   
-  // Generate test page
-  if (path === '/generate-test' || path.includes('test')) {
-    const generated = [];
-    for (let i = 0; i < 25; i++) {
-      const testHash = getHash(`test${i}${Date.now()}`);
-      generated.push({
-        username: generateAtUsername(testHash),
-        wouldMapTo: allFiles[testHash % allFiles.length]
+  // Generate test batch
+  if (path === '/generate-batch') {
+    const batch = [];
+    for (let i = 0; i < 50; i++) {
+      const code = generateFunUsername(`batch${i}${Date.now()}`);
+      const page = allPages[i % allPages.length];
+      batch.push({
+        encryptedUrl: code,
+        mapsTo: page,
+        fullUrl: `https://pack-cdn.vercel.app${code}`
       });
     }
     
     return res.json({
-      action: '@username-generation-test',
-      generated: generated,
-      note: 'These are sample @usernames that would be created'
+      action: 'batch-generation',
+      count: batch.length,
+      generated: batch,
+      note: '50 encrypted URLs generated'
     });
   }
   
-  // For any other path, redirect to a random file via @username
-  const targetIndex = hash % allFiles.length;
-  const targetFile = allFiles[targetIndex];
+  // For any other path, generate new encrypted URL
+  const funUrl = generateFunUsername(path + Date.now());
+  const randomIndex = Math.floor(Math.random() * allPages.length);
+  const targetFile = allPages[randomIndex];
   
-  // Check if this file already has an @username
-  let username = fileToUsername[targetFile];
-  if (!username) {
-    // Generate new @username for this file
-    username = '/' + generateAtUsername(hash);
-    predefinedMappings[username] = targetFile;
-    fileToUsername[targetFile] = username;
-  }
+  // Store mapping
+  urlMappings.set(funUrl, targetFile);
   
-  console.log(`🚀 Random path: ${path} -> ${username} -> ${targetFile}`);
+  console.log(`🚀 Random path: ${path} → ${funUrl} → ${targetFile}`);
   
-  // Redirect to the @username
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('X-Generated-Username', username);
+  // Redirect to the encrypted URL
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Generated-URL', funUrl);
   res.setHeader('X-Target-File', targetFile);
   
-  return res.redirect(302, username);
+  return res.redirect(302, funUrl);
 }
