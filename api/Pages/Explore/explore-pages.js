@@ -29,9 +29,9 @@ export default async function handler(req, res) {
     const limitNum = Math.min(parseInt(limit), 100)
     const offset = (pageNum - 1) * limitNum
     
-    // Build query
+    // Build query - FIXED: Use 'user_pages' (lowercase) to match your database
     let query = supabase
-      .from('User_Pages')
+      .from('user_pages')
       .select('*', { count: 'exact' })
       .eq('is_public', true)
     
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     
     // Get tags for filter
     const { data: allTags } = await supabase
-      .from('User_Pages')
+      .from('user_pages')
       .select('tags')
       .eq('is_public', true)
     
@@ -83,12 +83,12 @@ export default async function handler(req, res) {
     
     // Get stats
     const { count: totalCount } = await supabase
-      .from('User_Pages')
+      .from('user_pages')
       .select('*', { count: 'exact', head: true })
       .eq('is_public', true)
     
     const { data: topPages } = await supabase
-      .from('User_Pages')
+      .from('user_pages')
       .select('page_id, title, views, created_at')
       .eq('is_public', true)
       .order('views', { ascending: false })
@@ -155,6 +155,24 @@ function renderExplorePage(data) {
   } = data
   
   const totalPages = Math.ceil(totalCount / limitNum)
+  
+  // Helper function to escape HTML
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+  
+  // Helper function to truncate text
+  function truncate(text, length) {
+    if (!text) return '';
+    if (text.length <= length) return text;
+    return text.substring(0, length) + '...';
+  }
   
   return `
 <!DOCTYPE html>
@@ -631,7 +649,7 @@ function renderExplorePage(data) {
                     type="text" 
                     class="search-box" 
                     placeholder="Search pages..." 
-                    value="${search}"
+                    value="${escapeHtml(search)}"
                     onkeyup="if(event.key==='Enter') searchPages()"
                     id="searchInput"
                 >
@@ -661,8 +679,8 @@ function renderExplorePage(data) {
                             All Tags
                         </button>
                         ${uniqueTags.slice(0, 20).map(t => `
-                            <button class="tag ${tag === t ? 'active' : ''}" onclick="setTag('${t}')">
-                                ${t}
+                            <button class="tag ${tag === t ? 'active' : ''}" onclick="setTag('${escapeHtml(t)}')">
+                                ${escapeHtml(t)}
                             </button>
                         `).join('')}
                         ${uniqueTags.length > 20 ? `
@@ -716,47 +734,58 @@ function renderExplorePage(data) {
                     </div>
                 ` : `
                     <div class="pages-grid">
-                        ${pages.map(page => `
+                        ${pages.map(page => {
+                          const pageTitle = page.title || 'Untitled Page';
+                          const pageId = page.page_id || '';
+                          const pageContent = page.content || '';
+                          const pageType = page.page_type || 'html';
+                          const pageTags = page.tags || [];
+                          const pageViews = page.views || 0;
+                          const pageLikes = page.likes || 0;
+                          const createdDate = page.created_at ? new Date(page.created_at).toLocaleDateString() : 'Unknown';
+                          
+                          return `
                             <div class="page-card">
                                 <div class="card-header">
-                                    <div class="page-title">${page.title || 'Untitled Page'}</div>
-                                    <div class="page-id">@${page.page_id}</div>
+                                    <div class="page-title">${escapeHtml(pageTitle)}</div>
+                                    <div class="page-id">@${escapeHtml(pageId)}</div>
                                 </div>
                                 <div class="card-body">
                                     <div class="page-preview">
                                         <div class="page-preview-content">
-                                            ${page.page_type === 'embed' 
-                                                ? `🌐 Embedded: ${page.content.substring(0, 100)}...` 
-                                                : page.content.substring(0, 200) + (page.content.length > 200 ? '...' : '')}
+                                            ${pageType === 'embed' 
+                                                ? `🌐 Embedded: ${truncate(escapeHtml(pageContent), 100)}` 
+                                                : truncate(escapeHtml(pageContent), 200)}
                                         </div>
                                     </div>
                                     <div class="page-stats">
-                                        <div class="stat">👁️ ${page.views || 0}</div>
-                                        <div class="stat">❤️ ${page.likes || 0}</div>
-                                        <div class="stat">📅 ${new Date(page.created_at).toLocaleDateString()}</div>
-                                        <div class="stat">🏷️ ${page.page_type}</div>
+                                        <div class="stat">👁️ ${pageViews}</div>
+                                        <div class="stat">❤️ ${pageLikes}</div>
+                                        <div class="stat">📅 ${createdDate}</div>
+                                        <div class="stat">🏷️ ${escapeHtml(pageType)}</div>
                                     </div>
-                                    ${page.tags && page.tags.length > 0 ? `
+                                    ${pageTags.length > 0 ? `
                                         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;">
-                                            ${page.tags.slice(0, 3).map(t => `
+                                            ${pageTags.slice(0, 3).map(t => `
                                                 <span style="background: #f0f2ff; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; color: #667eea;">
-                                                    ${t}
+                                                    ${escapeHtml(t)}
                                                 </span>
                                             `).join('')}
-                                            ${page.tags.length > 3 ? `
+                                            ${pageTags.length > 3 ? `
                                                 <span style="background: #f0f2ff; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; color: #888;">
-                                                    +${page.tags.length - 3}
+                                                    +${pageTags.length - 3}
                                                 </span>
                                             ` : ''}
                                         </div>
                                     ` : ''}
                                 </div>
                                 <div class="card-footer">
-                                    <a href="@${page.page_id}" class="btn btn-primary">Visit Page</a>
-                                    <button class="btn btn-secondary" onclick="likePage('${page.page_id}')">❤️ Like</button>
+                                    <a href="@${escapeHtml(pageId)}" class="btn btn-primary">Visit Page</a>
+                                    <button class="btn btn-secondary" onclick="likePage('${escapeHtml(pageId)}')">❤️ Like</button>
                                 </div>
                             </div>
-                        `).join('')}
+                          `;
+                        }).join('')}
                     </div>
                     
                     ${totalPages > 1 ? `
@@ -790,19 +819,24 @@ function renderExplorePage(data) {
                 ${topPages.length > 0 ? `
                     <div class="top-pages">
                         <div class="top-pages-title">🔥 Trending Pages</div>
-                        ${topPages.map(page => `
+                        ${topPages.map(page => {
+                          const pageTitle = page.title || 'Untitled';
+                          const pageId = page.page_id || '';
+                          const pageViews = page.views || 0;
+                          return `
                             <div class="top-page-item">
                                 <div>
-                                    <div style="font-weight: 600;">${page.title}</div>
-                                    <div style="font-size: 0.9rem; color: #666;">@${page.page_id}</div>
+                                    <div style="font-weight: 600;">${escapeHtml(pageTitle)}</div>
+                                    <div style="font-size: 0.9rem; color: #666;">@${escapeHtml(pageId)} • ${pageViews} views</div>
                                 </div>
                                 <div>
-                                    <a href="@${page.page_id}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">
+                                    <a href="@${escapeHtml(pageId)}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">
                                         Visit
                                     </a>
                                 </div>
                             </div>
-                        `).join('')}
+                          `;
+                        }).join('')}
                     </div>
                 ` : ''}
             </div>
@@ -813,10 +847,10 @@ function renderExplorePage(data) {
         let currentFilters = {
             page: ${pageNum},
             limit: ${limitNum},
-            sort: '${sort}',
-            search: '${search}',
-            tag: '${tag}',
-            type: '${type}'
+            sort: '${escapeHtml(sort)}',
+            search: '${escapeHtml(search)}',
+            tag: '${escapeHtml(tag)}',
+            type: '${escapeHtml(type)}'
         }
         
         function updateURL() {
@@ -880,24 +914,31 @@ function renderExplorePage(data) {
         }
         
         function showAllTags() {
-            alert('All tags: ${uniqueTags.join(', ')}')
+            alert('All tags: ${uniqueTags.map(t => escapeHtml(t)).join(', ')}')
         }
         
         async function likePage(pageId) {
             try {
-                const response = await fetch('/api/user-pages/like', {
+                const response = await fetch('/api/create-page', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Action': 'like'
+                    },
                     body: JSON.stringify({ page_id: pageId })
                 })
+                
+                const data = await response.json();
                 
                 if (response.ok) {
                     alert('Page liked! ❤️')
                     // Refresh to show updated likes
                     window.location.reload()
+                } else {
+                    alert(data.error || 'Failed to like page')
                 }
             } catch (error) {
-                alert('Failed to like page')
+                alert('Failed to like page: ' + error.message)
             }
         }
         
@@ -911,6 +952,18 @@ function renderExplorePage(data) {
             if (currentFilters.search) {
                 document.getElementById('searchInput').focus()
                 document.getElementById('searchInput').select()
+            }
+        })
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault()
+                document.getElementById('searchInput').focus()
+                document.getElementById('searchInput').select()
+            }
+            if (e.key === 'Escape' && document.getElementById('searchInput') === document.activeElement) {
+                document.getElementById('searchInput').value = ''
             }
         })
     </script>
