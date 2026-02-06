@@ -3,682 +3,1060 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pack Editor - WebAssembly Support</title>
+    <title>⚡ Pack Studio - Immersive WebAssembly Editor</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #007acc;
+            --primary-dark: #005a9e;
+            --secondary-color: #2d2d30;
+            --accent-color: #68217a;
+            --success-color: #107c10;
+            --warning-color: #f2c811;
+            --danger-color: #d13438;
+            --terminal-bg: #1e1e1e;
+            --sidebar-bg: #252526;
+            --editor-bg: #1e1e1e;
+            --text-primary: #cccccc;
+            --text-secondary: #858585;
+            --border-color: #3e3e42;
+            --glove-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23007acc' d='M20 12c0-1.78-.5-3.45-1.37-4.86L18 7l-1.36-1.64C15.45 4.5 13.78 4 12 4s-3.45.5-4.86 1.37L6 7l-.63.14C4.5 8.55 4 10.22 4 12c0 4.41 3.59 8 8 8s8-3.59 8-8z'/%3E%3C/svg%3E") 6 6, auto;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        
+
         body {
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            display: flex;
-            flex-direction: column;
+            font-family: 'Segoe UI', 'Consolas', 'Monaco', monospace;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
+            cursor: var(--glove-cursor);
+            user-select: none;
         }
-        
-        header {
-            background-color: #252526;
-            padding: 15px 20px;
+
+        /* Immersive Header */
+        .header {
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #3e3e42;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 100;
         }
-        
+
         .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #569cd6;
-        }
-        
-        .controls {
             display: flex;
-            gap: 10px;
+            align-items: center;
+            gap: 12px;
         }
-        
-        button {
-            background-color: #0e639c;
-            color: white;
-            border: none;
-            padding: 8px 16px;
+
+        .logo-icon {
+            font-size: 24px;
+            color: var(--primary-color);
+            animation: pulse 2s infinite;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #007acc, #00bcd4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 20px rgba(0, 122, 204, 0.3);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.2s;
+            border: 1px solid var(--border-color);
         }
-        
-        button:hover {
-            background-color: #1177bb;
+
+        .status-item i {
+            color: var(--primary-color);
         }
-        
-        button.secondary {
-            background-color: #3e3e42;
-        }
-        
-        button.secondary:hover {
-            background-color: #4a4a4f;
-        }
-        
-        button.success {
-            background-color: #388a34;
-        }
-        
-        button.success:hover {
-            background-color: #3fa33a;
-        }
-        
-        button:disabled {
-            background-color: #3e3e42;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-        
+
+        /* Main Container */
         .container {
             display: flex;
-            flex: 1;
-            overflow: hidden;
+            height: calc(100vh - 60px);
+            padding: 16px;
+            gap: 16px;
         }
-        
+
+        /* Left Sidebar */
         .sidebar {
             width: 320px;
-            background-color: #252526;
-            border-right: 1px solid #3e3e42;
+            background: rgba(37, 37, 38, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .sidebar-section {
             padding: 20px;
-            overflow-y: auto;
+            border-bottom: 1px solid var(--border-color);
         }
-        
-        .sidebar h3 {
-            margin-bottom: 15px;
-            color: #cccccc;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .file-list {
-            list-style-type: none;
-            margin-bottom: 30px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .file-list li {
-            padding: 8px 12px;
-            border-radius: 4px;
-            margin-bottom: 5px;
-            cursor: pointer;
+
+        .section-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 16px;
+            color: var(--primary-color);
+            font-size: 16px;
+            font-weight: 600;
         }
-        
-        .file-list li:hover {
-            background-color: #2a2d2e;
+
+        .section-header i {
+            font-size: 18px;
         }
-        
-        .file-list li.active {
-            background-color: #094771;
+
+        /* File Explorer */
+        .file-explorer {
+            flex: 1;
+            overflow-y: auto;
         }
-        
+
+        .file-tree {
+            list-style: none;
+        }
+
+        .file-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .file-item:hover {
+            background: rgba(86, 156, 214, 0.1);
+            border-left-color: var(--primary-color);
+        }
+
+        .file-item.active {
+            background: rgba(86, 156, 214, 0.2);
+            border-left-color: var(--primary-color);
+        }
+
         .file-icon {
+            width: 20px;
+            text-align: center;
             color: #c586c0;
-            font-size: 0.9rem;
         }
-        
-        .json-file .file-icon {
-            color: #f5d76e;
+
+        .file-name {
+            flex: 1;
         }
-        
-        .js-file .file-icon {
-            color: #4ec9b0;
-        }
-        
-        .wasm-file .file-icon {
-            color: #d16969;
-        }
-        
+
         .file-actions {
             display: flex;
-            gap: 5px;
+            gap: 4px;
             opacity: 0;
             transition: opacity 0.2s;
         }
-        
-        .file-list li:hover .file-actions {
+
+        .file-item:hover .file-actions {
             opacity: 1;
         }
-        
-        .file-action-btn {
+
+        .file-btn {
             background: none;
             border: none;
-            color: #858585;
-            padding: 2px 5px;
-            font-size: 0.8rem;
-        }
-        
-        .file-action-btn:hover {
-            color: #d4d4d4;
-        }
-        
-        .wasm-section {
-            margin-top: 20px;
-            border-top: 1px solid #3e3e42;
-            padding-top: 20px;
-        }
-        
-        .wasm-info {
-            background-color: #2a2d2e;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 0.85rem;
-        }
-        
-        .wasm-info.warning {
-            background-color: #5c2d0c;
-            border-left: 3px solid #f5d76e;
-        }
-        
-        .wasm-info.success {
-            background-color: #2d5c0c;
-            border-left: 3px solid #3fa33a;
-        }
-        
-        .upload-area {
-            border: 2px dashed #3e3e42;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
+            color: var(--text-secondary);
+            padding: 2px 6px;
+            border-radius: 3px;
             cursor: pointer;
-            transition: border-color 0.2s;
-            margin-bottom: 15px;
+            font-size: 12px;
         }
-        
-        .upload-area:hover {
-            border-color: #0e639c;
+
+        .file-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
         }
-        
-        .upload-area.dragover {
-            border-color: #569cd6;
-            background-color: rgba(86, 156, 214, 0.1);
-        }
-        
-        .upload-icon {
-            font-size: 2rem;
-            color: #569cd6;
-            margin-bottom: 10px;
-        }
-        
-        .upload-area p {
-            margin-bottom: 5px;
-        }
-        
-        .upload-hint {
-            font-size: 0.8rem;
-            color: #858585;
-        }
-        
-        .wasm-list {
-            list-style-type: none;
-            margin-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        
-        .wasm-list li {
-            padding: 8px 12px;
-            background-color: #2a2d2e;
-            border-radius: 4px;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-        }
-        
-        .wasm-size {
-            color: #858585;
-            font-size: 0.8rem;
-        }
-        
-        .editor-container {
+
+        /* Editor Area */
+        .editor-area {
             flex: 1;
             display: flex;
             flex-direction: column;
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
             overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
-        
+
         .editor-tabs {
             display: flex;
-            background-color: #2d2d30;
-            border-bottom: 1px solid #3e3e42;
+            background: rgba(45, 45, 48, 0.9);
+            border-bottom: 2px solid var(--border-color);
+            padding: 0 12px;
             overflow-x: auto;
         }
-        
+
         .tab {
-            padding: 10px 20px;
-            border-right: 1px solid #3e3e42;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             cursor: pointer;
+            border-right: 1px solid var(--border-color);
             white-space: nowrap;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab.active {
+            background: var(--editor-bg);
+            color: var(--primary-color);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+        }
+
+        .tab-close {
+            margin-left: 8px;
+            opacity: 0.6;
+            padding: 2px;
+            border-radius: 3px;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #monaco-editor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* WASM Panel */
+        .wasm-panel {
+            background: rgba(30, 30, 30, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            border: 1px dashed var(--border-color);
+        }
+
+        .wasm-upload {
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed var(--primary-color);
+            border-radius: 8px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(0, 122, 204, 0.05);
+        }
+
+        .wasm-upload:hover {
+            background: rgba(0, 122, 204, 0.1);
+            border-color: #00bcd4;
+        }
+
+        .wasm-upload i {
+            font-size: 32px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .wasm-file {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin: 4px 0;
+            font-size: 14px;
+        }
+
+        .wasm-file-info {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        
-        .tab:hover {
-            background-color: #2a2d2e;
+
+        .wasm-file-size {
+            color: var(--text-secondary);
+            font-size: 12px;
         }
-        
-        .tab.active {
-            background-color: #1e1e1e;
-        }
-        
-        .close-tab {
-            margin-left: 5px;
-            opacity: 0.7;
-        }
-        
-        .close-tab:hover {
-            opacity: 1;
-        }
-        
-        #editor {
-            flex: 1;
-            overflow: hidden;
-        }
-        
+
+        /* Configuration Panel */
         .config-panel {
-            margin-top: 20px;
+            background: rgba(30, 30, 30, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
         }
-        
+
         .config-item {
             margin-bottom: 15px;
         }
-        
-        label {
+
+        .config-label {
             display: block;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-            color: #cccccc;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 500;
         }
-        
-        input[type="text"], select {
+
+        .config-input {
             width: 100%;
-            padding: 8px 12px;
-            background-color: #3e3e42;
-            border: 1px solid #565656;
-            border-radius: 4px;
-            color: #d4d4d4;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: border-color 0.3s;
         }
-        
-        input[type="text"]:focus, select:focus {
+
+        .config-input:focus {
             outline: none;
-            border-color: #007acc;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.2);
         }
-        
+
+        .config-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .config-row .config-item {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-top: 5px;
         }
-        
-        input[type="checkbox"] {
-            accent-color: #0e639c;
+
+        /* Advanced Options */
+        .advanced-options {
+            background: linear-gradient(135deg, rgba(104, 33, 122, 0.1) 0%, rgba(0, 122, 204, 0.1) 100%);
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
         }
-        
-        .publish-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
+
+        .advanced-header {
             display: flex;
-            justify-content: center;
             align-items: center;
-            z-index: 1000;
+            gap: 8px;
+            color: var(--accent-color);
+            margin-bottom: 12px;
+            cursor: pointer;
+        }
+
+        .advanced-content {
             display: none;
         }
-        
-        .modal-content {
-            background-color: #252526;
-            border-radius: 8px;
-            padding: 25px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            max-height: 80vh;
-            overflow-y: auto;
+
+        .advanced-options.expanded .advanced-content {
+            display: block;
         }
-        
-        .modal-header {
+
+        /* Type Info Cards */
+        .type-info-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .type-card {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .type-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .type-card.active {
+            border-color: var(--primary-color);
+            background: rgba(0, 122, 204, 0.1);
+        }
+
+        .type-card.basic.active {
+            border-color: #107c10;
+            background: rgba(16, 124, 16, 0.1);
+        }
+
+        .type-card.standard.active {
+            border-color: #f2c811;
+            background: rgba(242, 200, 17, 0.1);
+        }
+
+        .type-card.advanced.active {
+            border-color: #68217a;
+            background: rgba(104, 33, 122, 0.1);
+        }
+
+        .type-card.wasm.active {
+            border-color: #d13438;
+            background: rgba(209, 52, 56, 0.1);
+        }
+
+        .type-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .type-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .type-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Terminal Panel */
+        .terminal-panel {
+            background: var(--terminal-bg);
+            border-radius: 8px;
+            margin-top: 16px;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 2px solid var(--border-color);
+        }
+
+        .terminal-header {
+            background: rgba(45, 45, 48, 0.9);
+            padding: 10px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .terminal-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-color);
+        }
+
+        .terminal-content {
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .terminal-prompt {
+            color: #0f0;
+        }
+
+        .terminal-output {
+            color: #f0f0f0;
+        }
+
+        .terminal-error {
+            color: #ff6b6b;
+        }
+
+        .terminal-success {
+            color: #4ec9b0;
+        }
+
+        /* Floating Action Buttons */
+        .fab-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 122, 204, 0.4);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 6px 25px rgba(0, 122, 204, 0.6);
+        }
+
+        .fab-label {
+            position: absolute;
+            right: 70px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateX(10px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .fab:hover .fab-label {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Publish Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, #252526 0%, #1e1e1e 100%);
+            border-radius: 16px;
+            border: 2px solid var(--primary-color);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-content {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-section {
             margin-bottom: 20px;
         }
-        
-        .modal-header h2 {
-            color: #569cd6;
-            font-size: 1.5rem;
+
+        .modal-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        
-        .close-modal {
-            font-size: 1.8rem;
-            cursor: pointer;
-            color: #cccccc;
-        }
-        
-        .close-modal:hover {
-            color: white;
-        }
-        
-        .publish-result {
-            background-color: #1e1e1e;
+
+        /* Publish Results */
+        .publish-results {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
             padding: 15px;
-            border-radius: 4px;
             margin-top: 20px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            white-space: pre-wrap;
-            word-break: break-all;
+            border-left: 4px solid var(--success-color);
             display: none;
         }
-        
+
+        .publish-results.active {
+            display: block;
+        }
+
         .result-item {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .result-label {
-            color: #9cdcfe;
-            font-weight: bold;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 4px;
         }
-        
+
         .result-value {
-            color: #ce9178;
+            color: var(--text-primary);
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            word-break: break-all;
         }
-        
+
         .result-value a {
-            color: #569cd6;
+            color: var(--primary-color);
             text-decoration: none;
         }
-        
+
         .result-value a:hover {
             text-decoration: underline;
         }
-        
+
+        /* Loading Animation */
         .loading {
-            display: none;
             text-align: center;
-            margin: 20px 0;
-            color: #569cd6;
+            padding: 30px;
         }
-        
+
         .spinner {
-            border: 3px solid rgba(86, 156, 214, 0.3);
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 122, 204, 0.2);
+            border-top: 4px solid var(--primary-color);
             border-radius: 50%;
-            border-top: 3px solid #569cd6;
-            width: 30px;
-            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
+            margin: 0 auto 15px;
         }
-        
+
+        /* Animations */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        .notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            background-color: #0c7b93;
-            color: white;
-            border-radius: 4px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1001;
-            transform: translateY(100px);
-            opacity: 0;
-            transition: transform 0.3s, opacity 0.3s;
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
-        
-        .notification.show {
-            transform: translateY(0);
-            opacity: 1;
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
-        
-        .notification.error {
-            background-color: #a12c2c;
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
         }
-        
-        .notification.success {
-            background-color: #388a34;
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
         }
-        
-        footer {
-            padding: 10px 20px;
-            background-color: #252526;
-            border-top: 1px solid #3e3e42;
-            font-size: 0.8rem;
-            color: #858585;
-            text-align: center;
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 5px;
         }
-        
-        .field-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
         }
-        
-        .field-row .config-item {
-            flex: 1;
-            margin-bottom: 0;
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 300px;
+            }
         }
-        
-        .advanced-options {
-            background-color: #2a2d2e;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 15px;
-            border-left: 3px solid #569cd6;
-        }
-        
-        .advanced-options h4 {
-            margin-bottom: 10px;
-            color: #569cd6;
-        }
-        
-        .option-description {
-            font-size: 0.85rem;
-            color: #858585;
-            margin-top: 5px;
-        }
-        
-        .type-info {
-            font-size: 0.8rem;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .basic-info {
-            background-color: #2d5c0c;
-            border-left: 3px solid #3fa33a;
-        }
-        
-        .standard-info {
-            background-color: #5c5c0c;
-            border-left: 3px solid #f5d76e;
-        }
-        
-        .advanced-info {
-            background-color: #5c2d0c;
-            border-left: 3px solid #d16969;
+
+        /* Monaco Editor Customization */
+        .monaco-editor {
+            --vscode-editor-background: #1e1e1e;
+            --vscode-editor-foreground: #d4d4d4;
+            --vscode-editor-inactiveSelectionBackground: #3a3d41;
+            --vscode-editor-selectionHighlightBackground: #add6ff26;
+            --vscode-editor-findMatchBackground: #515c6a;
+            --vscode-editor-hoverHighlightBackground: #264f7840;
+            --vscode-editor-lineHighlightBorder: #282828;
+            --vscode-editorCursor-foreground: #aeafad;
+            --vscode-editorWhitespace-foreground: #e3e4e229;
+            --vscode-editorIndentGuide-background: #404040;
+            --vscode-editorIndentGuide-activeBackground: #707070;
+            --vscode-editorLineNumber-foreground: #858585;
+            --vscode-editorActiveLineNumber-foreground: #c6c6c6;
+            --vscode-editorBracketMatch-background: #0064001a;
+            --vscode-editorBracketMatch-border: #888888;
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="logo">Pack Editor</div>
-        <div class="controls">
-            <button id="newFileBtn" class="secondary">New File</button>
-            <button id="saveBtn">Save</button>
-            <button id="publishBtn" class="success">Publish Pack</button>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-cube"></i>
+            </div>
+            <div class="logo-text">PACK STUDIO</div>
         </div>
-    </header>
-    
+        <div class="status-bar">
+            <div class="status-item">
+                <i class="fas fa-code"></i>
+                <span>Editor Ready</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-bolt"></i>
+                <span>WASM Enabled</span>
+            </div>
+            <div class="status-item" id="connection-status">
+                <i class="fas fa-plug"></i>
+                <span>API Connected</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
     <div class="container">
+        <!-- Left Sidebar -->
         <div class="sidebar">
-            <h3>Files</h3>
-            <ul class="file-list" id="fileList">
-                <!-- Files will be added here dynamically -->
-            </ul>
-            
-            <div class="wasm-section">
-                <h3>WebAssembly Files</h3>
-                
-                <div class="wasm-info warning" id="wasmInfo">
-                    <strong>Important:</strong> WASM files cannot be edited directly. You can only upload valid WebAssembly binary files (.wasm). These will be served from the CDN.
+            <!-- File Explorer Section -->
+            <div class="sidebar-section file-explorer">
+                <div class="section-header">
+                    <i class="fas fa-folder"></i>
+                    <span>Explorer</span>
                 </div>
-                
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-icon">⬆️</div>
-                    <p>Drag & drop WASM files here</p>
-                    <p class="upload-hint">or click to browse</p>
-                    <p class="upload-hint">Only .wasm files accepted</p>
-                </div>
-                
-                <ul class="wasm-list" id="wasmList">
-                    <!-- WASM files will be listed here -->
+                <ul class="file-tree" id="file-tree">
+                    <!-- Files will be dynamically added here -->
                 </ul>
             </div>
-            
-            <div class="config-panel">
-                <h3>Pack Configuration</h3>
-                
-                <div class="config-item">
-                    <label for="packName">Pack Name</label>
-                    <input type="text" id="packName" placeholder="my-awesome-pack" value="my-awesome-pack">
-                </div>
-                
-                <div class="field-row">
-                    <div class="config-item">
-                        <label for="packType">Package Type</label>
-                        <select id="packType">
-                            <option value="basic">Basic</option>
-                            <option value="standard">Standard</option>
-                            <option value="advanced">Advanced</option>
-                        </select>
-                        <div id="typeInfo" class="type-info"></div>
-                    </div>
-                    
-                    <div class="config-item">
-                        <label for="version">Version</label>
-                        <input type="text" id="version" placeholder="1.0.0" value="1.0.0">
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <label>Visibility</label>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="isPublic" checked>
-                        <label for="isPublic">Public Package</label>
-                    </div>
-                </div>
-                
-                <div class="advanced-options">
-                    <h4>Advanced Options</h4>
-                    
-                    <div class="config-item">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="isNewVersion">
-                            <label for="isNewVersion">Create as new version</label>
-                        </div>
-                        <div class="option-description">Check this if you're creating a new version of an existing package</div>
-                    </div>
-                    
-                    <div id="newVersionFields" style="display: none;">
-                        <div class="config-item">
-                            <label for="basePackId">Base Pack ID</label>
-                            <input type="text" id="basePackId" placeholder="Existing pack ID">
-                            <div class="option-description">ID of the package you're creating a new version for</div>
-                        </div>
-                        
-                        <div class="config-item">
-                            <label for="editToken">Edit Token</label>
-                            <input type="text" id="editToken" placeholder="Edit token (if required)">
-                            <div class="option-description">Required if you're not the original publisher</div>
-                        </div>
-                    </div>
-                    
-                    <div class="config-item">
-                        <label for="userId">User ID (Optional)</label>
-                        <input type="text" id="userId" placeholder="Your user ID">
-                        <div class="option-description">For collaboration and version tracking</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="editor-container">
-            <div class="editor-tabs" id="editorTabs">
-                <!-- Editor tabs will be added here dynamically -->
-            </div>
-            <div id="editor"></div>
-        </div>
-    </div>
-    
-    <div class="publish-modal" id="publishModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Publish Pack</h2>
-                <div class="close-modal" id="closeModal">&times;</div>
-            </div>
-            
-            <p>Ready to publish your pack? This will upload all files and generate a unique URL for your package.</p>
-            
-            <div id="validationResults">
-                <!-- Validation results will appear here -->
-            </div>
-            
-            <div class="loading" id="publishLoading">
-                <div class="spinner"></div>
-                <p>Publishing your pack...</p>
-            </div>
-            
-            <div class="publish-result" id="publishResult">
-                <!-- Publish results will be displayed here -->
-            </div>
-            
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button id="confirmPublishBtn" class="success" style="flex: 1;">Publish Now</button>
-                <button id="cancelPublishBtn" class="secondary">Cancel</button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="notification" id="notification">Message</div>
-    
-    <footer>
-        Pack Editor - Edit and publish packages with WebAssembly support
-    </footer>
 
-    <!-- Monaco Editor loader -->
+            <!-- WASM Panel -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-microchip"></i>
+                    <span>WebAssembly</span>
+                </div>
+                <div class="wasm-panel">
+                    <div class="wasm-upload" id="wasm-upload">
+                        <i class="fas fa-file-upload"></i>
+                        <div>Drag & Drop WASM Files</div>
+                        <small>.wasm binary files only</small>
+                    </div>
+                    <div id="wasm-files">
+                        <!-- WASM files will be listed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Panel -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuration</span>
+                </div>
+                <div class="config-panel">
+                    <div class="config-item">
+                        <label class="config-label">Package Name</label>
+                        <input type="text" class="config-input" id="package-name" value="my-awesome-pack">
+                    </div>
+                    
+                    <div class="config-item">
+                        <label class="config-label">Package Type</label>
+                        <div class="type-info-cards">
+                            <div class="type-card basic active" data-type="basic">
+                                <div class="type-icon">📦</div>
+                                <div class="type-name">Basic</div>
+                                <div class="type-desc">Simple JS</div>
+                            </div>
+                            <div class="type-card standard" data-type="standard">
+                                <div class="type-icon">🚀</div>
+                                <div class="type-name">Standard</div>
+                                <div class="type-desc">+ Node Modules</div>
+                            </div>
+                            <div class="type-card advanced" data-type="advanced">
+                                <div class="type-icon">⚡</div>
+                                <div class="type-name">Advanced</div>
+                                <div class="type-desc">Full Features</div>
+                            </div>
+                            <div class="type-card wasm" data-type="wasm">
+                                <div class="type-icon">🔬</div>
+                                <div class="type-name">WASM</div>
+                                <div class="type-desc">WebAssembly</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-item">
+                            <label class="config-label">Version</label>
+                            <input type="text" class="config-input" id="package-version" value="1.0.0">
+                        </div>
+                        <div class="config-item">
+                            <label class="config-label">Visibility</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="is-public" checked>
+                                <label for="is-public">Public</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Options -->
+                    <div class="advanced-options" id="advanced-options">
+                        <div class="advanced-header" id="advanced-toggle">
+                            <i class="fas fa-chevron-right"></i>
+                            <span>Advanced Options</span>
+                        </div>
+                        <div class="advanced-content">
+                            <div class="config-item">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="is-new-version">
+                                    <label for="is-new-version">Create New Version</label>
+                                </div>
+                            </div>
+                            
+                            <div id="new-version-fields" style="display: none;">
+                                <div class="config-item">
+                                    <label class="config-label">Base Pack ID</label>
+                                    <input type="text" class="config-input" id="base-pack-id">
+                                </div>
+                                <div class="config-item">
+                                    <label class="config-label">Edit Token</label>
+                                    <input type="text" class="config-input" id="edit-token">
+                                </div>
+                            </div>
+                            
+                            <div class="config-item">
+                                <label class="config-label">User ID (Optional)</label>
+                                <input type="text" class="config-input" id="user-id">
+                            </div>
+                            
+                            <div class="config-item">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="compile-wasm">
+                                    <label for="compile-wasm">Compile to WASM</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-area">
+            <div class="editor-tabs" id="editor-tabs">
+                <!-- Tabs will be dynamically added here -->
+            </div>
+            <div class="editor-container">
+                <div id="monaco-editor"></div>
+            </div>
+        </div>
+
+        <!-- Terminal Panel -->
+        <div class="terminal-panel">
+            <div class="terminal-header">
+                <div class="terminal-title">
+                    <i class="fas fa-terminal"></i>
+                    <span>Output</span>
+                </div>
+                <button class="file-btn" id="clear-terminal">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            </div>
+            <div class="terminal-content" id="terminal-output">
+                <div class="terminal-line">
+                    <span class="terminal-prompt">$</span>
+                    <span class="terminal-output">Welcome to Pack Studio v2.0</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">$</span>
+                    <span class="terminal-output">Ready to create amazing packages with WebAssembly!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="fab-container">
+        <button class="fab" id="fab-new-file" title="Create New File">
+            <i class="fas fa-file-plus"></i>
+            <span class="fab-label">New File</span>
+        </button>
+        <button class="fab" id="fab-save" title="Save All Files">
+            <i class="fas fa-save"></i>
+            <span class="fab-label">Save All</span>
+        </button>
+        <button class="fab" id="fab-publish" title="Publish Package">
+            <i class="fas fa-rocket"></i>
+            <span class="fab-label">Publish</span>
+        </button>
+    </div>
+
+    <!-- Publish Modal -->
+    <div class="modal-overlay" id="publish-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fas fa-rocket"></i>
+                    <span>Publish Package</span>
+                </div>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-content">
+                <div class="modal-section">
+                    <h3 class="modal-section-title">
+                        <i class="fas fa-check-circle"></i>
+                        Validation Summary
+                    </h3>
+                    <div id="validation-summary">
+                        <!-- Validation results will appear here -->
+                    </div>
+                </div>
+                
+                <div class="loading" id="publish-loading">
+                    <div class="spinner"></div>
+                    <p>Publishing your package...</p>
+                </div>
+                
+                <div class="publish-results" id="publish-results">
+                    <!-- Publish results will appear here -->
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="fab" id="confirm-publish" style="flex: 1; border-radius: 8px; height: 48px;">
+                        <i class="fas fa-paper-plane"></i> Publish Now
+                    </button>
+                    <button class="fab secondary" id="cancel-publish" style="background: var(--secondary-color); border-radius: 8px; height: 48px;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monaco Editor Script -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
     <script>
-        // Monaco editor configuration
-        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
-        
-        // Initialize app state with new fields
+        // Application State
         const appState = {
             files: {
                 'package.json': {
@@ -692,8 +1070,7 @@
                         author: '',
                         license: 'MIT'
                     }, null, 2),
-                    language: 'json',
-                    editable: true
+                    language: 'json'
                 },
                 'index.js': {
                     name: 'index.js',
@@ -711,14 +1088,18 @@ export const version = '1.0.0';
 export function sum(a, b) {
     return a + b;
 }`,
-                    language: 'javascript',
-                    editable: true
+                    language: 'javascript'
                 },
                 'README.md': {
                     name: 'README.md',
                     content: `# My Awesome Pack
 
-This is a sample package created with Pack Editor.
+This is a sample package created with Pack Studio.
+
+## Features
+- Fast and efficient
+- WebAssembly ready
+- Easy to use
 
 ## Installation
 
@@ -734,244 +1115,269 @@ import { helloWorld } from 'my-awesome-pack';
 helloWorld(); // Outputs: Hello from my awesome pack!
 \`\`\`
 
-## API
-
-### helloWorld()
-Prints a greeting message and returns "Hello World!"
-
-### sum(a, b)
-Returns the sum of two numbers
-
 ## License
 
 MIT
 `,
-                    language: 'markdown',
-                    editable: true
+                    language: 'markdown'
                 }
             },
             wasmFiles: {},
             activeFile: 'package.json',
             editor: null,
-            packName: 'my-awesome-pack',
-            packType: 'basic',
-            version: '1.0.0',
-            isPublic: true,
-            isNewVersion: false,
-            basePackId: '',
-            userId: '',
-            editToken: ''
+            packageType: 'basic',
+            compileToWasm: false,
+            wasmConfig: {}
         };
-        
-        // Package type limits from API
-        const PACKAGE_TYPE_LIMITS = {
-            basic: {
+
+        // Package type configurations from the new API
+        const PACKAGE_TYPES = {
+            'basic': {
+                icon: '📦',
+                color: '#107c10',
                 maxFiles: 20,
-                maxSize: 5 * 1024 * 1024, // 5MB
-                description: 'Simple packages with basic JS, no Node.js modules'
+                maxSize: 5 * 1024 * 1024,
+                description: 'Simple packages with basic JavaScript',
+                allowNodeModules: false,
+                wasmSupport: false
             },
-            standard: {
+            'standard': {
+                icon: '🚀',
+                color: '#f2c811',
                 maxFiles: 50,
-                maxSize: 10 * 1024 * 1024, // 10MB
-                description: 'Standard packages with limited Node.js modules'
+                maxSize: 10 * 1024 * 1024,
+                description: 'Standard packages with limited Node.js modules',
+                allowNodeModules: true,
+                wasmSupport: true,
+                maxWasmSize: 5 * 1024 * 1024
             },
-            advanced: {
+            'advanced': {
+                icon: '⚡',
+                color: '#68217a',
                 maxFiles: 100,
-                maxSize: 25 * 1024 * 1024, // 25MB
-                description: 'Advanced packages with full Node.js module support'
+                maxSize: 50 * 1024 * 1024,
+                description: 'Advanced packages with full Node.js module support',
+                allowNodeModules: true,
+                wasmSupport: true,
+                maxWasmSize: 25 * 1024 * 1024,
+                canCompileToWasm: true
+            },
+            'wasm': {
+                icon: '🔬',
+                color: '#d13438',
+                maxFiles: 30,
+                maxSize: 100 * 1024 * 1024,
+                description: 'WebAssembly-focused packages',
+                allowNodeModules: false,
+                wasmSupport: true,
+                maxWasmSize: 100 * 1024 * 1024,
+                canCompileToWasm: true,
+                isWasmPackage: true
             }
         };
-        
+
         // DOM Elements
-        const fileList = document.getElementById('fileList');
-        const editorTabs = document.getElementById('editorTabs');
-        const editorContainer = document.getElementById('editor');
-        const packNameInput = document.getElementById('packName');
-        const packTypeSelect = document.getElementById('packType');
-        const versionInput = document.getElementById('version');
-        const isPublicCheckbox = document.getElementById('isPublic');
-        const isNewVersionCheckbox = document.getElementById('isNewVersion');
-        const newVersionFields = document.getElementById('newVersionFields');
-        const basePackIdInput = document.getElementById('basePackId');
-        const editTokenInput = document.getElementById('editToken');
-        const userIdInput = document.getElementById('userId');
-        const typeInfo = document.getElementById('typeInfo');
-        const publishModal = document.getElementById('publishModal');
-        const closeModal = document.getElementById('closeModal');
-        const cancelPublishBtn = document.getElementById('cancelPublishBtn');
-        const confirmPublishBtn = document.getElementById('confirmPublishBtn');
-        const publishResult = document.getElementById('publishResult');
-        const publishLoading = document.getElementById('publishLoading');
-        const notification = document.getElementById('notification');
-        const uploadArea = document.getElementById('uploadArea');
-        const wasmList = document.getElementById('wasmList');
-        const wasmInfo = document.getElementById('wasmInfo');
-        const validationResults = document.getElementById('validationResults');
-        
-        // File input for WASM uploads (hidden)
+        const fileTree = document.getElementById('file-tree');
+        const editorTabs = document.getElementById('editor-tabs');
+        const terminalOutput = document.getElementById('terminal-output');
+        const wasmUpload = document.getElementById('wasm-upload');
+        const wasmFilesContainer = document.getElementById('wasm-files');
+        const packageNameInput = document.getElementById('package-name');
+        const packageVersionInput = document.getElementById('package-version');
+        const isPublicCheckbox = document.getElementById('is-public');
+        const isNewVersionCheckbox = document.getElementById('is-new-version');
+        const newVersionFields = document.getElementById('new-version-fields');
+        const basePackIdInput = document.getElementById('base-pack-id');
+        const editTokenInput = document.getElementById('edit-token');
+        const userIdInput = document.getElementById('user-id');
+        const compileWasmCheckbox = document.getElementById('compile-wasm');
+        const advancedOptions = document.getElementById('advanced-options');
+        const advancedToggle = document.getElementById('advanced-toggle');
+        const publishModal = document.getElementById('publish-modal');
+        const validationSummary = document.getElementById('validation-summary');
+        const publishResults = document.getElementById('publish-results');
+        const publishLoading = document.getElementById('publish-loading');
+        const confirmPublishBtn = document.getElementById('confirm-publish');
+        const cancelPublishBtn = document.getElementById('cancel-publish');
+        const modalClose = document.getElementById('modal-close');
+        const clearTerminalBtn = document.getElementById('clear-terminal');
+
+        // FAB buttons
+        const fabNewFile = document.getElementById('fab-new-file');
+        const fabSave = document.getElementById('fab-save');
+        const fabPublish = document.getElementById('fab-publish');
+
+        // File input for WASM uploads
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.wasm';
         fileInput.multiple = true;
         fileInput.style.display = 'none';
         document.body.appendChild(fileInput);
-        
+
         // Initialize Monaco Editor
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
+
         require(['vs/editor/editor.main'], function() {
+            // Create custom theme for immersive experience
+            monaco.editor.defineTheme('pack-studio', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'comment', foreground: '6A9955' },
+                    { token: 'keyword', foreground: '569CD6' },
+                    { token: 'string', foreground: 'CE9178' },
+                    { token: 'number', foreground: 'B5CEA8' },
+                    { token: 'type', foreground: '4EC9B0' },
+                    { token: 'function', foreground: 'DCDCAA' },
+                    { token: 'variable', foreground: '9CDCFE' },
+                    { token: 'operator', foreground: 'D4D4D4' },
+                ],
+                colors: {
+                    'editor.background': '#1e1e1e',
+                    'editor.foreground': '#d4d4d4',
+                    'editorLineNumber.foreground': '#858585',
+                    'editorLineNumber.activeForeground': '#c6c6c6',
+                    'editor.selectionBackground': '#264f78',
+                    'editor.inactiveSelectionBackground': '#3a3d41',
+                    'editorIndentGuide.background': '#404040',
+                    'editorIndentGuide.activeBackground': '#707070',
+                    'editor.selectionHighlightBackground': '#add6ff26',
+                }
+            });
+
             // Create editor instance
-            appState.editor = monaco.editor.create(editorContainer, {
+            appState.editor = monaco.editor.create(document.getElementById('monaco-editor'), {
                 value: appState.files['package.json'].content,
                 language: 'json',
-                theme: 'vs-dark',
-                minimap: { enabled: true },
-                scrollBeyondLastLine: false,
+                theme: 'pack-studio',
                 automaticLayout: true,
                 fontSize: 14,
-                lineNumbers: 'on',
-                roundedSelection: false,
-                scrollbar: {
-                    vertical: 'auto',
-                    horizontal: 'auto'
+                fontFamily: "'Cascadia Code', 'Consolas', monospace",
+                minimap: {
+                    enabled: true,
+                    size: 'fill'
                 },
-                readOnly: false
+                scrollbar: {
+                    vertical: 'visible',
+                    horizontal: 'visible',
+                    useShadows: false,
+                    verticalScrollbarSize: 12,
+                    horizontalScrollbarSize: 12
+                },
+                smoothScrolling: true,
+                mouseWheelZoom: true,
+                wordWrap: 'on',
+                wrappingIndent: 'indent',
+                renderLineHighlight: 'all',
+                cursorBlinking: 'smooth',
+                cursorSmoothCaretAnimation: 'on',
+                formatOnPaste: true,
+                formatOnType: true,
+                suggestOnTriggerCharacters: true,
+                acceptSuggestionOnEnter: 'on',
+                tabCompletion: 'on',
+                wordBasedSuggestions: true,
+                parameterHints: {
+                    enabled: true,
+                    cycle: true
+                }
             });
-            
-            // Update app state when editor content changes
+
+            // Update state when editor changes
             appState.editor.onDidChangeModelContent(() => {
                 const activeFile = appState.activeFile;
                 if (activeFile && appState.files[activeFile]) {
                     appState.files[activeFile].content = appState.editor.getValue();
                     
-                    // If this is package.json, update the pack name if changed
+                    // Update package.json fields if changed
                     if (activeFile === 'package.json') {
                         try {
                             const packageJson = JSON.parse(appState.editor.getValue());
-                            if (packageJson.name && packageJson.name !== appState.packName) {
-                                appState.packName = packageJson.name;
-                                packNameInput.value = packageJson.name;
+                            if (packageJson.name && packageJson.name !== packageNameInput.value) {
+                                packageNameInput.value = packageJson.name;
                             }
-                            if (packageJson.version && packageJson.version !== appState.version) {
-                                appState.version = packageJson.version;
-                                versionInput.value = packageJson.version;
-                            }
-                            if (packageJson.type && packageJson.type !== appState.packType) {
-                                // Map module/library/template/plugin to basic/standard/advanced
-                                if (packageJson.type === 'module' || packageJson.type === 'library') {
-                                    appState.packType = 'standard';
-                                } else if (packageJson.type === 'template' || packageJson.type === 'plugin') {
-                                    appState.packType = 'advanced';
-                                } else {
-                                    appState.packType = packageJson.type;
-                                }
-                                packTypeSelect.value = appState.packType;
-                                updateTypeInfo();
+                            if (packageJson.version && packageJson.version !== packageVersionInput.value) {
+                                packageVersionInput.value = packageJson.version;
                             }
                         } catch (e) {
-                            // Invalid JSON, ignore
+                            // Invalid JSON
                         }
                     }
                 }
             });
-            
+
             // Initialize UI
-            renderFileList();
+            renderFileTree();
             renderEditorTabs();
             setupEventListeners();
-            updateTypeInfo();
+            logToTerminal('✓ Monaco Editor initialized successfully');
         });
-        
-        // Render the file list in the sidebar
-        function renderFileList() {
-            fileList.innerHTML = '';
+
+        // Render file tree
+        function renderFileTree() {
+            fileTree.innerHTML = '';
             
             Object.keys(appState.files).forEach(fileName => {
                 const file = appState.files[fileName];
                 const li = document.createElement('li');
-                li.className = `file-item ${fileName === appState.activeFile ? 'active' : ''} ${file.language}-file`;
+                li.className = `file-item ${fileName === appState.activeFile ? 'active' : ''}`;
+                li.dataset.file = fileName;
                 
-                const fileExt = fileName.split('.').pop();
-                const icon = fileExt === 'js' ? '⬡' : fileExt === 'json' ? '📋' : fileExt === 'md' ? '📖' : '📄';
+                const icon = getFileIcon(fileName);
                 
                 li.innerHTML = `
-                    <div>
-                        <span class="file-icon">${icon}</span>
-                        <span>${fileName}</span>
-                    </div>
+                    <div class="file-icon">${icon}</div>
+                    <div class="file-name">${fileName}</div>
                     <div class="file-actions">
-                        <button class="file-action-btn" data-file="${fileName}" title="Rename">✏️</button>
-                        ${fileName !== 'package.json' && fileName !== 'index.js' ? 
-                          `<button class="file-action-btn" data-file="${fileName}" title="Delete">🗑️</button>` : ''}
+                        <button class="file-btn" data-action="rename" data-file="${fileName}" title="Rename">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ${fileName !== 'package.json' && fileName !== 'index.js' ? `
+                        <button class="file-btn" data-action="delete" data-file="${fileName}" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        ` : ''}
                     </div>
                 `;
                 
-                li.addEventListener('click', (e) => {
-                    if (!e.target.closest('.file-action-btn')) {
-                        switchFile(fileName);
-                    }
-                });
-                
-                fileList.appendChild(li);
-            });
-            
-            // Add event listeners for file actions
-            document.querySelectorAll('.file-action-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const fileName = btn.dataset.file;
-                    
-                    if (btn.textContent.includes('✏️')) {
-                        renameFile(fileName);
-                    } else if (btn.textContent.includes('🗑️')) {
-                        deleteFile(fileName);
-                    }
-                });
+                fileTree.appendChild(li);
             });
         }
-        
-        // Render WASM file list
-        function renderWasmList() {
-            wasmList.innerHTML = '';
+
+        // Render WASM files
+        function renderWasmFiles() {
+            wasmFilesContainer.innerHTML = '';
             
             if (Object.keys(appState.wasmFiles).length === 0) {
-                const li = document.createElement('li');
-                li.textContent = 'No WASM files uploaded';
-                li.style.color = '#858585';
-                li.style.fontStyle = 'italic';
-                wasmList.appendChild(li);
-                wasmInfo.className = 'wasm-info warning';
-                wasmInfo.innerHTML = '<strong>Important:</strong> WASM files cannot be edited directly. You can only upload valid WebAssembly binary files (.wasm). These will be served from the CDN.';
+                wasmFilesContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary); font-style: italic;">
+                        <i class="fas fa-microchip fa-2x" style="margin-bottom: 10px; display: block;"></i>
+                        No WASM files uploaded yet
+                    </div>
+                `;
             } else {
                 Object.keys(appState.wasmFiles).forEach(fileName => {
                     const file = appState.wasmFiles[fileName];
-                    const li = document.createElement('li');
+                    const div = document.createElement('div');
+                    div.className = 'wasm-file';
                     
-                    li.innerHTML = `
-                        <div>
-                            <span class="file-icon">⚡</span>
+                    div.innerHTML = `
+                        <div class="wasm-file-info">
+                            <i class="fas fa-microchip"></i>
                             <span>${fileName}</span>
+                            <span class="wasm-file-size">${formatFileSize(file.size)}</span>
                         </div>
-                        <div>
-                            <span class="wasm-size">${formatFileSize(file.size)}</span>
-                            <button class="file-action-btn" data-wasm="${fileName}" title="Remove">🗑️</button>
-                        </div>
+                        <button class="file-btn" data-action="remove-wasm" data-file="${fileName}">
+                            <i class="fas fa-times"></i>
+                        </button>
                     `;
                     
-                    wasmList.appendChild(li);
-                });
-                
-                wasmInfo.className = 'wasm-info success';
-                wasmInfo.innerHTML = `<strong>✓ Ready:</strong> ${Object.keys(appState.wasmFiles).length} WASM file(s) uploaded and validated.`;
-                
-                // Add event listeners for remove buttons
-                document.querySelectorAll('[data-wasm]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const fileName = btn.dataset.wasm;
-                        deleteWasmFile(fileName);
-                    });
+                    wasmFilesContainer.appendChild(div);
                 });
             }
         }
-        
+
         // Render editor tabs
         function renderEditorTabs() {
             editorTabs.innerHTML = '';
@@ -981,35 +1387,22 @@ MIT
                 tab.className = `tab ${fileName === appState.activeFile ? 'active' : ''}`;
                 tab.dataset.file = fileName;
                 
-                const fileExt = fileName.split('.').pop();
-                const icon = fileExt === 'js' ? '⬡' : fileExt === 'json' ? '📋' : fileExt === 'md' ? '📖' : '📄';
+                const icon = getFileIcon(fileName);
                 
                 tab.innerHTML = `
-                    <span class="file-icon">${icon}</span>
+                    <div class="file-icon">${icon}</div>
                     <span>${fileName}</span>
-                    ${fileName !== 'package.json' && fileName !== 'index.js' ? 
-                      '<span class="close-tab" data-file="' + fileName + '">×</span>' : ''}
+                    ${fileName !== 'package.json' && fileName !== 'index.js' ? `
+                    <div class="tab-close" data-file="${fileName}">
+                        <i class="fas fa-times"></i>
+                    </div>
+                    ` : ''}
                 `;
-                
-                tab.addEventListener('click', (e) => {
-                    if (!e.target.classList.contains('close-tab')) {
-                        switchFile(fileName);
-                    }
-                });
                 
                 editorTabs.appendChild(tab);
             });
-            
-            // Add event listeners for close tab buttons
-            document.querySelectorAll('.close-tab').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const fileName = btn.dataset.file;
-                    deleteFile(fileName);
-                });
-            });
         }
-        
+
         // Switch to a different file
         function switchFile(fileName) {
             if (!appState.files[fileName]) return;
@@ -1017,79 +1410,46 @@ MIT
             appState.activeFile = fileName;
             const file = appState.files[fileName];
             
-            // Update editor content and language
+            // Update editor
             appState.editor.setValue(file.content);
             monaco.editor.setModelLanguage(appState.editor.getModel(), file.language);
             
             // Update UI
-            renderFileList();
+            renderFileTree();
             renderEditorTabs();
         }
-        
-        // Create a new file
+
+        // Create new file
         function createNewFile() {
-            const fileName = prompt('Enter file name (with extension, e.g., utils.js):', 'newfile.js');
+            const fileName = prompt('Enter file name (with extension):', 'utils.js');
             if (!fileName) return;
             
-            if (appState.files[fileName] || appState.wasmFiles[fileName]) {
-                showNotification('File already exists!', 'error');
+            if (appState.files[fileName]) {
+                showError('File already exists!');
                 return;
             }
             
-            const fileExt = fileName.split('.').pop();
-            let language = 'plaintext';
-            let content = '';
-            
-            switch (fileExt) {
-                case 'js':
-                    language = 'javascript';
-                    content = `// ${fileName}\n\n`;
-                    break;
-                case 'json':
-                    language = 'json';
-                    content = '{\n  \n}\n';
-                    break;
-                case 'md':
-                    language = 'markdown';
-                    content = `# ${fileName}\n\n`;
-                    break;
-                case 'html':
-                    language = 'html';
-                    content = `<!DOCTYPE html>\n<html>\n<head>\n  <title></title>\n</head>\n<body>\n  \n</body>\n</html>\n`;
-                    break;
-                case 'css':
-                    language = 'css';
-                    content = `/* ${fileName} */\n\n`;
-                    break;
-                case 'py':
-                    language = 'python';
-                    content = `# ${fileName}\n\n`;
-                    break;
-                case 'ts':
-                case 'tsx':
-                    language = 'typescript';
-                    content = `// ${fileName}\n\n`;
-                    break;
-            }
+            const extension = fileName.split('.').pop().toLowerCase();
+            const language = getLanguageFromExtension(extension);
+            const content = getDefaultContent(fileName, language);
             
             appState.files[fileName] = {
                 name: fileName,
                 content,
-                language,
-                editable: true
+                language
             };
             
             switchFile(fileName);
-            showNotification(`Created ${fileName}`, 'success');
+            logToTerminal(`✓ Created new file: ${fileName}`);
         }
-        
-        // Rename a file
+
+        // Rename file
         function renameFile(oldName) {
             const newName = prompt('Enter new file name:', oldName);
             if (!newName || newName === oldName) return;
             
-            if (appState.files[newName] || appState.wasmFiles[newName]) {
-                showNotification('File already exists!', 'error');
+            if (appState.files[newName]) {
+                showError('File already exists!');
                 return;
             }
             
@@ -1104,19 +1464,19 @@ MIT
                 appState.activeFile = newName;
             }
             
-            renderFileList();
+            renderFileTree();
             renderEditorTabs();
-            showNotification(`Renamed ${oldName} to ${newName}`, 'success');
+            logToTerminal(`✓ Renamed ${oldName} to ${newName}`);
         }
-        
-        // Delete a file
+
+        // Delete file
         function deleteFile(fileName) {
             if (fileName === 'package.json' || fileName === 'index.js') {
-                showNotification('Cannot delete required files!', 'error');
+                showError('Cannot delete required files!');
                 return;
             }
             
-            if (confirm(`Are you sure you want to delete ${fileName}?`)) {
+            if (confirm(`Delete ${fileName}?`)) {
                 delete appState.files[fileName];
                 
                 if (appState.activeFile === fileName) {
@@ -1126,113 +1486,75 @@ MIT
                     }
                 }
                 
-                renderFileList();
+                renderFileTree();
                 renderEditorTabs();
-                showNotification(`Deleted ${fileName}`, 'success');
+                logToTerminal(`✗ Deleted file: ${fileName}`);
             }
         }
-        
+
         // Handle WASM file upload
         async function handleWasmUpload(files) {
             for (const file of files) {
                 if (!file.name.endsWith('.wasm')) {
-                    showNotification(`Skipped ${file.name}: Not a .wasm file`, 'error');
+                    showError(`Skipped ${file.name}: Not a WASM file`);
                     continue;
                 }
                 
                 // Validate WASM file
                 const isValid = await validateWasmFile(file);
                 if (!isValid) {
-                    showNotification(`Skipped ${file.name}: Invalid WebAssembly file`, 'error');
+                    showError(`Skipped ${file.name}: Invalid WebAssembly binary`);
                     continue;
                 }
                 
-                // Read file as ArrayBuffer
+                // Read file
                 const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const arrayBuffer = e.target.result;
-                    
-                    // Store WASM file
+                reader.onload = (e) => {
                     appState.wasmFiles[file.name] = {
                         name: file.name,
                         size: file.size,
-                        data: arrayBuffer
+                        data: e.target.result
                     };
                     
-                    renderWasmList();
-                    showNotification(`Uploaded ${file.name} (${formatFileSize(file.size)})`, 'success');
+                    renderWasmFiles();
+                    logToTerminal(`✓ Uploaded WASM file: ${file.name} (${formatFileSize(file.size)})`);
                 };
-                
                 reader.readAsArrayBuffer(file);
             }
         }
-        
-        // Validate a WASM file
+
+        // Remove WASM file
+        function removeWasmFile(fileName) {
+            if (confirm(`Remove ${fileName}?`)) {
+                delete appState.wasmFiles[fileName];
+                renderWasmFiles();
+                logToTerminal(`✗ Removed WASM file: ${fileName}`);
+            }
+        }
+
+        // Validate WASM file
         async function validateWasmFile(file) {
             try {
-                // Basic WASM validation - check magic number
-                const arrayBuffer = await file.slice(0, 8).arrayBuffer();
+                const slice = file.slice(0, 4);
+                const arrayBuffer = await slice.arrayBuffer();
                 const header = new Uint8Array(arrayBuffer);
                 
-                // WASM magic number: \0asm
-                const wasmMagic = [0x00, 0x61, 0x73, 0x6D];
-                
-                for (let i = 0; i < 4; i++) {
-                    if (header[i] !== wasmMagic[i]) {
-                        return false;
-                    }
-                }
-                
-                return true;
+                // Check WASM magic number: \0asm
+                return header[0] === 0x00 && header[1] === 0x61 && 
+                       header[2] === 0x73 && header[3] === 0x6D;
             } catch (error) {
-                console.error('WASM validation error:', error);
                 return false;
             }
         }
-        
-        // Delete a WASM file
-        function deleteWasmFile(fileName) {
-            if (confirm(`Are you sure you want to remove ${fileName}?`)) {
-                delete appState.wasmFiles[fileName];
-                renderWasmList();
-                showNotification(`Removed ${fileName}`, 'success');
-            }
-        }
-        
-        // Format file size
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        // Update package type info display
-        function updateTypeInfo() {
-            const limits = PACKAGE_TYPE_LIMITS[appState.packType];
-            if (limits) {
-                typeInfo.textContent = `${limits.description}. Max ${limits.maxFiles} files, ${limits.maxSize / 1024 / 1024}MB total.`;
-                typeInfo.className = `type-info ${appState.packType}-info`;
-                typeInfo.style.display = 'block';
-            }
-        }
-        
-        // Show notification
-        function showNotification(message, type = 'info') {
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-        
+
         // Validate package before publishing
         function validatePackage() {
             const errors = [];
             const warnings = [];
+            const info = [];
+            
+            const packageType = appState.packageType;
+            const typeConfig = PACKAGE_TYPES[packageType];
             
             // Check package.json
             try {
@@ -1245,62 +1567,53 @@ MIT
                 if (!packageJson.version) {
                     warnings.push('Consider adding a version field to package.json');
                 }
-                
-                if (!packageJson.main) {
-                    warnings.push('Consider specifying a main entry point in package.json');
-                }
             } catch (e) {
                 errors.push('Invalid JSON in package.json');
             }
             
-            // Check if index.js exists
-            if (!appState.files['index.js']) {
-                warnings.push('index.js is recommended as the main entry point');
-            }
-            
-            // Check for invalid file names
-            Object.keys(appState.files).forEach(fileName => {
-                if (fileName.includes(' ')) {
-                    warnings.push(`File "${fileName}" contains spaces, consider using hyphens or underscores`);
-                }
-            });
-            
-            // Check package type limits
-            const limits = PACKAGE_TYPE_LIMITS[appState.packType];
+            // Check file limits
             const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
-            
-            if (totalFiles > limits.maxFiles) {
-                errors.push(`Package type "${appState.packType}" allows maximum ${limits.maxFiles} files, but you have ${totalFiles}`);
+            if (totalFiles > typeConfig.maxFiles) {
+                errors.push(`Package type "${packageType}" allows maximum ${typeConfig.maxFiles} files, but you have ${totalFiles}`);
             }
             
-            // Check if creating new version without base pack ID
-            if (appState.isNewVersion && !appState.basePackId) {
-                errors.push('Base Pack ID is required when creating a new version');
+            // Check WASM files for basic package
+            if (packageType === 'basic' && Object.keys(appState.wasmFiles).length > 0) {
+                errors.push('Basic packages cannot include WASM files');
             }
             
-            return { errors, warnings };
+            // Check compilation for basic package
+            if (packageType === 'basic' && compileWasmCheckbox.checked) {
+                errors.push('Basic packages cannot compile to WASM');
+            }
+            
+            // Add info about package type
+            info.push(`${typeConfig.description}`);
+            info.push(`Max files: ${typeConfig.maxFiles}, Max size: ${typeConfig.maxSize / 1024 / 1024}MB`);
+            
+            return { errors, warnings, info };
         }
-        
-        // Publish package to API - UPDATED FOR NEW API
+
+        // Publish package using the new API
         async function publishPackage() {
-            // Validate package first
+            // Validate first
             const validation = validatePackage();
-            
             if (validation.errors.length > 0) {
-                showNotification('Cannot publish: ' + validation.errors[0], 'error');
+                showError('Cannot publish: ' + validation.errors[0]);
                 return;
             }
             
-            // Show loading state
+            // Show loading
             publishLoading.style.display = 'block';
-            validationResults.innerHTML = '';
+            publishResults.classList.remove('active');
             
             try {
                 // Prepare package.json
                 const packageJson = JSON.parse(appState.files['package.json'].content);
-                packageJson.name = appState.packName;
+                packageJson.name = packageNameInput.value;
+                packageJson.version = packageVersionInput.value;
                 
-                // Prepare all files for upload
+                // Prepare files for upload
                 const files = {};
                 
                 // Add regular files
@@ -1308,10 +1621,9 @@ MIT
                     files[fileName] = appState.files[fileName].content;
                 });
                 
-                // Add WASM files - convert ArrayBuffer to base64 string
+                // Add WASM files as base64
                 Object.keys(appState.wasmFiles).forEach(fileName => {
                     const wasmFile = appState.wasmFiles[fileName];
-                    // Convert ArrayBuffer to base64 string
                     const bytes = new Uint8Array(wasmFile.data);
                     let binary = '';
                     for (let i = 0; i < bytes.byteLength; i++) {
@@ -1320,31 +1632,29 @@ MIT
                     files[fileName] = btoa(binary);
                 });
                 
-                // Prepare request body for new API
+                // Prepare request body for the new API
                 const requestBody = {
-                    name: appState.packName,
+                    name: packageNameInput.value,
                     packJson: JSON.stringify(packageJson),
                     files: files,
-                    isPublic: appState.isPublic,
-                    packageType: appState.packType,
-                    version: appState.version,
-                    isNewVersion: appState.isNewVersion,
-                    basePackId: appState.basePackId || null,
-                    userId: appState.userId || null,
-                    editToken: appState.editToken || null,
-                    collaborators: [] // Can be extended later
+                    isPublic: isPublicCheckbox.checked,
+                    packageType: appState.packageType,
+                    version: packageVersionInput.value,
+                    isNewVersion: isNewVersionCheckbox.checked,
+                    basePackId: basePackIdInput.value || null,
+                    userId: userIdInput.value || null,
+                    editToken: editTokenInput.value || null,
+                    collaborators: [],
+                    compileToWasm: compileWasmCheckbox.checked,
+                    wasmConfig: {
+                        initialMemory: 1,
+                        maxMemory: 65536
+                    }
                 };
                 
-                console.log('Sending to API:', {
-                    name: requestBody.name,
-                    packageType: requestBody.packageType,
-                    version: requestBody.version,
-                    isNewVersion: requestBody.isNewVersion,
-                    fileCount: Object.keys(requestBody.files).length,
-                    isPublic: requestBody.isPublic
-                });
+                logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
                 
-                // Call publish API
+                // Call the publish API
                 const response = await fetch('/api/publish.js', {
                     method: 'POST',
                     headers: {
@@ -1353,230 +1663,461 @@ MIT
                     body: JSON.stringify(requestBody)
                 });
                 
-                const responseText = await response.text();
-                console.log('API Response:', responseText);
+                const result = await response.json();
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${responseText}`);
+                    throw new Error(result.error || `HTTP ${response.status}`);
                 }
-                
-                const result = JSON.parse(responseText);
                 
                 // Hide loading, show results
                 publishLoading.style.display = 'none';
-                publishResult.style.display = 'block';
+                publishResults.classList.add('active');
                 
                 // Display results
-                publishResult.innerHTML = `
+                publishResults.innerHTML = `
                     <div class="result-item">
-                        <span class="result-label">✓ Published successfully!</span>
+                        <div class="result-label">✓ Published Successfully!</div>
+                        <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
                     </div>
+                    
                     <div class="result-item">
-                        <span class="result-label">Package Type:</span>
-                        <span class="result-value">${appState.packType}</span>
+                        <div class="result-label">Package ID</div>
+                        <div class="result-value">${result.packId}</div>
                     </div>
+                    
                     <div class="result-item">
-                        <span class="result-label">Version:</span>
-                        <span class="result-value">${result.version}</span>
+                        <div class="result-label">URL ID</div>
+                        <div class="result-value">${result.urlId}</div>
                     </div>
+                    
                     <div class="result-item">
-                        <span class="result-label">Pack ID:</span>
-                        <span class="result-value">${result.packId}</span>
+                        <div class="result-label">CDN URL</div>
+                        <div class="result-value">
+                            <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
+                        </div>
                     </div>
+                    
                     <div class="result-item">
-                        <span class="result-label">URL ID:</span>
-                        <span class="result-value">${result.urlId}</span>
+                        <div class="result-label">Worker URL</div>
+                        <div class="result-value">
+                            <a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a>
+                        </div>
                     </div>
+                    
                     <div class="result-item">
-                        <span class="result-label">CDN URL:</span>
-                        <span class="result-value"><a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a></span>
+                        <div class="result-label">Install Command</div>
+                        <div class="result-value">
+                            <code>${result.installCommand}</code>
+                        </div>
                     </div>
+                    
+                    ${result.wasmUrl ? `
                     <div class="result-item">
-                        <span class="result-label">Worker URL:</span>
-                        <span class="result-value"><a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a></span>
+                        <div class="result-label">WASM URL</div>
+                        <div class="result-value">
+                            <a href="${result.wasmUrl}" target="_blank">${result.wasmUrl}</a>
+                        </div>
                     </div>
+                    ` : ''}
+                    
+                    ${result.complexWasmUrl ? `
                     <div class="result-item">
-                        <span class="result-label">Install Command:</span>
-                        <span class="result-value">${result.installCommand}</span>
+                        <div class="result-label">Complex WASM URL</div>
+                        <div class="result-value">
+                            <a href="${result.complexWasmUrl}" target="_blank">${result.complexWasmUrl}</a>
+                        </div>
                     </div>
+                    ` : ''}
+                    
                     ${result.encryptedKey ? `
                     <div class="result-item">
-                        <span class="result-label">Encryption Key:</span>
-                        <span class="result-value">${result.encryptedKey}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="result-label">⚠️ Save this key! It won't be shown again.</span>
-                    </div>
-                    ` : ''}
-                    ${result.isNewVersion ? `
-                    <div class="result-item">
-                        <span class="result-label">New Version:</span>
-                        <span class="result-value">✓ Created new version from base pack ${result.basePackId}</span>
+                        <div class="result-label">🔐 Encryption Key</div>
+                        <div class="result-value" style="color: #f2c811;">
+                            ${result.encryptedKey}
+                        </div>
+                        <div style="font-size: 12px; color: #f2c811; margin-top: 4px;">
+                            Save this key! It won't be shown again.
+                        </div>
                     </div>
                     ` : ''}
+                    
                     <div class="result-item">
-                        <span class="result-label">Advanced Features:</span>
-                        <span class="result-value">Versioning: ${result.advancedFeatures?.versioning ? '✓' : '✗'}, 
-                        Collaboration: ${result.advancedFeatures?.collaboration ? '✓' : '✗'}</span>
+                        <div class="result-label">Processing Time</div>
+                        <div class="result-value">${result.processingTime}</div>
                     </div>
+                    
                     <div class="result-item">
-                        <button id="exploreBtn" class="success" style="width: 100%; margin-top: 10px;">Explore Package</button>
+                        <div class="result-label">Advanced Features</div>
+                        <div class="result-value">
+                            <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
+                                ✓ Versioning
+                            </span> | 
+                            <span style="color: ${result.advancedFeatures?.collaboration ? '#4ec9b0' : '#858585'}">
+                                ✓ Collaboration
+                            </span> | 
+                            <span style="color: ${result.advancedFeatures?.wasmSupport ? '#4ec9b0' : '#858585'}">
+                                ✓ WASM Support
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="result-item">
+                        <button id="explore-package" style="
+                            width: 100%;
+                            padding: 12px;
+                            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            margin-top: 10px;
+                        ">
+                            <i class="fas fa-external-link-alt"></i> Explore Package
+                        </button>
                     </div>
                 `;
                 
                 // Add event listener for explore button
-                document.getElementById('exploreBtn').addEventListener('click', () => {
-                    window.location.href = 'explore.html';
+                document.getElementById('explore-package').addEventListener('click', () => {
+                    window.open(result.cdnUrl, '_blank');
                 });
+                
+                logToTerminal(`✓ Package published successfully! ID: ${result.packId}`);
                 
             } catch (error) {
                 publishLoading.style.display = 'none';
-                showNotification(`Publish failed: ${error.message}`, 'error');
+                showError(`Publish failed: ${error.message}`);
+                logToTerminal(`✗ Publish failed: ${error.message}`, 'error');
                 console.error('Publish error:', error);
             }
         }
-        
+
+        // Utility functions
+        function getFileIcon(fileName) {
+            const extension = fileName.split('.').pop().toLowerCase();
+            switch (extension) {
+                case 'js': return '⬡';
+                case 'json': return '{ }';
+                case 'md': return '📖';
+                case 'html': return '🌐';
+                case 'css': return '🎨';
+                case 'py': return '🐍';
+                case 'ts': return '⚡';
+                case 'wasm': return '🔬';
+                default: return '📄';
+            }
+        }
+
+        function getLanguageFromExtension(extension) {
+            switch (extension) {
+                case 'js': return 'javascript';
+                case 'json': return 'json';
+                case 'md': return 'markdown';
+                case 'html': return 'html';
+                case 'css': return 'css';
+                case 'py': return 'python';
+                case 'ts': return 'typescript';
+                default: return 'plaintext';
+            }
+        }
+
+        function getDefaultContent(fileName, language) {
+            switch (language) {
+                case 'javascript':
+                    return `// ${fileName}\n\nexport default function() {\n    console.log('Hello from ${fileName}');\n}\n`;
+                case 'json':
+                    return '{\n    "$schema": "./schema.json"\n}\n';
+                case 'markdown':
+                    return `# ${fileName}\n\nWrite your documentation here.\n`;
+                case 'html':
+                    return `<!DOCTYPE html>\n<html>\n<head>\n    <title>${fileName}</title>\n</head>\n<body>\n    \n</body>\n</html>\n`;
+                case 'css':
+                    return `/* ${fileName} */\n\nbody {\n    margin: 0;\n    padding: 0;\n}\n`;
+                default:
+                    return `// ${fileName}\n`;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function logToTerminal(message, type = 'output') {
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            
+            const prompt = document.createElement('span');
+            prompt.className = 'terminal-prompt';
+            prompt.textContent = '$';
+            
+            const output = document.createElement('span');
+            output.className = `terminal-${type}`;
+            output.textContent = message;
+            
+            line.appendChild(prompt);
+            line.appendChild(output);
+            terminalOutput.appendChild(line);
+            
+            // Auto-scroll to bottom
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+
+        function showError(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--danger-color);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                z-index: 3000;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
         // Setup event listeners
         function setupEventListeners() {
-            // Pack configuration
-            packNameInput.addEventListener('input', (e) => {
-                appState.packName = e.target.value;
+            // File tree events
+            fileTree.addEventListener('click', (e) => {
+                const fileItem = e.target.closest('.file-item');
+                if (fileItem && !e.target.closest('.file-btn')) {
+                    switchFile(fileItem.dataset.file);
+                }
+                
+                const fileBtn = e.target.closest('.file-btn');
+                if (fileBtn) {
+                    const action = fileBtn.dataset.action;
+                    const fileName = fileBtn.dataset.file;
+                    
+                    if (action === 'rename') {
+                        renameFile(fileName);
+                    } else if (action === 'delete') {
+                        deleteFile(fileName);
+                    } else if (action === 'remove-wasm') {
+                        removeWasmFile(fileName);
+                    }
+                }
             });
-            
-            packTypeSelect.addEventListener('change', (e) => {
-                appState.packType = e.target.value;
-                updateTypeInfo();
+
+            // Editor tabs events
+            editorTabs.addEventListener('click', (e) => {
+                const tab = e.target.closest('.tab');
+                if (tab) {
+                    switchFile(tab.dataset.file);
+                }
+                
+                const closeBtn = e.target.closest('.tab-close');
+                if (closeBtn) {
+                    e.stopPropagation();
+                    deleteFile(closeBtn.dataset.file);
+                }
             });
-            
-            versionInput.addEventListener('input', (e) => {
-                appState.version = e.target.value;
+
+            // Package type selection
+            document.querySelectorAll('.type-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    appState.packageType = card.dataset.type;
+                    
+                    // Update compile to WASM checkbox
+                    const typeConfig = PACKAGE_TYPES[appState.packageType];
+                    compileWasmCheckbox.disabled = !typeConfig.canCompileToWasm;
+                    if (!typeConfig.canCompileToWasm) {
+                        compileWasmCheckbox.checked = false;
+                    }
+                    
+                    logToTerminal(`✓ Package type changed to: ${appState.packageType}`);
+                });
             });
-            
-            isPublicCheckbox.addEventListener('change', (e) => {
-                appState.isPublic = e.target.checked;
+
+            // Advanced options toggle
+            advancedToggle.addEventListener('click', () => {
+                advancedOptions.classList.toggle('expanded');
+                const icon = advancedToggle.querySelector('i');
+                icon.classList.toggle('fa-chevron-right');
+                icon.classList.toggle('fa-chevron-down');
             });
-            
+
+            // New version checkbox
             isNewVersionCheckbox.addEventListener('change', (e) => {
-                appState.isNewVersion = e.target.checked;
                 newVersionFields.style.display = e.target.checked ? 'block' : 'none';
             });
-            
-            basePackIdInput.addEventListener('input', (e) => {
-                appState.basePackId = e.target.value;
+
+            // WASM file upload
+            wasmUpload.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                handleWasmUpload(Array.from(e.target.files));
+                fileInput.value = '';
             });
-            
-            editTokenInput.addEventListener('input', (e) => {
-                appState.editToken = e.target.value;
+
+            // Drag and drop for WASM files
+            wasmUpload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                wasmUpload.style.borderColor = '#00bcd4';
+                wasmUpload.style.background = 'rgba(0, 188, 212, 0.1)';
             });
-            
-            userIdInput.addEventListener('input', (e) => {
-                appState.userId = e.target.value;
+
+            wasmUpload.addEventListener('dragleave', () => {
+                wasmUpload.style.borderColor = '';
+                wasmUpload.style.background = '';
             });
-            
-            // New file button
-            document.getElementById('newFileBtn').addEventListener('click', createNewFile);
-            
-            // Save button
-            document.getElementById('saveBtn').addEventListener('click', () => {
-                showNotification('All changes saved locally', 'success');
+
+            wasmUpload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                wasmUpload.style.borderColor = '';
+                wasmUpload.style.background = '';
+                handleWasmUpload(Array.from(e.dataTransfer.files));
             });
-            
-            // Publish button
-            document.getElementById('publishBtn').addEventListener('click', () => {
-                // Validate before showing modal
+
+            // FAB buttons
+            fabNewFile.addEventListener('click', createNewFile);
+            fabSave.addEventListener('click', () => {
+                logToTerminal('✓ All files saved locally');
+                showError('All files saved!');
+            });
+            fabPublish.addEventListener('click', () => {
+                // Show validation summary
                 const validation = validatePackage();
-                
-                validationResults.innerHTML = '';
+                validationSummary.innerHTML = '';
                 
                 if (validation.errors.length > 0) {
-                    validationResults.innerHTML = `
-                        <div style="background-color: #5c2d0c; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                            <strong>Errors:</strong>
-                            <ul style="margin: 5px 0 0 20px;">
+                    validationSummary.innerHTML = `
+                        <div style="background: rgba(209, 52, 56, 0.2); border-left: 4px solid var(--danger-color); padding: 15px; border-radius: 6px; margin: 10px 0;">
+                            <div style="font-weight: 600; color: var(--danger-color); margin-bottom: 8px;">
+                                <i class="fas fa-exclamation-circle"></i> Errors
+                            </div>
+                            <ul style="margin: 0; padding-left: 20px;">
                                 ${validation.errors.map(err => `<li>${err}</li>`).join('')}
                             </ul>
                         </div>
                     `;
                 } else if (validation.warnings.length > 0) {
-                    validationResults.innerHTML = `
-                        <div style="background-color: #5c5c0c; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                            <strong>Warnings:</strong>
-                            <ul style="margin: 5px 0 0 20px;">
+                    validationSummary.innerHTML = `
+                        <div style="background: rgba(242, 200, 17, 0.2); border-left: 4px solid var(--warning-color); padding: 15px; border-radius: 6px; margin: 10px 0;">
+                            <div style="font-weight: 600; color: var(--warning-color); margin-bottom: 8px;">
+                                <i class="fas fa-exclamation-triangle"></i> Warnings
+                            </div>
+                            <ul style="margin: 0; padding-left: 20px;">
                                 ${validation.warnings.map(warn => `<li>${warn}</li>`).join('')}
                             </ul>
                         </div>
                     `;
                 }
                 
-                // Add package type info to modal
-                const limits = PACKAGE_TYPE_LIMITS[appState.packType];
+                // Add info about package
+                const typeConfig = PACKAGE_TYPES[appState.packageType];
                 const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
                 
-                validationResults.innerHTML += `
-                    <div style="background-color: #2a2d2e; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                        <strong>Package Type:</strong> ${appState.packType}
-                        <div style="font-size: 0.9rem; margin-top: 5px;">
-                            ${limits.description}<br>
-                            Files: ${totalFiles} / ${limits.maxFiles}<br>
-                            Max size: ${limits.maxSize / 1024 / 1024}MB
+                validationSummary.innerHTML += `
+                    <div style="background: rgba(0, 122, 204, 0.2); border-left: 4px solid var(--primary-color); padding: 15px; border-radius: 6px; margin: 10px 0;">
+                        <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 8px;">
+                            <i class="fas fa-info-circle"></i> Package Info
+                        </div>
+                        <div style="font-size: 14px; line-height: 1.5;">
+                            <div><strong>Name:</strong> ${packageNameInput.value}</div>
+                            <div><strong>Type:</strong> ${appState.packageType} ${typeConfig.icon}</div>
+                            <div><strong>Version:</strong> ${packageVersionInput.value}</div>
+                            <div><strong>Files:</strong> ${totalFiles} / ${typeConfig.maxFiles}</div>
+                            <div><strong>Visibility:</strong> ${isPublicCheckbox.checked ? 'Public' : 'Private'}</div>
+                            ${compileWasmCheckbox.checked ? '<div><strong>✓ Compile to WASM:</strong> Enabled</div>' : ''}
                         </div>
                     </div>
                 `;
                 
-                publishModal.style.display = 'flex';
-                publishResult.style.display = 'none';
+                // Show modal
+                publishModal.classList.add('active');
+                publishResults.classList.remove('active');
                 publishLoading.style.display = 'none';
             });
-            
+
             // Modal controls
-            closeModal.addEventListener('click', () => {
-                publishModal.style.display = 'none';
+            modalClose.addEventListener('click', () => {
+                publishModal.classList.remove('active');
             });
             
             cancelPublishBtn.addEventListener('click', () => {
-                publishModal.style.display = 'none';
+                publishModal.classList.remove('active');
             });
             
             confirmPublishBtn.addEventListener('click', publishPackage);
             
-            // WASM file upload
-            uploadArea.addEventListener('click', () => {
-                fileInput.click();
+            // Clear terminal
+            clearTerminalBtn.addEventListener('click', () => {
+                terminalOutput.innerHTML = '';
+                logToTerminal('Terminal cleared');
             });
-            
-            fileInput.addEventListener('change', (e) => {
-                handleWasmUpload(Array.from(e.target.files));
-                fileInput.value = '';
+
+            // Close modal on outside click
+            publishModal.addEventListener('click', (e) => {
+                if (e.target === publishModal) {
+                    publishModal.classList.remove('active');
+                }
             });
-            
-            // Drag and drop for WASM files
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
+
+            // Update package name from package.json
+            packageNameInput.addEventListener('input', () => {
+                try {
+                    const packageJson = JSON.parse(appState.files['package.json'].content);
+                    packageJson.name = packageNameInput.value;
+                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
+                    if (appState.activeFile === 'package.json') {
+                        appState.editor.setValue(appState.files['package.json'].content);
+                    }
+                } catch (e) {
+                    // Invalid JSON
+                }
             });
-            
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-            
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                
-                const files = Array.from(e.dataTransfer.files);
-                handleWasmUpload(files);
+
+            // Update package version from package.json
+            packageVersionInput.addEventListener('input', () => {
+                try {
+                    const packageJson = JSON.parse(appState.files['package.json'].content);
+                    packageJson.version = packageVersionInput.value;
+                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
+                    if (appState.activeFile === 'package.json') {
+                        appState.editor.setValue(appState.files['package.json'].content);
+                    }
+                } catch (e) {
+                    // Invalid JSON
+                }
             });
         }
-        
-        // Initialize WASM list
-        renderWasmList();
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', (e) => {
-            if (e.target === publishModal) {
-                publishModal.style.display = 'none';
+
+        // Initialize
+        renderWasmFiles();
+        logToTerminal('🚀 Pack Studio v2.0 initialized');
+        logToTerminal('📦 Ready to create amazing packages with WebAssembly support');
+        logToTerminal('💡 Tips: Drag & drop WASM files, use FAB buttons for quick actions');
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
             }
-        });
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
