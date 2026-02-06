@@ -1304,11 +1304,11 @@ export class ${className}ComplexWASM {
             element: 'anyfunc' 
           }),
           // Enhanced math functions
-          ...Object.fromEntries(
-            Object.getOwnPropertyNames(Math)
-              .filter(name => typeof Math[name] === 'function')
-              .map(name => [`Math_${name}`, Math[name]])
-          ),
+         ...Object.fromEntries(
+  Object.getOwnPropertyNames(Math)
+    .filter(name => typeof Math[name] === 'function' && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name))
+    .map(name => [`Math_${name}`, Math[name]])
+),
           // String and memory utilities
           string_new: (ptr, length) => {
             const bytes = new Uint8Array(this.memory.buffer, ptr, length);
