@@ -5,6 +5,50 @@ import { WASI } from '@wasmer/wasi';
 import { lowerI64Imports } from '@wasmer/wasm-transformer';
 import { Command } from '@wasmer/sdk';
 
+// Helper to get only standard, safe Math functions
+function getSafeMathFunctions() {
+  const safeMathFunctions = {
+    // Standard Math functions that exist in all environments
+    'Math_abs': Math.abs,
+    'Math_sin': Math.sin,
+    'Math_cos': Math.cos,
+    'Math_tan': Math.tan,
+    'Math_log': Math.log,
+    'Math_exp': Math.exp,
+    'Math_sqrt': Math.sqrt,
+    'Math_pow': Math.pow,
+    'Math_floor': Math.floor,
+    'Math_ceil': Math.ceil,
+    'Math_round': Math.round,
+    'Math_random': Math.random,
+    'Math_max': Math.max,
+    'Math_min': Math.min,
+    'Math_atan': Math.atan,
+    'Math_atan2': Math.atan2,
+    'Math_asin': Math.asin,
+    'Math_acos': Math.acos
+  };
+  
+  // Only include functions that actually exist and are functions
+  const result = {};
+  for (const [key, func] of Object.entries(safeMathFunctions)) {
+    if (typeof func === 'function') {
+      result[key] = func;
+    }
+  }
+  
+  return result;
+}
+
+// Helper to generate Math imports string for template literals
+function generateMathImportsString() {
+  const mathImports = getSafeMathFunctions();
+  return Object.entries(mathImports)
+    .map(([key, func]) => `${key}: Math.${key.replace('Math_', '')}`)
+    .join(',\n          ');
+}
+
+
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -207,19 +251,8 @@ class PackWASMCompiler {
         abort: (msg, file, line, column) => {
           console.error(`WASM abort: ${msg} at ${file}:${line}:${column}`);
         },
-        // Basic math functions
-        Math_abs: Math.abs,
-        Math_sin: Math.sin,
-        Math_cos: Math.cos,
-        Math_tan: Math.tan,
-        Math_log: Math.log,
-        Math_exp: Math.exp,
-        Math_sqrt: Math.sqrt,
-        Math_pow: Math.pow,
-        Math_floor: Math.floor,
-        Math_ceil: Math.ceil,
-        Math_round: Math.round,
-        Math_random: Math.random,
+        // Basic math functions - only safe, standard ones
+        ...getSafeMathFunctions(),
         // String utilities
         string_length: (ptr) => {
           const view = new Uint8Array(this.memory.buffer, ptr);
@@ -1179,18 +1212,7 @@ export class ${className}WASM {
           abort: (msg, file, line, column) => {
             console.error(\`WASM abort: \${msg} at \${file}:\${line}:\${column}\`);
           },
-          Math_abs: Math.abs,
-          Math_sin: Math.sin,
-          Math_cos: Math.cos,
-          Math_tan: Math.tan,
-          Math_log: Math.log,
-          Math_exp: Math.exp,
-          Math_sqrt: Math.sqrt,
-          Math_pow: Math.pow,
-          Math_floor: Math.floor,
-          Math_ceil: Math.ceil,
-          Math_round: Math.round,
-          Math_random: Math.random
+          ${generateMathImportsString()}
         }
       };
 
@@ -1302,38 +1324,7 @@ export class ${className}ComplexWASM {
             initial: 256, 
             element: 'anyfunc' 
           }),
-          // Enhanced math functions - manually expanded to avoid spread operator issues
-          Math_abs: Math.abs,
-          Math_sin: Math.sin,
-          Math_cos: Math.cos,
-          Math_tan: Math.tan,
-          Math_log: Math.log,
-          Math_exp: Math.exp,
-          Math_sqrt: Math.sqrt,
-          Math_pow: Math.pow,
-          Math_floor: Math.floor,
-          Math_ceil: Math.ceil,
-          Math_round: Math.round,
-          Math_random: Math.random,
-          // Additional safe math functions
-          Math_max: Math.max,
-          Math_min: Math.min,
-          Math_atan: Math.atan,
-          Math_atan2: Math.atan2,
-          Math_asin: Math.asin,
-          Math_acos: Math.acos,
-          Math_sinh: Math.sinh,
-          Math_cosh: Math.cosh,
-          Math_tanh: Math.tanh,
-          Math_log2: Math.log2,
-          Math_log10: Math.log10,
-          Math_sign: Math.sign,
-          Math_trunc: Math.trunc,
-          Math_cbrt: Math.cbrt,
-          Math_hypot: Math.hypot,
-          Math_fround: Math.fround,
-          Math_imul: Math.imul,
-          Math_clz32: Math.clz32,
+          ${generateMathImportsString()},
           // String and memory utilities
           string_new: (ptr, length) => {
             const bytes = new Uint8Array(this.memory.buffer, ptr, length);
