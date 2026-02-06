@@ -1655,7 +1655,7 @@ MIT
                 logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
                 
                 // Call the publish API
-                const response = await fetch('/api/publish.js', {
+                const response = await fetch('/api/publish.mjs', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
