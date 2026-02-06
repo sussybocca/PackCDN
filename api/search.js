@@ -1,4 +1,4 @@
-// /api/search.js
+// /api/search.js - Enhanced for full compatibility
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -8,36 +8,64 @@ const supabase = createClient(
 
 // Search scoring weights
 const SEARCH_WEIGHTS = {
-  NAME_MATCH: 10,
-  DESCRIPTION_MATCH: 5,
-  KEYWORD_MATCH: 3,
+  NAME_EXACT_MATCH: 15,
+  NAME_PARTIAL_MATCH: 10,
+  DESCRIPTION_MATCH: 6,
+  KEYWORD_EXACT_MATCH: 5,
+  KEYWORD_PARTIAL_MATCH: 3,
+  AUTHOR_MATCH: 4,
   POPULARITY: 2,
-  RECENCY: 1
+  RECENCY: 1.5,
+  VERIFICATION_BOOST: 8,
+  RECENT_ACTIVITY: 3,
+  WASM_SUPPORT: 5
 };
 
 // Available filters
 const AVAILABLE_FILTERS = {
-  type: ['basic', 'standard', 'advanced'],
-  language: ['javascript', 'python', 'wasm', 'json', 'markdown', 'mixed'],
+  type: ['basic', 'standard', 'advanced', 'wasm'],
+  language: ['javascript', 'typescript', 'python', 'wasm', 'rust', 'go', 'zig', 'json', 'html', 'css', 'mixed'],
   minVersion: null,
   maxVersion: null,
+  minSize: null,
+  maxSize: null,
   hasReadme: null,
   hasLicense: null,
   hasTests: null,
-  verified: null,
+  verified: ['pending', 'approved', 'rejected'],
   dependency: null,
   author: null,
   minDownloads: null,
   minViews: null,
-  sort: ['relevance', 'popular', 'newest', 'updated', 'name']
+  compileToWasm: null,
+  wasmGenerated: null,
+  complexWasm: null,
+  sandboxLevel: ['strict', 'moderate', 'relaxed', 'wasm-sandbox'],
+  sort: ['relevance', 'popular', 'newest', 'updated', 'name', 'trending', 'most-viewed']
 };
 
+// Enhanced handler
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Enhanced CORS
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://pack-cdn.vercel.app',
+    'https://pack-dash.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
   
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -45,17 +73,21 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ 
       success: false, 
-      error: 'Method not allowed' 
+      error: 'Method not allowed',
+      code: 'METHOD_NOT_ALLOWED'
     });
   }
 
   try {
+    // Extract query parameters
     const { 
       q, 
       type, 
       language,
       minVersion,
       maxVersion,
+      minSize,
+      maxSize,
       hasReadme,
       hasLicense,
       hasTests,
@@ -64,63 +96,75 @@ export default async function handler(req, res) {
       author,
       minDownloads = 0,
       minViews = 0,
+      compileToWasm,
+      wasmGenerated,
+      complexWasm,
+      sandboxLevel,
       sort = 'relevance',
       page = 1,
       limit = 20,
       includeMetadata = 'true',
-      advanced = 'false'
+      advanced = 'false',
+      includeAllTables = 'false'
     } = req.query;
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit) > 100 ? 100 : parseInt(limit);
+    // Parse numeric parameters
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
     const offset = (pageNum - 1) * limitNum;
     const useAdvancedSearch = advanced === 'true';
+    const includeAllData = includeAllTables === 'true';
 
-    // Build base query - start with packs table for backward compatibility
+    console.log(`Search query: ${q || '(none)'}, Page: ${pageNum}, Limit: ${limitNum}, Advanced: ${useAdvancedSearch}`);
+
+    // Build base query - FULLY COMPATIBLE with publish.mjs structure
     let query = supabase
       .from('packs')
       .select(`
-        id,
-        url_id,
-        name,
-        pack_json,
-        version,
-        cdn_url,
-        worker_url,
-        is_public,
-        created_at,
-        updated_at,
-        views,
-        downloads,
-        publisher_id,
-        package_type,
-        last_accessed,
-        publish_ip,
-        encrypted_key,
-        files
+        *,
+        pack_metadata (
+          package_type,
+          sandbox_level,
+          verification_status,
+          requires_verification,
+          file_count,
+          total_size,
+          wasm_size,
+          complex_wasm_size,
+          last_accessed
+        )
       `, { count: 'exact' })
       .eq('is_public', true);
 
-    // Apply basic filters (backward compatible)
+    // Apply search query
     if (q) {
-      // Enhanced search: search in name, pack_json (description), and keywords
-      const searchTerms = q.toLowerCase().trim();
+      const searchTerms = q.toLowerCase().trim().split(/\s+/);
       
-      // We'll use multiple OR conditions for better search
-      query = query.or(`
-        name.ilike.%${searchTerms}%,
-        pack_json->>'description'.ilike.%${searchTerms}%,
-        pack_json->>'keywords'.ilike.%${searchTerms}%,
-        pack_json->>'author'.ilike.%${searchTerms}%
-      `);
+      // Build complex search conditions
+      let searchConditions = [];
+      
+      searchTerms.forEach(term => {
+        if (term.length >= 2) {
+          searchConditions.push(
+            `name.ilike.%${term}%`,
+            `pack_json->>'description'.ilike.%${term}%`,
+            `pack_json->>'keywords'.ilike.%${term}%`,
+            `pack_json->>'author'.ilike.%${term}%`
+          );
+        }
+      });
+      
+      if (searchConditions.length > 0) {
+        query = query.or(searchConditions.join(','));
+      }
     }
 
-    // Package type filter
-    if (type && ['basic', 'standard', 'advanced'].includes(type)) {
+    // Apply package type filter - FULLY COMPATIBLE
+    if (type && ['basic', 'standard', 'advanced', 'wasm'].includes(type)) {
       query = query.eq('package_type', type);
     }
 
-    // Version range filter
+    // Apply version filters
     if (minVersion) {
       query = query.gte('version', minVersion);
     }
@@ -128,20 +172,50 @@ export default async function handler(req, res) {
       query = query.lte('version', maxVersion);
     }
 
-    // Boolean filters
+    // Apply boolean filters
     if (hasReadme === 'true') {
-      query = query.ilike('pack_json', '%README%');
+      query = query.or(`
+        name.ilike.%readme%,
+        pack_json->>'description'.ilike.%readme%,
+        pack_json->>'keywords'.ilike.%readme%
+      `);
     }
     
     if (hasLicense === 'true') {
-      query = query.ilike('pack_json', '%LICENSE%');
+      query = query.or(`
+        pack_json->>'license'.not.is.null,
+        name.ilike.%license%
+      `);
     }
     
     if (hasTests === 'true') {
-      query = query.or('name.ilike.%test%,name.ilike.%spec%');
+      query = query.or(`
+        name.ilike.%test%,
+        name.ilike.%spec%,
+        pack_json->>'keywords'.ilike.%test%
+      `);
     }
 
-    // Author/Publisher filter
+    // Apply WASM-related filters
+    if (compileToWasm === 'true') {
+      query = query.eq('compile_to_wasm', true);
+    } else if (compileToWasm === 'false') {
+      query = query.eq('compile_to_wasm', false);
+    }
+    
+    if (wasmGenerated === 'true') {
+      query = query.not('wasm_url', 'is', null);
+    } else if (wasmGenerated === 'false') {
+      query = query.is('wasm_url', null);
+    }
+    
+    if (complexWasm === 'true') {
+      query = query.not('complex_wasm_url', 'is', null);
+    } else if (complexWasm === 'false') {
+      query = query.is('complex_wasm_url', null);
+    }
+
+    // Apply author/publisher filter
     if (author) {
       query = query.or(`
         pack_json->>'author'.ilike.%${author}%,
@@ -149,7 +223,7 @@ export default async function handler(req, res) {
       `);
     }
 
-    // Popularity filters
+    // Apply popularity filters
     if (parseInt(minDownloads) > 0) {
       query = query.gte('downloads', parseInt(minDownloads));
     }
@@ -158,10 +232,13 @@ export default async function handler(req, res) {
       query = query.gte('views', parseInt(minViews));
     }
 
-    // Sorting
+    // Apply sorting
     switch (sort) {
       case 'popular':
         query = query.order('downloads', { ascending: false });
+        break;
+      case 'most-viewed':
+        query = query.order('views', { ascending: false });
         break;
       case 'newest':
         query = query.order('created_at', { ascending: false });
@@ -172,12 +249,13 @@ export default async function handler(req, res) {
       case 'name':
         query = query.order('name', { ascending: true });
         break;
+      case 'trending':
+        // Trending: recent popularity (downloads per day)
+        query = query.order('created_at', { ascending: false });
+        break;
       case 'relevance':
       default:
-        // Default: sort by relevance (downloads + recency)
         if (q) {
-          // When searching, we want relevance-based sorting
-          // We'll handle this after fetching results
           query = query.order('downloads', { ascending: false });
         } else {
           query = query.order('created_at', { ascending: false });
@@ -185,20 +263,15 @@ export default async function handler(req, res) {
         break;
     }
 
-    // Get total count first for pagination
-    const { count, error: countError } = await query;
+    // Get count and results
+    const { data: packs, count, error } = await query.range(offset, offset + limitNum - 1);
     
-    if (countError) throw countError;
+    if (error) {
+      console.error('Search query error:', error);
+      throw error;
+    }
 
-    // Apply pagination
-    query = query.range(offset, offset + limitNum - 1);
-
-    // Execute query for packs
-    const { data: packs, error } = await query;
-    
-    if (error) throw error;
-
-    // If no packs found, return empty
+    // Early return if no packs
     if (!packs || packs.length === 0) {
       return res.status(200).json({
         success: true,
@@ -212,12 +285,7 @@ export default async function handler(req, res) {
           hasPreviousPage: pageNum > 1
         },
         filters: {
-          applied: {
-            q: q || null,
-            type: type || null,
-            language: language || null,
-            sort: sort || 'relevance'
-          },
+          applied: req.query,
           available: AVAILABLE_FILTERS
         },
         metadata: {
@@ -228,251 +296,312 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get pack IDs for fetching additional data
+    // Extract pack IDs for fetching related data
     const packIds = packs.map(pack => pack.id);
-
-    // Fetch additional data from other tables if advanced search is enabled
-    let metadataMap = {};
+    
+    // Initialize maps for related data
     let versionsMap = {};
     let collaboratorsMap = {};
     let dependenciesMap = {};
     let changesMap = {};
 
-    if (useAdvancedSearch) {
-      // Fetch metadata
-      try {
-        const { data: metadata, error: metaError } = await supabase
-          .from('pack_metadata')
-          .select('*')
-          .in('pack_id', packIds);
-
-        if (!metaError && metadata) {
-          metadata.forEach(meta => {
-            metadataMap[meta.pack_id] = meta;
-          });
-        }
-      } catch (metaErr) {
-        console.warn('Error fetching metadata:', metaErr.message);
-      }
+    // Fetch additional data if needed
+    if (useAdvancedSearch || includeAllData) {
+      const fetchPromises = [];
 
       // Fetch versions
-      try {
-        const { data: versions, error: versionsError } = await supabase
+      fetchPromises.push(
+        supabase
           .from('pack_versions')
           .select('*')
           .in('pack_id', packIds)
-          .order('version_number', { ascending: false });
-
-        if (!versionsError && versions) {
-          versionsMap = versions.reduce((acc, version) => {
-            if (!acc[version.pack_id]) {
-              acc[version.pack_id] = [];
+          .order('version_number', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              versionsMap = data.reduce((acc, version) => {
+                if (!acc[version.pack_id]) acc[version.pack_id] = [];
+                acc[version.pack_id].push(version);
+                return acc;
+              }, {});
             }
-            acc[version.pack_id].push(version);
-            return acc;
-          }, {});
-        }
-      } catch (versionsErr) {
-        console.warn('Error fetching versions:', versionsErr.message);
-      }
+            return null;
+          })
+      );
 
       // Fetch collaborators
-      try {
-        const { data: collaborators, error: collabError } = await supabase
+      fetchPromises.push(
+        supabase
           .from('pack_collaborators')
           .select('*')
-          .in('pack_id', packIds);
-
-        if (!collabError && collaborators) {
-          collaboratorsMap = collaborators.reduce((acc, collab) => {
-            if (!acc[collab.pack_id]) {
-              acc[collab.pack_id] = [];
+          .in('pack_id', packIds)
+          .then(({ data, error }) => {
+            if (!error && data) {
+              collaboratorsMap = data.reduce((acc, collab) => {
+                if (!acc[collab.pack_id]) acc[collab.pack_id] = [];
+                acc[collab.pack_id].push(collab);
+                return acc;
+              }, {});
             }
-            acc[collab.pack_id].push(collab);
-            return acc;
-          }, {});
-        }
-      } catch (collabErr) {
-        console.warn('Error fetching collaborators:', collabErr.message);
-      }
+            return null;
+          })
+      );
 
       // Fetch dependencies if dependency filter is active
       if (dependency) {
-        try {
-          const { data: deps, error: depError } = await supabase
+        fetchPromises.push(
+          supabase
             .from('pack_dependencies')
             .select('*')
             .in('pack_id', packIds)
-            .ilike('dependency_name', `%${dependency}%`);
-
-          if (!depError && deps) {
-            deps.forEach(dep => {
-              if (!dependenciesMap[dep.pack_id]) {
-                dependenciesMap[dep.pack_id] = [];
+            .ilike('dependency_name', `%${dependency}%`)
+            .then(({ data, error }) => {
+              if (!error && data) {
+                dependenciesMap = data.reduce((acc, dep) => {
+                  if (!acc[dep.pack_id]) acc[dep.pack_id] = [];
+                  acc[dep.pack_id].push(dep.dependency_name);
+                  return acc;
+                }, {});
               }
-              dependenciesMap[dep.pack_id].push(dep.dependency_name);
-            });
-          }
-        } catch (depErr) {
-          console.warn('Error fetching dependencies:', depErr.message);
-        }
+              return null;
+            })
+        );
+      } else if (includeAllData) {
+        // Fetch all dependencies for all packs
+        fetchPromises.push(
+          supabase
+            .from('pack_dependencies')
+            .select('*')
+            .in('pack_id', packIds)
+            .then(({ data, error }) => {
+              if (!error && data) {
+                dependenciesMap = data.reduce((acc, dep) => {
+                  if (!acc[dep.pack_id]) acc[dep.pack_id] = [];
+                  acc[dep.pack_id].push(dep.dependency_name);
+                  return acc;
+                }, {});
+              }
+              return null;
+            })
+        );
       }
 
       // Fetch recent changes
-      try {
-        const { data: changes, error: changesError } = await supabase
+      fetchPromises.push(
+        supabase
           .from('pack_changes')
           .select('*')
           .in('pack_id', packIds)
           .order('created_at', { ascending: false })
-          .limit(3 * packIds.length); // Get recent changes for all packs
+          .limit(100)
+          .then(({ data, error }) => {
+            if (!error && data) {
+              changesMap = data.reduce((acc, change) => {
+                if (!acc[change.pack_id]) acc[change.pack_id] = [];
+                if (acc[change.pack_id].length < 5) {
+                  acc[change.pack_id].push(change);
+                }
+                return acc;
+              }, {});
+            }
+            return null;
+          })
+      );
 
-        if (!changesError && changes) {
-          changesMap = changes.reduce((acc, change) => {
-            if (!acc[change.pack_id]) {
-              acc[change.pack_id] = [];
-            }
-            if (acc[change.pack_id].length < 3) { // Limit to 3 recent changes per pack
-              acc[change.pack_id].push(change);
-            }
-            return acc;
-          }, {});
-        }
-      } catch (changesErr) {
-        console.warn('Error fetching changes:', changesErr.message);
-      }
+      // Wait for all fetches
+      await Promise.allSettled(fetchPromises);
     }
 
     // Process and enhance results
-    const enhancedPacks = packs.map(pack => {
-      const enhancedPack = {
-        id: pack.id,
-        urlId: pack.url_id,
-        name: pack.name,
-        version: pack.version,
-        cdnUrl: pack.cdn_url,
-        workerUrl: pack.worker_url,
-        isPublic: pack.is_public,
-        createdAt: pack.created_at,
-        updatedAt: pack.updated_at,
-        lastAccessed: pack.last_accessed,
-        views: pack.views,
-        downloads: pack.downloads,
-        publisherId: pack.publisher_id,
-        packageType: pack.package_type || 'basic',
-        publishIp: pack.publish_ip,
-        hasEncryption: !!pack.encrypted_key
-      };
+    const enhancedPacks = packs
+      .map(pack => {
+        try {
+          // Parse pack_json
+          let packJson = {};
+          try {
+            packJson = typeof pack.pack_json === 'string' 
+              ? JSON.parse(pack.pack_json) 
+              : pack.pack_json || {};
+          } catch (e) {
+            packJson = {};
+          }
 
-      // Parse pack_json
-      try {
-        const packJson = JSON.parse(pack.pack_json);
-        enhancedPack.description = packJson.description || '';
-        enhancedPack.author = packJson.author || '';
-        enhancedPack.keywords = packJson.keywords || [];
-        enhancedPack.homepage = packJson.homepage || '';
-        enhancedPack.repository = packJson.repository || '';
-        enhancedPack.license = packJson.license || '';
-        enhancedPack.main = packJson.main || 'index.js';
-        enhancedPack.scripts = packJson.scripts || {};
-        enhancedPack.dependencies = packJson.dependencies || {};
-        enhancedPack.devDependencies = packJson.devDependencies || {};
-      } catch (e) {
-        enhancedPack.description = '';
-        enhancedPack.author = '';
-        enhancedPack.keywords = [];
-        enhancedPack.dependencies = {};
-      }
+          // Extract metadata from pack_metadata relation
+          const metadata = pack.pack_metadata?.[0] || {};
+          
+          // Apply sandbox level filter
+          if (sandboxLevel && metadata.sandbox_level !== sandboxLevel) {
+            return null;
+          }
 
-      // Add metadata if available
-      if (includeMetadata === 'true' && metadataMap[pack.id]) {
-        const metadata = metadataMap[pack.id];
-        enhancedPack.sandboxLevel = metadata.sandbox_level || 'basic';
-        enhancedPack.requiresVerification = metadata.requires_verification || false;
-        enhancedPack.verificationStatus = metadata.verification_status || 'unverified';
-        enhancedPack.fileCount = metadata.file_count || 0;
-        enhancedPack.totalSize = metadata.total_size || 0;
-        
-        // Calculate languages from files if available
-        if (pack.files && typeof pack.files === 'object') {
-          enhancedPack.languages = detectLanguagesFromFiles(pack.files);
+          // Apply verification filter
+          if (verified && metadata.verification_status !== verified) {
+            return null;
+          }
+
+          // Apply size filters
+          if (minSize && metadata.total_size < parseInt(minSize)) {
+            return null;
+          }
+          if (maxSize && metadata.total_size > parseInt(maxSize)) {
+            return null;
+          }
+
+          // Build enhanced pack
+          const enhancedPack = {
+            // Basic info
+            id: pack.id,
+            urlId: pack.url_id,
+            name: pack.name,
+            version: pack.version,
+            packageType: pack.package_type || 'basic',
+            isPublic: pack.is_public,
+            
+            // URLs
+            cdnUrl: pack.cdn_url,
+            workerUrl: pack.worker_url,
+            wasmUrl: pack.wasm_url,
+            complexWasmUrl: pack.complex_wasm_url,
+            
+            // Content info
+            description: packJson.description || '',
+            author: packJson.author || '',
+            keywords: packJson.keywords || [],
+            homepage: packJson.homepage || '',
+            repository: packJson.repository || '',
+            license: packJson.license || 'MIT',
+            main: packJson.main || 'index.js',
+            scripts: packJson.scripts || {},
+            dependencies: packJson.dependencies || {},
+            devDependencies: packJson.devDependencies || {},
+            pack: packJson.pack || {},
+            wasmConfig: packJson.wasmConfig || {},
+            
+            // Stats
+            views: pack.views || 0,
+            downloads: pack.downloads || 0,
+            
+            // Dates
+            createdAt: pack.created_at,
+            updatedAt: pack.updated_at,
+            lastAccessed: pack.last_accessed,
+            
+            // Publisher info
+            publisherId: pack.publisher_id,
+            publishIp: pack.publish_ip,
+            hasEncryption: !!pack.encrypted_key,
+            
+            // WASM info
+            compileToWasm: pack.compile_to_wasm || false,
+            wasmMetadata: pack.wasm_metadata || null
+          };
+
+          // Add metadata from pack_metadata table
+          if (metadata) {
+            enhancedPack.sandboxLevel = metadata.sandbox_level || 'basic';
+            enhancedPack.requiresVerification = metadata.requires_verification || false;
+            enhancedPack.verificationStatus = metadata.verification_status || 'unverified';
+            enhancedPack.fileCount = metadata.file_count || 0;
+            enhancedPack.totalSize = metadata.total_size || 0;
+            enhancedPack.wasmSize = metadata.wasm_size || 0;
+            enhancedPack.complexWasmSize = metadata.complex_wasm_size || 0;
+          }
+
+          // Add version info
+          if (versionsMap[pack.id]) {
+            enhancedPack.versions = versionsMap[pack.id].map(v => ({
+              version: v.version,
+              versionNumber: v.version_number,
+              checksum: v.checksum,
+              createdAt: v.created_at,
+              publisherId: v.publisher_id,
+              size: v.files ? JSON.stringify(v.files).length : 0
+            }));
+            enhancedPack.versionCount = versionsMap[pack.id].length;
+            enhancedPack.latestVersion = versionsMap[pack.id][0]?.version || pack.version;
+          }
+
+          // Add collaborators
+          if (collaboratorsMap[pack.id]) {
+            enhancedPack.collaborators = collaboratorsMap[pack.id].map(c => ({
+              userId: c.user_id,
+              permissionLevel: c.permission_level,
+              invitedBy: c.invited_by,
+              acceptedAt: c.accepted_at,
+              createdAt: c.created_at
+            }));
+            enhancedPack.collaboratorCount = collaboratorsMap[pack.id].length;
+          }
+
+          // Add dependencies
+          if (dependenciesMap[pack.id]) {
+            enhancedPack.dependencyList = dependenciesMap[pack.id];
+            enhancedPack.dependencyCount = dependenciesMap[pack.id].length;
+          }
+
+          // Add recent changes
+          if (changesMap[pack.id]) {
+            enhancedPack.recentChanges = changesMap[pack.id].map(c => ({
+              changeType: c.change_type,
+              description: c.description,
+              userId: c.user_id,
+              createdAt: c.created_at,
+              metadata: c.metadata
+            }));
+          }
+
+          // Apply dependency filter
+          if (dependency && !dependenciesMap[pack.id]?.some(d => 
+            d.toLowerCase().includes(dependency.toLowerCase())
+          )) {
+            return null;
+          }
+
+          // Calculate relevance score for search results
+          if (q) {
+            enhancedPack.relevanceScore = calculateEnhancedRelevanceScore(enhancedPack, q);
+          }
+
+          // Detect languages
+          if (pack.files && typeof pack.files === 'object') {
+            enhancedPack.languages = detectLanguagesFromFiles(pack.files);
+          } else {
+            enhancedPack.languages = ['javascript']; // Default
+          }
+
+          // Apply language filter
+          if (language && !enhancedPack.languages.includes(language)) {
+            return null;
+          }
+
+          return enhancedPack;
+        } catch (error) {
+          console.error('Error processing pack:', pack.id, error);
+          return null;
         }
-      }
+      })
+      .filter(pack => pack !== null);
 
-      // Add version info
-      if (versionsMap[pack.id] && versionsMap[pack.id].length > 0) {
-        enhancedPack.versions = versionsMap[pack.id].map(v => ({
-          version: v.version,
-          versionNumber: v.version_number,
-          checksum: v.checksum,
-          createdAt: v.created_at,
-          publisherId: v.publisher_id
-        }));
-        enhancedPack.latestVersion = versionsMap[pack.id][0].version;
-        enhancedPack.versionCount = versionsMap[pack.id].length;
-      }
-
-      // Add collaborators
-      if (collaboratorsMap[pack.id] && collaboratorsMap[pack.id].length > 0) {
-        enhancedPack.collaborators = collaboratorsMap[pack.id].map(c => ({
-          userId: c.user_id,
-          permissionLevel: c.permission_level,
-          invitedBy: c.invited_by,
-          acceptedAt: c.accepted_at
-        }));
-        enhancedPack.collaboratorCount = collaboratorsMap[pack.id].length;
-      }
-
-      // Add dependencies
-      if (dependenciesMap[pack.id]) {
-        enhancedPack.dependencyList = dependenciesMap[pack.id];
-      }
-
-      // Add recent changes
-      if (changesMap[pack.id] && changesMap[pack.id].length > 0) {
-        enhancedPack.recentChanges = changesMap[pack.id].map(c => ({
-          changeType: c.change_type,
-          description: c.description,
-          userId: c.user_id,
-          createdAt: c.created_at,
-          metadata: c.metadata
-        }));
-      }
-
-      // Apply dependency filter - if dependency specified, only include packs that have it
-      if (dependency && useAdvancedSearch) {
-        const hasDependency = dependenciesMap[pack.id] && 
-          dependenciesMap[pack.id].some(dep => 
-            dep.toLowerCase().includes(dependency.toLowerCase())
-          );
-        
-        if (!hasDependency) {
-          return null; // Skip this pack
-        }
-      }
-
-      // Apply verification filter
-      if (verified === 'true' && useAdvancedSearch) {
-        if (enhancedPack.verificationStatus !== 'verified') {
-          return null; // Skip this pack
-        }
-      }
-
-      // Calculate relevance score for search results
-      if (q) {
-        enhancedPack.relevanceScore = calculateRelevanceScore(enhancedPack, q);
-      }
-
-      return enhancedPack;
-    }).filter(pack => pack !== null); // Remove null packs from filtering
-
-    // Apply relevance sorting if search query exists
+    // Apply sorting
     let sortedPacks = enhancedPacks;
     if (q && sort === 'relevance') {
       sortedPacks = enhancedPacks.sort((a, b) => {
         const scoreA = a.relevanceScore || 0;
         const scoreB = b.relevanceScore || 0;
-        return scoreB - scoreA;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        
+        // Tie breakers
+        if (b.downloads !== a.downloads) return b.downloads - a.downloads;
+        if (b.views !== a.views) return b.views - a.views;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    } else if (sort === 'trending') {
+      sortedPacks = enhancedPacks.sort((a, b) => {
+        // Trending: weight by recency and popularity
+        const recencyA = getRecencyScore(a.createdAt);
+        const recencyB = getRecencyScore(b.createdAt);
+        const trendingA = (a.downloads || 0) * recencyA;
+        const trendingB = (b.downloads || 0) * recencyB;
+        return trendingB - trendingA;
       });
     }
 
@@ -486,198 +615,284 @@ export default async function handler(req, res) {
         total: count || 0,
         totalPages: Math.ceil((count || 0) / limitNum),
         hasNextPage: (offset + limitNum) < (count || 0),
-        hasPreviousPage: pageNum > 1
+        hasPreviousPage: pageNum > 1,
+        nextPage: (offset + limitNum) < (count || 0) ? pageNum + 1 : null,
+        previousPage: pageNum > 1 ? pageNum - 1 : null
       },
       filters: {
-        applied: {
+        applied: cleanObject({
           q: q || null,
           type: type || null,
           language: language || null,
           sort: sort || 'relevance',
           minDownloads: parseInt(minDownloads) || null,
           minViews: parseInt(minViews) || null,
-          verified: verified === 'true' || null,
-          hasReadme: hasReadme === 'true' || null,
-          hasLicense: hasLicense === 'true' || null,
-          hasTests: hasTests === 'true' || null,
+          verified: verified || null,
+          hasReadme: hasReadme || null,
+          hasLicense: hasLicense || null,
+          hasTests: hasTests || null,
           dependency: dependency || null,
-          author: author || null
-        },
+          author: author || null,
+          compileToWasm: compileToWasm || null,
+          wasmGenerated: wasmGenerated || null,
+          complexWasm: complexWasm || null,
+          sandboxLevel: sandboxLevel || null,
+          minSize: minSize || null,
+          maxSize: maxSize || null
+        }),
         available: AVAILABLE_FILTERS
       },
       metadata: {
         processingTime: Date.now(),
         advancedSearch: useAdvancedSearch,
         includeMetadata: includeMetadata === 'true',
+        includeAllTables: includeAllData,
         totalPacks: count || 0,
-        filteredPacks: sortedPacks.length
+        filteredPacks: sortedPacks.length,
+        query: q || null
+      },
+      installInfo: {
+        example: sortedPacks.length > 0 ? `pack install ${sortedPacks[0].name} ${sortedPacks[0].cdnUrl}` : null,
+        format: 'pack install <name> <cdn-url>'
       }
     };
 
-    res.status(200).json(response);
+    // Add cache headers
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60');
+    
+    return res.status(200).json(response);
 
   } catch (error) {
-    console.error('Search error:', error);
+    console.error('Search API error:', {
+      message: error.message,
+      stack: error.stack,
+      query: req.query,
+      timestamp: new Date().toISOString()
+    });
     
-    // Provide more specific error messages
-    let statusCode = 500;
-    let errorMessage = 'Search failed';
-    let errorCode = 'SEARCH_ERROR';
-
-    if (error.message.includes('does not exist')) {
-      statusCode = 400;
-      errorMessage = 'Database schema mismatch. Please check if all required tables exist.';
-      errorCode = 'SCHEMA_MISMATCH';
-    } else if (error.message.includes('timeout')) {
-      statusCode = 504;
-      errorMessage = 'Search timeout. Try simplifying your query.';
-      errorCode = 'TIMEOUT';
-    } else if (error.message.includes('rate limit')) {
-      statusCode = 429;
-      errorMessage = 'Rate limit exceeded. Please try again later.';
-      errorCode = 'RATE_LIMIT';
-    }
-
-    res.status(statusCode).json({
+    const statusCode = error.message?.includes('rate limit') ? 429 : 500;
+    const errorCode = error.message?.includes('rate limit') ? 'RATE_LIMIT_EXCEEDED' : 'SEARCH_ERROR';
+    
+    return res.status(statusCode).json({
       success: false,
-      error: errorMessage,
+      error: 'Search failed',
       code: errorCode,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      timestamp: new Date().toISOString()
     });
   }
 }
 
-// Helper function to calculate relevance score
-function calculateRelevanceScore(pack, searchQuery) {
+// Enhanced relevance scoring
+function calculateEnhancedRelevanceScore(pack, searchQuery) {
   let score = 0;
   const query = searchQuery.toLowerCase();
+  const queries = query.split(/\s+/).filter(q => q.length >= 2);
   
-  // Name match (highest weight)
-  if (pack.name.toLowerCase().includes(query)) {
-    score += SEARCH_WEIGHTS.NAME_MATCH;
+  // Exact name match
+  if (pack.name.toLowerCase() === query) {
+    score += SEARCH_WEIGHTS.NAME_EXACT_MATCH;
   }
   
+  // Partial name match
+  if (pack.name.toLowerCase().includes(query)) {
+    score += SEARCH_WEIGHTS.NAME_PARTIAL_MATCH;
+  }
+  
+  // Multi-word name match
+  queries.forEach(q => {
+    if (pack.name.toLowerCase().includes(q)) {
+      score += SEARCH_WEIGHTS.NAME_PARTIAL_MATCH * 0.5;
+    }
+  });
+
   // Description match
   if (pack.description && pack.description.toLowerCase().includes(query)) {
     score += SEARCH_WEIGHTS.DESCRIPTION_MATCH;
   }
   
-  // Keyword match
+  queries.forEach(q => {
+    if (pack.description?.toLowerCase().includes(q)) {
+      score += SEARCH_WEIGHTS.DESCRIPTION_MATCH * 0.3;
+    }
+  });
+
+  // Keyword matches
   if (pack.keywords && Array.isArray(pack.keywords)) {
-    const keywordMatches = pack.keywords.filter(keyword => 
-      keyword.toLowerCase().includes(query)
-    ).length;
-    score += keywordMatches * SEARCH_WEIGHTS.KEYWORD_MATCH;
+    pack.keywords.forEach(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      
+      if (keywordLower === query) {
+        score += SEARCH_WEIGHTS.KEYWORD_EXACT_MATCH;
+      } else if (keywordLower.includes(query)) {
+        score += SEARCH_WEIGHTS.KEYWORD_PARTIAL_MATCH;
+      }
+      
+      queries.forEach(q => {
+        if (keywordLower === q) {
+          score += SEARCH_WEIGHTS.KEYWORD_EXACT_MATCH * 0.7;
+        } else if (keywordLower.includes(q)) {
+          score += SEARCH_WEIGHTS.KEYWORD_PARTIAL_MATCH * 0.5;
+        }
+      });
+    });
   }
-  
+
   // Author match
   if (pack.author && pack.author.toLowerCase().includes(query)) {
-    score += SEARCH_WEIGHTS.DESCRIPTION_MATCH;
+    score += SEARCH_WEIGHTS.AUTHOR_MATCH;
   }
-  
-  // Popularity boost
-  score += Math.log10(pack.downloads + 1) * SEARCH_WEIGHTS.POPULARITY;
-  
-  // Recency boost (packages from last 30 days get a boost)
+
+  // Popularity boost (logarithmic)
+  const downloadScore = Math.log10(pack.downloads + 1) * SEARCH_WEIGHTS.POPULARITY;
+  const viewScore = Math.log10(pack.views + 1) * SEARCH_WEIGHTS.POPULARITY * 0.7;
+  score += downloadScore + viewScore;
+
+  // Recency boost (exponential decay)
   const createdAt = new Date(pack.createdAt);
   const daysOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
   if (daysOld < 30) {
-    score += SEARCH_WEIGHTS.RECENCY * (30 - daysOld) / 30;
+    const recencyBoost = SEARCH_WEIGHTS.RECENCY * Math.exp(-daysOld / 30);
+    score += recencyBoost;
   }
-  
+
   // Verification boost
-  if (pack.verificationStatus === 'verified') {
-    score += 5;
+  if (pack.verificationStatus === 'approved') {
+    score += SEARCH_WEIGHTS.VERIFICATION_BOOST;
   }
-  
+
   // Recent activity boost
   if (pack.recentChanges && pack.recentChanges.length > 0) {
     const latestChange = new Date(pack.recentChanges[0].createdAt);
     const daysSinceChange = (Date.now() - latestChange.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceChange < 7) {
-      score += 3;
+      const activityBoost = SEARCH_WEIGHTS.RECENT_ACTIVITY * (7 - daysSinceChange) / 7;
+      score += activityBoost;
     }
   }
+
+  // WASM support boost
+  if (pack.wasmUrl || pack.compileToWasm) {
+    score += SEARCH_WEIGHTS.WASM_SUPPORT;
+  }
   
-  return score;
+  if (pack.complexWasmUrl) {
+    score += SEARCH_WEIGHTS.WASM_SUPPORT * 1.5;
+  }
+
+  // Version count boost (more versions = more mature)
+  if (pack.versionCount > 1) {
+    score += Math.min(pack.versionCount * 0.5, 5);
+  }
+
+  // Collaborator boost
+  if (pack.collaboratorCount > 0) {
+    score += Math.min(pack.collaboratorCount * 0.3, 3);
+  }
+
+  return Math.round(score * 100) / 100; // Round to 2 decimal places
 }
 
-// Helper function to detect languages from files
+// Helper to detect languages from files
 function detectLanguagesFromFiles(files) {
   const languages = new Set();
-  const extMap = {
+  const fileTypes = typeof files === 'object' ? files : {};
+  
+  const languageMap = {
+    // JavaScript/TypeScript
     'js': 'javascript',
     'mjs': 'javascript',
     'cjs': 'javascript',
     'jsx': 'javascript',
-    'ts': 'javascript',
-    'tsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    
+    // WebAssembly
+    'wasm': 'wasm',
+    'wat': 'wasm',
+    
+    // Python
     'py': 'python',
     'pyc': 'python',
     'pyo': 'python',
-    'wasm': 'wasm',
+    
+    // Rust
+    'rs': 'rust',
+    'rlib': 'rust',
+    
+    // Go
+    'go': 'go',
+    
+    // Zig
+    'zig': 'zig',
+    
+    // Data formats
     'json': 'json',
+    'yaml': 'json',
+    'yml': 'json',
+    'xml': 'json',
+    
+    // Documentation
     'md': 'markdown',
     'markdown': 'markdown',
     'txt': 'text',
+    
+    // Web
     'html': 'html',
     'htm': 'html',
     'css': 'css',
     'scss': 'css',
     'sass': 'css',
+    
+    // Images
     'png': 'image',
     'jpg': 'image',
     'jpeg': 'image',
     'gif': 'image',
     'svg': 'image',
     'webp': 'image',
+    
+    // Data files
     'csv': 'data',
     'tsv': 'data',
-    'xml': 'data',
-    'yaml': 'data',
-    'yml': 'data'
+    
+    // Binary
+    'bin': 'binary',
+    'dat': 'binary'
   };
 
-  Object.keys(files).forEach(filename => {
+  Object.keys(fileTypes).forEach(filename => {
     const ext = filename.split('.').pop().toLowerCase();
-    if (extMap[ext]) {
-      languages.add(extMap[ext]);
+    if (languageMap[ext]) {
+      languages.add(languageMap[ext]);
     }
   });
 
   if (languages.size === 0) {
-    languages.add('javascript'); // Default
+    languages.add('javascript');
   }
 
   return Array.from(languages);
 }
 
-// Helper function to extract description from pack_json
-function extractDescription(packJson) {
-  try {
-    const json = typeof packJson === 'string' ? JSON.parse(packJson) : packJson;
-    return json.description || '';
-  } catch (e) {
-    return '';
-  }
+// Helper for trending score
+function getRecencyScore(dateString) {
+  const date = new Date(dateString);
+  const daysOld = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0.1, Math.exp(-daysOld / 30)); // Exponential decay over 30 days
 }
 
-// Helper function to extract author from pack_json
-function extractAuthor(packJson) {
-  try {
-    const json = typeof packJson === 'string' ? JSON.parse(packJson) : packJson;
-    return json.author || '';
-  } catch (e) {
-    return '';
-  }
+// Helper to clean null values from object
+function cleanObject(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v != null)
+  );
 }
 
-// Export for testing
-if (process.env.NODE_ENV === 'test') {
-  module.exports = {
-    calculateRelevanceScore,
-    detectLanguagesFromFiles,
-    extractDescription,
-    extractAuthor
-  };
-}
+// Export helpers for testing
+export {
+  calculateEnhancedRelevanceScore,
+  detectLanguagesFromFiles,
+  getRecencyScore,
+  cleanObject
+};
