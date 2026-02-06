@@ -1,56 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "*.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
-    }
-  ],
-  "functions": {
-    "api/publish.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 60,
-      "memory": 3008
-    },
-    "api/random-urls.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "api/wildcard-redirect.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "api/admin-auth.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "api/embed-website.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "api/create-page.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "api/Pages/Explore/explore-pages.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
   "rewrites": [
     {
       "source": "/",
@@ -351,8 +299,5 @@
     }
   ],
   "cleanUrls": false,
-  "trailingSlash": false,
-  "env": {
-    "NODE_OPTIONS": "--experimental-wasm-modules --no-warnings"
-  }
+  "trailingSlash": false
 }
