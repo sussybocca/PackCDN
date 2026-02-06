@@ -2293,21 +2293,19 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// Export for testing
-if (process.env.NODE_ENV === 'test') {
-  export {
-    validatePackageName,
-    validateFilename,
-    validateFileContent,
-    validatePackJsonSchema,
-    validateWebAssembly,
-    sanitizeVersion,
-    generateSecureUrlId,
-    generateSecureEncryptionKey,
-    generateChecksum,
-    PackWASMCompiler,
-    PACKAGE_TYPES,
-    ADVANCED_NODE_MODULES,
-    BANNED_NODE_MODULES
-  };
-}
+// Export for testing - unconditional export
+export {
+  validatePackageName,
+  validateFilename,
+  validateFileContent,
+  validatePackJsonSchema,
+  validateWebAssembly,
+  sanitizeVersion,
+  generateSecureUrlId,
+  generateSecureEncryptionKey,
+  generateChecksum,
+  PackWASMCompiler,
+  PACKAGE_TYPES,
+  ADVANCED_NODE_MODULES,
+  BANNED_NODE_MODULES
+};
