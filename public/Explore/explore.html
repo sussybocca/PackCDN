@@ -3,191 +3,1131 @@
 <head>
   <title>Explore Packs - PackCDN</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
   <style>
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8f9fa; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-    header { background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .search-box { display: flex; gap: 10px; margin-top: 20px; }
-    .search-box input { flex: 1; padding: 14px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; transition: border-color 0.2s; }
-    .search-box input:focus { outline: none; border-color: #667eea; }
-    .search-box button { padding: 14px 36px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; }
-    .advanced-search { margin-top: 20px; padding: 20px; background: #f8f9ff; border-radius: 8px; display: none; }
-    .advanced-search.active { display: block; }
-    .filter-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
-    .filter-group { flex: 1; min-width: 200px; }
-    .filter-group label { display: block; margin-bottom: 8px; color: #4a5568; font-weight: 500; font-size: 14px; }
-    .filter-select, .filter-input { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; }
-    .toggle-advanced { background: none; border: none; color: #667eea; cursor: pointer; font-size: 14px; margin-top: 10px; }
-    .filters { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-    .filter-btn { padding: 8px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 20px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
-    .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
-    .stats-banner { display: flex; gap: 30px; background: linear-gradient(135deg, #f6f8ff 0%, #f0f4ff 100%); padding: 20px; border-radius: 8px; margin: 20px 0; }
-    .stat-item { text-align: center; flex: 1; }
-    .stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
-    .stat-label { color: #718096; font-size: 14px; margin-top: 5px; }
-    .packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 25px; margin-top: 30px; }
-    .pack-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent; position: relative; }
-    .pack-card:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); border-color: #667eea; }
-    .pack-card.verified::before { content: "✓ Verified"; position: absolute; top: -10px; right: 15px; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-    .pack-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; }
-    .pack-type-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .pack-badges { display: flex; gap: 8px; margin-left: auto; }
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .badge.version { background: #e2e8f0; color: #4a5568; }
-    .badge.files { background: #fed7d7; color: #c53030; }
-    .badge.collabs { background: #c6f6d5; color: #22543d; }
-    .badge.popular { background: #fed7d7; color: #c53030; }
-    .pack-name { font-size: 20px; font-weight: 700; margin: 12px 0; color: #2d3748; }
-    .pack-desc { color: #718096; font-size: 14px; line-height: 1.5; margin-bottom: 15px; max-height: 60px; overflow: hidden; }
-    .pack-author { display: flex; align-items: center; gap: 8px; color: #718096; font-size: 13px; margin-bottom: 15px; }
-    .pack-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
-    .pack-stat { text-align: center; }
-    .stat-icon { font-size: 16px; margin-right: 5px; }
-    .stat-number { font-weight: 600; color: #2d3748; }
-    .stat-label { font-size: 12px; color: #718096; margin-top: 2px; }
-    .pack-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; }
-    .pack-date { color: #a0aec0; font-size: 12px; }
-    .pack-languages { display: flex; gap: 6px; }
-    .lang-tag { padding: 3px 8px; background: #edf2f7; color: #4a5568; border-radius: 10px; font-size: 11px; }
-    .empty-state { text-align: center; padding: 80px 20px; color: #718096; }
-    .empty-state h3 { color: #4a5568; margin-bottom: 10px; }
-    .load-more { text-align: center; margin: 50px 0; }
-    .load-btn { padding: 14px 50px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.2s; }
-    .load-btn:hover { background: #667eea; color: white; }
-    .loading { text-align: center; padding: 40px; color: #667eea; font-size: 14px; }
-    .keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-    .keyword { padding: 4px 10px; background: #edf2f7; color: #4a5568; border-radius: 12px; font-size: 11px; }
+    /* CSS Variables */
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --dark-bg: #0a0a0f;
+      --darker-bg: #050508;
+      --card-bg: rgba(20, 20, 30, 0.6);
+      --card-border: rgba(102, 126, 234, 0.2);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --accent: #667eea;
+      --accent-glow: rgba(102, 126, 234, 0.4);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    /* Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--dark-bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      cursor: none;
+      min-height: 100vh;
+    }
+
+    /* Custom Cursor */
+    .cursor {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.15s, width 0.2s, height 0.2s, border-color 0.2s;
+      transform: translate(-50%, -50%);
+      mix-blend-mode: difference;
+    }
+
+    .cursor.hover {
+      width: 40px;
+      height: 40px;
+      border-width: 1px;
+      background: rgba(102, 126, 234, 0.1);
+    }
+
+    .cursor.click {
+      transform: translate(-50%, -50%) scale(0.8);
+      border-color: var(--warning);
+    }
+
+    /* Canvas Container */
+    #threeCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.7;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .hero-header {
+      text-align: center;
+      padding: 80px 0 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-title {
+      font-size: 4.5rem;
+      font-weight: 900;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+      position: relative;
+      display: inline-block;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .hero-title::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 4px;
+      background: var(--primary-gradient);
+      border-radius: 2px;
+    }
+
+    .hero-subtitle {
+      font-size: 1.4rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+
+    /* Search Box */
+    .search-container {
+      position: relative;
+      max-width: 800px;
+      margin: 0 auto 50px;
+    }
+
+    .search-box {
+      display: flex;
+      background: rgba(20, 20, 30, 0.8);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(102, 126, 234, 0.3);
+      border-radius: 20px;
+      padding: 5px;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: translateY(-5px);
+    }
+
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 20px 25px;
+      color: var(--text-primary);
+      font-size: 1.1rem;
+      outline: none;
+    }
+
+    .search-box input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .search-btn {
+      padding: 0 40px;
+      background: var(--primary-gradient);
+      border: none;
+      border-radius: 15px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    /* Quick Filters */
+    .quick-filters {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 40px 0;
+    }
+
+    .filter-chip {
+      padding: 12px 28px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .filter-chip::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: var(--primary-gradient);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .filter-chip:hover {
+      color: white;
+      border-color: var(--accent);
+      transform: translateY(-3px);
+    }
+
+    .filter-chip.active {
+      background: var(--primary-gradient);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 5px 20px var(--accent-glow);
+    }
+
+    .filter-chip.active::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      margin: 50px 0;
+    }
+
+    .stat-card {
+      background: rgba(20, 20, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--primary-gradient);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-10px);
+      border-color: var(--accent);
+      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.2);
+    }
+
+    .stat-card:hover::before {
+      opacity: 0.1;
+    }
+
+    .stat-value {
+      font-size: 3rem;
+      font-weight: 800;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Packs Grid */
+    .packs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 35px;
+      margin: 50px 0;
+    }
+
+    /* Pack Card */
+    .pack-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      border-radius: 25px;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: pointer;
+    }
+
+    .pack-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--primary-gradient);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      z-index: 0;
+    }
+
+    .pack-card:hover {
+      transform: translateY(-15px) scale(1.02);
+      border-color: var(--accent);
+      box-shadow: 0 30px 60px rgba(102, 126, 234, 0.3);
+    }
+
+    .pack-card:hover::before {
+      opacity: 0.1;
+    }
+
+    .pack-card.wasm-card {
+      border-color: rgba(86, 188, 255, 0.3);
+    }
+
+    .pack-card.wasm-card:hover {
+      box-shadow: 0 30px 60px rgba(86, 188, 255, 0.4);
+    }
+
+    .pack-card.verified {
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .pack-card.verified::after {
+      content: '✓ VERIFIED';
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--success);
+      color: white;
+      padding: 6px 15px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      z-index: 2;
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 25px;
+    }
+
+    .pack-type {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .pack-badges {
+      display: flex;
+      gap: 8px;
+    }
+
+    .badge {
+      padding: 6px 14px;
+      border-radius: 15px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+    }
+
+    .badge.version { background: rgba(102, 126, 234, 0.2); color: #667eea; }
+    .badge.files { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .badge.wasm { background: rgba(86, 188, 255, 0.2); color: #56bcff; }
+    .badge.complex { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+
+    .pack-name {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      background: linear-gradient(45deg, #ffffff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .pack-description {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 25px;
+    }
+
+    .keyword {
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 15px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+    }
+
+    .keyword:hover {
+      background: var(--primary-gradient);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .pack-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 25px;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .pack-date {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .languages {
+      display: flex;
+      gap: 8px;
+    }
+
+    .language {
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 100px;
+      position: relative;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(102, 126, 234, 0.3);
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 30px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 100px 20px;
+      position: relative;
+    }
+
+    .empty-state h2 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .empty-state p {
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      max-width: 500px;
+      margin: 0 auto 40px;
+    }
+
+    .create-pack-btn {
+      display: inline-block;
+      padding: 18px 40px;
+      background: var(--primary-gradient);
+      color: white;
+      text-decoration: none;
+      border-radius: 15px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      transition: all 0.3s ease;
+    }
+
+    .create-pack-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px var(--accent-glow);
+    }
+
+    /* Load More */
+    .load-more-container {
+      text-align: center;
+      margin: 80px 0;
+    }
+
+    .load-more-btn {
+      padding: 18px 50px;
+      background: rgba(20, 20, 30, 0.8);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      border-radius: 15px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .load-more-btn:hover {
+      background: var(--accent);
+      color: white;
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px var(--accent-glow);
+    }
+
+    /* Advanced Search Panel */
+    .advanced-panel {
+      background: rgba(10, 10, 15, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      border-radius: 25px;
+      padding: 40px;
+      margin: 50px 0;
+      display: none;
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .advanced-panel.active {
+      display: block;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .filter-group {
+      position: relative;
+    }
+
+    .filter-label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+
+    .filter-select {
+      width: 100%;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      appearance: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .filter-input {
+      width: 100%;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 15px 0;
+      cursor: pointer;
+    }
+
+    .checkbox-group input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+    }
+
+    .checkbox-label {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .apply-btn, .reset-btn {
+      padding: 16px 40px;
+      border-radius: 15px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+    }
+
+    .apply-btn {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    .apply-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px var(--accent-glow);
+    }
+
+    .reset-btn {
+      background: transparent;
+      border: 2px solid var(--text-secondary);
+      color: var(--text-secondary);
+    }
+
+    .reset-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-5px);
+    }
+
+    /* Particle Effects */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
-      .container { padding: 15px; }
-      .packs-grid { grid-template-columns: 1fr; }
-      .filter-row { flex-direction: column; }
+      .container {
+        padding: 20px;
+      }
+
+      .hero-title {
+        font-size: 3rem;
+      }
+
+      .packs-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .search-box {
+        flex-direction: column;
+      }
+
+      .search-btn {
+        margin-top: 10px;
+        padding: 15px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+      50% { box-shadow: 0 0 40px var(--accent-glow); }
+    }
+
+    .glowing {
+      animation: glow 2s ease-in-out infinite;
     }
   </style>
 </head>
 <body>
+  <!-- Custom Cursor -->
+  <div class="cursor"></div>
+
+  <!-- Three.js Canvas -->
+  <div id="threeCanvas"></div>
+
+  <!-- Particle Background -->
+  <div class="particles"></div>
+
+  <!-- Main Container -->
   <div class="container">
-    <header>
-      <h1 style="margin: 0; color: #2d3748;">Explore Packs</h1>
-      <p style="color: #718096; margin-top: 8px;">Discover, search, and use packages created by the community</p>
+    <!-- Hero Header -->
+    <header class="hero-header">
+      <h1 class="hero-title">🌌 PACK EXPLORER</h1>
+      <p class="hero-subtitle">Discover the universe of packages. Search, explore, and unleash the power of community-built modules with WebAssembly support.</p>
       
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search packages by name, description, keywords, or author...">
-        <button onclick="searchPacks()">Search</button>
-      </div>
-      
-      <button class="toggle-advanced" onclick="toggleAdvancedSearch()">
-        🔍 Advanced Search Options
-      </button>
-      
-      <div id="advancedSearch" class="advanced-search">
-        <div class="filter-row">
-          <div class="filter-group">
-            <label>Package Type</label>
-            <select class="filter-select" id="packageType">
-              <option value="">All Types</option>
-              <option value="basic">Basic</option>
-              <option value="standard">Standard</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label>Language</label>
-            <select class="filter-select" id="language">
-              <option value="">All Languages</option>
-              <option value="javascript">JavaScript/TypeScript</option>
-              <option value="python">Python</option>
-              <option value="wasm">WebAssembly</option>
-              <option value="mixed">Mixed</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label>Sort By</label>
-            <select class="filter-select" id="sortBy">
-              <option value="relevance">Relevance</option>
-              <option value="popular">Most Popular</option>
-              <option value="newest">Newest</option>
-              <option value="updated">Recently Updated</option>
-              <option value="name">Name (A-Z)</option>
-            </select>
-          </div>
+      <!-- Search Box -->
+      <div class="search-container">
+        <div class="search-box glowing">
+          <input type="text" id="searchInput" placeholder="🔍 Search packages, keywords, authors, or descriptions...">
+          <button class="search-btn" onclick="searchPacks()">
+            <span>Explore</span>
+            <span>🚀</span>
+          </button>
         </div>
-        <div class="filter-row">
-          <div class="filter-group">
-            <label>Minimum Downloads</label>
-            <input type="number" class="filter-input" id="minDownloads" placeholder="e.g., 100" min="0">
-          </div>
-          <div class="filter-group">
-            <label>Minimum Views</label>
-            <input type="number" class="filter-input" id="minViews" placeholder="e.g., 1000" min="0">
-          </div>
-          <div class="filter-group">
-            <label>
-              <input type="checkbox" id="verifiedOnly" style="margin-right: 8px;">
-              Verified Packages Only
-            </label>
-            <label style="margin-top: 10px; display: block;">
-              <input type="checkbox" id="hasReadme" style="margin-right: 8px;">
-              Has README
-            </label>
-          </div>
-        </div>
-        <button onclick="applyAdvancedFilters()" style="background: #667eea; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px;">
-          Apply Filters
-        </button>
-        <button onclick="resetFilters()" style="background: none; color: #667eea; border: 1px solid #667eea; padding: 10px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px; margin-left: 10px;">
-          Reset
-        </button>
       </div>
-      
-      <div class="filters">
-        <div class="filter-btn active" data-type="all" onclick="setFilter('all')">✨ All Packs</div>
-        <div class="filter-btn" data-type="basic" onclick="setFilter('basic')">🟢 Basic</div>
-        <div class="filter-btn" data-type="standard" onclick="setFilter('standard')">🔵 Standard</div>
-        <div class="filter-btn" data-type="advanced" onclick="setFilter('advanced')">🟣 Advanced</div>
-        <div class="filter-btn" data-type="popular" onclick="setFilter('popular')">🔥 Popular</div>
-        <div class="filter-btn" data-type="verified" onclick="setFilter('verified')">✓ Verified</div>
+
+      <!-- Quick Filters -->
+      <div class="quick-filters">
+        <div class="filter-chip active" onclick="setFilter('all')">✨ All</div>
+        <div class="filter-chip" onclick="setFilter('basic')">🟢 Basic</div>
+        <div class="filter-chip" onclick="setFilter('standard')">🔵 Standard</div>
+        <div class="filter-chip" onclick="setFilter('advanced')">🟣 Advanced</div>
+        <div class="filter-chip" onclick="setFilter('wasm')">⚡ WASM</div>
+        <div class="filter-chip" onclick="setFilter('popular')">🔥 Popular</div>
+        <div class="filter-chip" onclick="setFilter('verified')">✓ Verified</div>
+        <div class="filter-chip" onclick="toggleAdvancedPanel()">
+          ⚙️ Advanced
+        </div>
       </div>
     </header>
-    
-    <div id="statsBanner" class="stats-banner" style="display: none;">
-      <div class="stat-item">
+
+    <!-- Stats Banner -->
+    <div id="statsBanner" class="stats-grid">
+      <div class="stat-card">
         <div class="stat-value" id="totalPacks">0</div>
         <div class="stat-label">Total Packs</div>
       </div>
-      <div class="stat-item">
+      <div class="stat-card">
         <div class="stat-value" id="totalDownloads">0</div>
         <div class="stat-label">Total Downloads</div>
       </div>
-      <div class="stat-item">
+      <div class="stat-card">
         <div class="stat-value" id="totalViews">0</div>
         <div class="stat-label">Total Views</div>
       </div>
-      <div class="stat-item">
+      <div class="stat-card">
         <div class="stat-value" id="avgFiles">0</div>
         <div class="stat-label">Avg Files/Pack</div>
       </div>
     </div>
-    
-    <div id="packsContainer" class="packs-grid">
-      <!-- Packs will be loaded here -->
+
+    <!-- Advanced Search Panel -->
+    <div id="advancedPanel" class="advanced-panel">
+      <h2 style="text-align: center; margin-bottom: 40px; color: white;">🔬 Advanced Search</h2>
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label class="filter-label">Package Type</label>
+          <select class="filter-select" id="packageType">
+            <option value="">All Types</option>
+            <option value="basic">Basic</option>
+            <option value="standard">Standard</option>
+            <option value="advanced">Advanced</option>
+            <option value="wasm">WASM</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Primary Language</label>
+          <select class="filter-select" id="language">
+            <option value="">All Languages</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="python">Python</option>
+            <option value="wasm">WebAssembly</option>
+            <option value="rust">Rust</option>
+            <option value="go">Go</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Sort By</label>
+          <select class="filter-select" id="sortBy">
+            <option value="relevance">Relevance</option>
+            <option value="popular">Most Popular</option>
+            <option value="newest">Newest</option>
+            <option value="updated">Recently Updated</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="trending">Trending</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Minimum Downloads</label>
+          <input type="number" class="filter-input" id="minDownloads" placeholder="0" min="0">
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Minimum Views</label>
+          <input type="number" class="filter-input" id="minViews" placeholder="0" min="0">
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Features</label>
+          <div class="checkbox-group">
+            <input type="checkbox" id="verifiedOnly">
+            <label class="checkbox-label">Verified Only</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="hasWasm">
+            <label class="checkbox-label">Has WASM</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="hasComplexWasm">
+            <label class="checkbox-label">Has Complex WASM</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="hasReadme">
+            <label class="checkbox-label">Has README</label>
+          </div>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Sandbox Level</label>
+          <select class="filter-select" id="sandboxLevel">
+            <option value="">All Levels</option>
+            <option value="strict">Strict</option>
+            <option value="moderate">Moderate</option>
+            <option value="relaxed">Relaxed</option>
+            <option value="wasm-sandbox">WASM Sandbox</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="filter-actions">
+        <button class="apply-btn" onclick="applyAdvancedFilters()">Apply Filters</button>
+        <button class="reset-btn" onclick="resetFilters()">Reset All</button>
+      </div>
     </div>
-    
+
+    <!-- Packs Grid -->
+    <div id="packsContainer" class="packs-grid"></div>
+
+    <!-- Loading Indicator -->
     <div id="loadingIndicator" class="loading" style="display: none;">
-      Loading packs...
+      <div class="loading-spinner"></div>
+      <div style="color: var(--accent); font-size: 1.2rem; margin-top: 20px;">Loading packages...</div>
     </div>
-    
+
+    <!-- Empty State -->
     <div id="emptyState" class="empty-state" style="display: none;">
-      <h3>No packs found</h3>
-      <p>Try adjusting your search criteria or create your own pack!</p>
-      <a href="editor.html" style="color: #667eea; text-decoration: none; font-weight: 600;">🎨 Create a Pack →</a>
+      <h2>✨ No Packs Found</h2>
+      <p>Your search didn't match any packages. Try different keywords or create your own amazing pack!</p>
+      <a href="editor.html" class="create-pack-btn">🎨 Create Your Pack</a>
     </div>
-    
-    <div class="load-more">
-      <button class="load-btn" onclick="loadMore()" id="loadMoreBtn" style="display: none;">Load More</button>
+
+    <!-- Load More -->
+    <div class="load-more-container">
+      <button class="load-more-btn" onclick="loadMore()" id="loadMoreBtn" style="display: none;">
+        Load More Packs
+      </button>
     </div>
   </div>
 
   <script>
+    // Three.js Scene
+    let scene, camera, renderer, controls;
+    let particles = [];
+    let mouse = { x: 0, y: 0 };
+
+    // Initialize Three.js
+    function initThreeJS() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 30;
+
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      document.getElementById('threeCanvas').appendChild(renderer.domElement);
+
+      // Add ambient light
+      const ambientLight = new THREE.AmbientLight(0x667eea, 0.3);
+      scene.add(ambientLight);
+
+      // Add directional light
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      // Create particle system
+      const particleCount = 1000;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        positions[i3] = (Math.random() - 0.5) * 200;
+        positions[i3 + 1] = (Math.random() - 0.5) * 200;
+        positions[i3 + 2] = (Math.random() - 0.5) * 200;
+
+        colors[i3] = 0.4 + Math.random() * 0.6; // Red
+        colors[i3 + 1] = 0.5 + Math.random() * 0.5; // Green
+        colors[i3 + 2] = 0.8 + Math.random() * 0.2; // Blue
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const material = new THREE.PointsMaterial({
+        size: 0.5,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending
+      });
+
+      const particleSystem = new THREE.Points(geometry, material);
+      scene.add(particleSystem);
+      particles.push(particleSystem);
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Mouse move for particle interaction
+      document.addEventListener('mousemove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      animate();
+    }
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Rotate particles
+      particles.forEach(particle => {
+        particle.rotation.x += 0.0005;
+        particle.rotation.y += 0.001;
+
+        // Interactive movement
+        const positions = particle.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+          positions[i] += mouse.x * 0.05;
+          positions[i + 1] += mouse.y * 0.05;
+        }
+        particle.geometry.attributes.position.needsUpdate = true;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    // Custom Cursor
+    const cursor = document.querySelector('.cursor');
+    document.addEventListener('mousemove', (e) => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+
+    document.addEventListener('mousedown', () => {
+      cursor.classList.add('click');
+    });
+
+    document.addEventListener('mouseup', () => {
+      cursor.classList.remove('click');
+    });
+
+    // Add hover effects to interactive elements
+    const interactiveElements = document.querySelectorAll('button, .filter-chip, .pack-card, .search-box input, .search-btn');
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    });
+
+    // Particle Effects
+    function createParticles(count, x, y) {
+      const particlesContainer = document.querySelector('.particles');
+      for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.style.cssText = `
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          background: var(--accent);
+          border-radius: 50%;
+          left: ${x}px;
+          top: ${y}px;
+          pointer-events: none;
+          z-index: 999;
+        `;
+        particlesContainer.appendChild(particle);
+        
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        const life = 1000 + Math.random() * 500;
+        
+        let progress = 0;
+        const animate = () => {
+          progress += 16;
+          const t = progress / life;
+          
+          particle.style.left = (x + Math.cos(angle) * speed * progress / 16) + 'px';
+          particle.style.top = (y + Math.sin(angle) * speed * progress / 16) + 'px';
+          particle.style.opacity = 1 - t;
+          
+          if (progress < life) {
+            requestAnimationFrame(animate);
+          } else {
+            particle.remove();
+          }
+        };
+        
+        requestAnimationFrame(animate);
+      }
+    }
+
+    // Add particle effects on click
+    document.addEventListener('click', (e) => {
+      createParticles(20, e.clientX, e.clientY);
+    });
+
+    // Initialize Three.js
+    initThreeJS();
+
+    // Application State
     let currentPage = 1;
     let currentFilter = 'all';
     let currentSearch = '';
@@ -196,8 +1136,8 @@
     let totalPacks = 0;
     let totalDownloads = 0;
     let totalViews = 0;
-    
-    // Advanced filter state
+
+    // Advanced filters
     let advancedFilters = {
       packageType: '',
       language: '',
@@ -205,17 +1145,20 @@
       minDownloads: 0,
       minViews: 0,
       verifiedOnly: false,
-      hasReadme: false
+      hasWasm: false,
+      hasComplexWasm: false,
+      hasReadme: false,
+      sandboxLevel: ''
     };
-    
+
     // Load packs on page load
     window.onload = loadPacks;
-    
+
     // Enter key to search
     document.getElementById('searchInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') searchPacks();
     });
-    
+
     async function loadPacks(reset = false) {
       if (isLoading) return;
       
@@ -234,7 +1177,8 @@
           page: currentPage,
           limit: 12,
           advanced: 'true',
-          includeMetadata: 'true'
+          includeMetadata: 'true',
+          includeAllTables: 'true'
         });
         
         // Apply current filter
@@ -242,10 +1186,13 @@
           switch(currentFilter) {
             case 'popular':
               params.set('sort', 'popular');
-              params.set('minDownloads', '10');
+              params.set('minDownloads', '50');
               break;
             case 'verified':
-              params.set('verified', 'true');
+              params.set('verified', 'approved');
+              break;
+            case 'wasm':
+              params.set('wasmGenerated', 'true');
               break;
             default:
               params.set('type', currentFilter);
@@ -256,26 +1203,34 @@
         if (currentSearch) params.set('q', currentSearch);
         
         // Apply advanced filters
-        if (advancedFilters.packageType) params.set('type', advancedFilters.packageType);
-        if (advancedFilters.language) params.set('language', advancedFilters.language);
-        if (advancedFilters.sort) params.set('sort', advancedFilters.sort);
-        if (advancedFilters.minDownloads > 0) params.set('minDownloads', advancedFilters.minDownloads);
-        if (advancedFilters.minViews > 0) params.set('minViews', advancedFilters.minViews);
-        if (advancedFilters.verifiedOnly) params.set('verified', 'true');
-        if (advancedFilters.hasReadme) params.set('hasReadme', 'true');
+        Object.entries(advancedFilters).forEach(([key, value]) => {
+          if (value) {
+            if (typeof value === 'boolean' && value) {
+              if (key === 'verifiedOnly') params.set('verified', 'approved');
+              else if (key === 'hasWasm') params.set('wasmGenerated', 'true');
+              else if (key === 'hasComplexWasm') params.set('complexWasm', 'true');
+              else if (key === 'hasReadme') params.set('hasReadme', 'true');
+            } else if (typeof value === 'string' && value.trim()) {
+              params.set(key, value);
+            } else if (typeof value === 'number' && value > 0) {
+              params.set(key, value.toString());
+            }
+          }
+        });
         
+        console.log('Fetching packs with params:', params.toString());
         const response = await fetch(`/api/search?${params}`);
         const result = await response.json();
         
         if (result.success) {
           displayPacks(result.packs);
-          hasMore = result.pagination?.hasNextPage || result.hasMore;
+          hasMore = result.pagination?.hasNextPage || false;
           
           if (hasMore) {
             document.getElementById('loadMoreBtn').style.display = 'block';
           }
           
-          // Update stats banner
+          // Update stats
           updateStats(result.packs, result.pagination?.total);
           
           // Show/hide empty state
@@ -284,48 +1239,54 @@
             document.getElementById('statsBanner').style.display = 'none';
           } else {
             document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('statsBanner').style.display = 'flex';
+            document.getElementById('statsBanner').style.display = 'grid';
           }
         }
       } catch (error) {
         console.error('Error loading packs:', error);
-        document.getElementById('packsContainer').innerHTML = `
-          <div style="text-align: center; grid-column: 1/-1; color: #e53e3e; padding: 40px;">
-            <h3>Error loading packs</h3>
-            <p>Please try again later</p>
-          </div>
-        `;
+        showError('Failed to load packs. Please try again.');
       } finally {
         isLoading = false;
         document.getElementById('loadingIndicator').style.display = 'none';
       }
     }
-    
+
     function displayPacks(packs) {
       const container = document.getElementById('packsContainer');
       
       packs.forEach(pack => {
         const card = document.createElement('div');
         card.className = 'pack-card';
-        if (pack.verificationStatus === 'verified') {
+        
+        // Add special classes
+        if (pack.verificationStatus === 'approved') {
           card.classList.add('verified');
         }
+        if (pack.wasmUrl || pack.compileToWasm) {
+          card.classList.add('wasm-card');
+        }
         
-        card.onclick = () => window.open(pack.workerUrl || `https://packcdn.firefly-worker.workers.dev/pack/${pack.urlId}`, '_blank');
+        // Card click handler
+        card.onclick = () => {
+          createParticles(30, event.clientX, event.clientY);
+          setTimeout(() => {
+            window.open(pack.workerUrl || `https://packcdn.firefly-worker.workers.dev/pack/${pack.urlId}`, '_blank');
+          }, 300);
+        };
         
         // Prepare badges
         const badges = [];
-        if (pack.versions && pack.versions.length > 0) {
-          badges.push(`<span class="badge version">v${pack.latestVersion || pack.version}</span>`);
+        if (pack.version) {
+          badges.push(`<span class="badge version">v${pack.version}</span>`);
         }
         if (pack.fileCount) {
           badges.push(`<span class="badge files">${pack.fileCount} files</span>`);
         }
-        if (pack.collaboratorCount > 1) {
-          badges.push(`<span class="badge collabs">${pack.collaboratorCount} collabs</span>`);
+        if (pack.wasmUrl) {
+          badges.push(`<span class="badge wasm">WASM</span>`);
         }
-        if (pack.downloads > 1000) {
-          badges.push(`<span class="badge popular">Popular</span>`);
+        if (pack.complexWasmUrl) {
+          badges.push(`<span class="badge complex">Complex</span>`);
         }
         
         // Prepare keywords
@@ -336,82 +1297,112 @@
         
         // Prepare languages
         const languagesHtml = pack.languages && pack.languages.length > 0
-          ? `<div class="pack-languages">${pack.languages.map(lang => 
-              `<span class="lang-tag">${lang}</span>`).join('')}</div>`
+          ? `<div class="languages">${pack.languages.slice(0, 3).map(lang => 
+              `<span class="language">${lang}</span>`).join('')}</div>`
           : '';
         
+        // Calculate date
+        const date = new Date(pack.createdAt);
+        const dateStr = date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
         card.innerHTML = `
-          <div class="pack-header">
-            <span class="pack-type-badge">${pack.packageType || 'basic'}</span>
-            <div class="pack-badges">
-              ${badges.join('')}
+          <div class="card-content">
+            <div class="card-header">
+              <span class="pack-type">${pack.packageType || 'basic'}</span>
+              <div class="pack-badges">
+                ${badges.join('')}
+              </div>
             </div>
-          </div>
-          <div class="pack-name">${escapeHtml(pack.name)}</div>
-          ${pack.description ? `<div class="pack-desc" title="${escapeHtml(pack.description)}">${truncateText(escapeHtml(pack.description), 100)}</div>` : ''}
-          ${keywordsHtml}
-          <div class="pack-author">
-            👤 ${pack.author || 'Anonymous'}
-            ${pack.publisherId ? `<span style="color: #a0aec0;">@${pack.publisherId}</span>` : ''}
-          </div>
-          <div class="pack-stats">
-            <div class="pack-stat">
-              <div class="stat-number">${pack.views || 0}</div>
-              <div class="stat-label">Views</div>
+            
+            <h3 class="pack-name">${escapeHtml(pack.name)}</h3>
+            
+            ${pack.description ? `
+              <p class="pack-description" title="${escapeHtml(pack.description)}">
+                ${truncateText(escapeHtml(pack.description), 150)}
+              </p>
+            ` : ''}
+            
+            ${keywordsHtml}
+            
+            <div class="pack-author" style="margin: 15px 0; color: var(--text-secondary);">
+              👤 ${pack.author || 'Anonymous'}
+              ${pack.publisherId ? `<span style="margin-left: 10px; color: var(--accent);">@${pack.publisherId}</span>` : ''}
             </div>
-            <div class="pack-stat">
-              <div class="stat-number">${pack.downloads || 0}</div>
-              <div class="stat-label">Downloads</div>
+            
+            <div class="pack-stats">
+              <div class="stat">
+                <div class="stat-value">${pack.views || 0}</div>
+                <div class="stat-label">Views</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${pack.downloads || 0}</div>
+                <div class="stat-label">Downloads</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${pack.versionCount || 1}</div>
+                <div class="stat-label">Versions</div>
+              </div>
             </div>
-            <div class="pack-stat">
-              <div class="stat-number">${pack.versionCount || 1}</div>
-              <div class="stat-label">Versions</div>
+            
+            <div class="card-footer">
+              <div class="pack-date">📅 ${dateStr}</div>
+              ${languagesHtml}
             </div>
-          </div>
-          <div class="pack-meta">
-            <div class="pack-date">
-              ${formatDate(pack.createdAt)}
-              ${pack.updatedAt !== pack.createdAt ? ` • Updated ${formatDate(pack.updatedAt, true)}` : ''}
-            </div>
-            ${languagesHtml}
           </div>
         `;
         
+        // Add entrance animation
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(50px)';
         container.appendChild(card);
+        
+        // Animate entrance
+        setTimeout(() => {
+          card.style.transition = 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        }, 100);
       });
     }
-    
+
     function searchPacks() {
       currentSearch = document.getElementById('searchInput').value.trim();
       loadPacks(true);
     }
-    
+
     function setFilter(type) {
       currentFilter = type;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === type);
+      
+      // Update filter chips
+      document.querySelectorAll('.filter-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.onclick.toString().includes(`'${type}'`));
       });
       
       // Reset advanced filters when using quick filters
       if (type !== 'all') {
         resetAdvancedFilters();
+        document.getElementById('advancedPanel').classList.remove('active');
       }
       
       loadPacks(true);
     }
-    
+
     function loadMore() {
       if (hasMore && !isLoading) {
         currentPage++;
         loadPacks(false);
       }
     }
-    
-    function toggleAdvancedSearch() {
-      const advancedDiv = document.getElementById('advancedSearch');
-      advancedDiv.classList.toggle('active');
+
+    function toggleAdvancedPanel() {
+      const panel = document.getElementById('advancedPanel');
+      panel.classList.toggle('active');
     }
-    
+
     function applyAdvancedFilters() {
       advancedFilters = {
         packageType: document.getElementById('packageType').value,
@@ -420,18 +1411,21 @@
         minDownloads: parseInt(document.getElementById('minDownloads').value) || 0,
         minViews: parseInt(document.getElementById('minViews').value) || 0,
         verifiedOnly: document.getElementById('verifiedOnly').checked,
-        hasReadme: document.getElementById('hasReadme').checked
+        hasWasm: document.getElementById('hasWasm').checked,
+        hasComplexWasm: document.getElementById('hasComplexWasm').checked,
+        hasReadme: document.getElementById('hasReadme').checked,
+        sandboxLevel: document.getElementById('sandboxLevel').value
       };
       
       // Reset quick filter when using advanced
       currentFilter = 'all';
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === 'all');
+      document.querySelectorAll('.filter-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.onclick.toString().includes("'all'"));
       });
       
       loadPacks(true);
     }
-    
+
     function resetFilters() {
       // Reset advanced filter inputs
       document.getElementById('packageType').value = '';
@@ -440,12 +1434,15 @@
       document.getElementById('minDownloads').value = '';
       document.getElementById('minViews').value = '';
       document.getElementById('verifiedOnly').checked = false;
+      document.getElementById('hasWasm').checked = false;
+      document.getElementById('hasComplexWasm').checked = false;
       document.getElementById('hasReadme').checked = false;
+      document.getElementById('sandboxLevel').value = '';
       
       resetAdvancedFilters();
       setFilter('all');
     }
-    
+
     function resetAdvancedFilters() {
       advancedFilters = {
         packageType: '',
@@ -454,10 +1451,13 @@
         minDownloads: 0,
         minViews: 0,
         verifiedOnly: false,
-        hasReadme: false
+        hasWasm: false,
+        hasComplexWasm: false,
+        hasReadme: false,
+        sandboxLevel: ''
       };
     }
-    
+
     function updateStats(packs, total) {
       if (packs.length === 0) return;
       
@@ -466,53 +1466,101 @@
       totalViews = packs.reduce((sum, pack) => sum + (pack.views || 0), 0);
       const avgFiles = packs.reduce((sum, pack) => sum + (pack.fileCount || 1), 0) / packs.length;
       
-      document.getElementById('totalPacks').textContent = totalPacks.toLocaleString();
-      document.getElementById('totalDownloads').textContent = totalDownloads.toLocaleString();
-      document.getElementById('totalViews').textContent = totalViews.toLocaleString();
+      // Animate stats counting
+      animateCounter('totalPacks', totalPacks);
+      animateCounter('totalDownloads', totalDownloads);
+      animateCounter('totalViews', totalViews);
       document.getElementById('avgFiles').textContent = avgFiles.toFixed(1);
     }
-    
+
+    function animateCounter(elementId, target) {
+      const element = document.getElementById(elementId);
+      const current = parseInt(element.textContent.replace(/,/g, '')) || 0;
+      const increment = target > current ? 1 : -1;
+      const step = Math.max(1, Math.abs(target - current) / 30);
+      let currentValue = current;
+      
+      const timer = setInterval(() => {
+        currentValue += increment * step;
+        if ((increment > 0 && currentValue >= target) || (increment < 0 && currentValue <= target)) {
+          currentValue = target;
+          clearInterval(timer);
+        }
+        element.textContent = Math.floor(currentValue).toLocaleString();
+      }, 16);
+    }
+
+    function showError(message) {
+      const container = document.getElementById('packsContainer');
+      container.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 80px 20px;">
+          <div style="font-size: 4rem; margin-bottom: 20px;">😕</div>
+          <h3 style="color: var(--danger); margin-bottom: 10px;">Error</h3>
+          <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto 30px;">
+            ${message}
+          </p>
+          <button onclick="loadPacks(true)" style="
+            padding: 12px 30px;
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+          ">
+            Try Again
+          </button>
+        </div>
+      `;
+    }
+
     function formatDate(dateString, short = false) {
       if (!dateString) return '';
-      
       const date = new Date(dateString);
-      const now = new Date();
-      const diff = now - date;
-      
-      const minutes = Math.floor(diff / 60000);
-      const hours = Math.floor(diff / 3600000);
-      const days = Math.floor(diff / 86400000);
-      
-      if (short) {
-        if (minutes < 60) return `${minutes}m`;
-        if (hours < 24) return `${hours}h`;
-        if (days < 7) return `${days}d`;
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-      
-      if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-      if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-      if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
     }
-    
+
     function truncateText(text, maxLength) {
+      if (!text) return '';
       if (text.length <= maxLength) return text;
       return text.substr(0, maxLength) + '...';
     }
-    
+
     function escapeHtml(text) {
+      if (!text) return '';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-    
+
     // Infinite scroll
     window.addEventListener('scroll', () => {
       if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
         loadMore();
       }
     });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+      }
+      if (e.key === 'Escape') {
+        document.getElementById('advancedPanel').classList.remove('active');
+      }
+    });
+
+    // Initialize particles on load
+    setTimeout(() => {
+      for (let i = 0; i < 20; i++) {
+        createParticles(3, Math.random() * window.innerWidth, Math.random() * window.innerHeight);
+      }
+    }, 1000);
   </script>
 </body>
 </html>
