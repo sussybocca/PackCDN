@@ -114,6 +114,750 @@ const ESSENTIAL_FILES = [
   'CHANGELOG.md',
   'CONTRIBUTING.md'
 ];
+// Advanced pack.json syntax configuration
+const PACK_JSON_SCHEMA = {
+  // Basic required fields
+  required: ['name', 'version'],
+  
+  // Optional fields with default values
+  optional: {
+    description: { type: 'string', maxLength: 1000, default: '' },
+    author: { type: 'string', maxLength: 100, default: '' },
+    license: { type: 'string', default: 'MIT' },
+    homepage: { type: 'string', format: 'url', default: '' },
+    repository: { 
+      type: 'object', 
+      properties: {
+        type: { type: 'string', enum: ['git', 'svn', 'hg'], default: 'git' },
+        url: { type: 'string', format: 'url' },
+        directory: { type: 'string' }
+      }
+    },
+    bugs: { 
+      type: 'object', 
+      properties: {
+        url: { type: 'string', format: 'url' },
+        email: { type: 'string', format: 'email' }
+      }
+    }
+  },
+  
+  // Advanced package configuration
+  advanced: {
+    // Package type specific configuration
+    packageType: {
+      basic: {
+        allowedFields: ['name', 'version', 'description', 'keywords', 'author', 'license'],
+        maxDependencies: 0
+      },
+      standard: {
+        allowedFields: ['*'], // All fields allowed
+        maxDependencies: 25,
+        allowedDependencyTypes: ['dependencies', 'peerDependencies', 'optionalDependencies']
+      },
+      advanced: {
+        allowedFields: ['*'],
+        maxDependencies: 100,
+        allowedDependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies', 'bundledDependencies'],
+        requireDescription: true,
+        requireLicense: true
+      },
+      wasm: {
+        allowedFields: ['*'],
+        maxDependencies: 50,
+        wasmSpecific: {
+          memory: { min: 1, max: 65536, default: 256 },
+          tables: { min: 0, max: 100, default: 1 },
+          exports: ['_start', 'memory', 'table'],
+          imports: ['env']
+        }
+      }
+    },
+    
+    // Scripts configuration
+    scripts: {
+      validate: { 
+        type: 'object',
+        patternProperties: {
+          '^[a-z][a-z0-9-]*$': { type: 'string', maxLength: 1000 }
+        },
+        maxProperties: 10
+      },
+      allowedScripts: [
+        'prepublish', 'prepare', 'prepublishOnly', 'prepack', 'postpack',
+        'publish', 'postpublish', 'preinstall', 'install', 'postinstall',
+        'preuninstall', 'uninstall', 'postuninstall', 'preversion', 'version',
+        'postversion', 'pretest', 'test', 'posttest', 'prestop', 'stop',
+        'poststop', 'prestart', 'start', 'poststart', 'prerestart', 'restart',
+        'postrestart', 'serve', 'build', 'dev', 'lint', 'format', 'check',
+        'compile', 'transpile', 'bundle', 'minify', 'optimize', 'analyze',
+        'coverage', 'benchmark', 'deploy', 'generate', 'init', 'clean'
+      ],
+      restrictedScripts: ['rm', 'del', 'sh', 'bash', 'exec', 'spawn', 'fork']
+    },
+    
+    // Dependencies configuration
+    dependencies: {
+      validate: { 
+        type: 'object',
+        patternProperties: {
+          '^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$': {
+            oneOf: [
+              { type: 'string', pattern: '^[\\^~]?\\d+\\.\\d+\\.\\d+' },
+              { type: 'string', pattern: '^[\\^~]?\\d+\\.\\d+' },
+              { type: 'string', pattern: '^[\\^~]?\\d+' },
+              { type: 'string', pattern: '^git\\+' },
+              { type: 'string', pattern: '^http' },
+              { type: 'string', pattern: '^file:' },
+              { type: 'string', pattern: '^\\*$' }
+            ]
+          }
+        }
+      },
+      dependencyTypes: {
+        dependencies: { description: 'Production dependencies' },
+        devDependencies: { description: 'Development dependencies' },
+        peerDependencies: { 
+          description: 'Peer dependencies',
+          validation: (deps, packageType) => {
+            return packageType !== 'basic'; // Only allowed for standard+
+          }
+        },
+        optionalDependencies: { 
+          description: 'Optional dependencies',
+          validation: (deps, packageType) => {
+            return packageType === 'advanced' || packageType === 'wasm';
+          }
+        },
+        bundledDependencies: { 
+          description: 'Bundled dependencies',
+          validation: (deps, packageType) => {
+            return packageType === 'advanced';
+          }
+        }
+      }
+    },
+    
+    // Keywords configuration
+    keywords: {
+      validate: {
+        type: 'array',
+        items: { 
+          type: 'string', 
+          pattern: '^[a-z][a-z0-9-]*$',
+          minLength: 2,
+          maxLength: 20
+        },
+        maxItems: 10,
+        uniqueItems: true
+      }
+    },
+    
+    // Entry points configuration
+    entryPoints: {
+      main: { 
+        type: 'string', 
+        pattern: '^\\./.*\\.(js|mjs|cjs|ts|tsx)$',
+        default: './index.js'
+      },
+      module: { 
+        type: 'string', 
+        pattern: '^\\./.*\\.(js|mjs)$',
+        optional: true
+      },
+      browser: { 
+        type: 'string', 
+        pattern: '^\\./.*\\.(js|mjs)$',
+        optional: true
+      },
+      bin: {
+        type: 'object',
+        patternProperties: {
+          '^[a-z][a-z0-9-]*$': { 
+            type: 'string',
+            pattern: '^\\./.*\\.(js|mjs|cjs)$'
+          }
+        },
+        maxProperties: 5,
+        validation: (bin, packageType) => {
+          return packageType === 'advanced' || packageType === 'standard';
+        }
+      },
+      exports: {
+        type: 'object',
+        patternProperties: {
+          '^\\.(/[a-zA-Z0-9._-]+)*$': {
+            oneOf: [
+              { type: 'string' },
+              { 
+                type: 'object',
+                properties: {
+                  import: { type: 'string' },
+                  require: { type: 'string' },
+                  browser: { type: 'string' },
+                  default: { type: 'string' },
+                  types: { type: 'string' }
+                },
+                additionalProperties: false
+              }
+            ]
+          }
+        },
+        validation: (exports, packageType) => {
+          return packageType === 'advanced';
+        }
+      }
+    },
+    
+    // WASM specific configuration (for wasm package type)
+    wasmConfig: {
+      memory: {
+        initial: { type: 'number', min: 1, max: 65536, default: 256 },
+        maximum: { type: 'number', min: 1, max: 65536, default: 16384 },
+        shared: { type: 'boolean', default: false }
+      },
+      tables: {
+        initial: { type: 'number', min: 0, max: 1000000, default: 0 },
+        maximum: { type: 'number', min: 0, max: 1000000, default: 1000000 },
+        element: { 
+          type: 'string', 
+          enum: ['anyfunc', 'externref'], 
+          default: 'anyfunc' 
+        }
+      },
+      globals: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            type: { type: 'string', enum: ['i32', 'i64', 'f32', 'f64'] },
+            mutable: { type: 'boolean', default: false },
+            value: { type: 'number' }
+          },
+          required: ['name', 'type']
+        },
+        maxItems: 100
+      },
+      imports: {
+        type: 'object',
+        patternProperties: {
+          '^[a-zA-Z_][a-zA-Z0-9_]*$': {
+            type: 'object',
+            properties: {
+              functions: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    params: { 
+                      type: 'array',
+                      items: { 
+                        type: 'string', 
+                        enum: ['i32', 'i64', 'f32', 'f64', 'externref'] 
+                      }
+                    },
+                    results: { 
+                      type: 'array',
+                      items: { 
+                        type: 'string', 
+                        enum: ['i32', 'i64', 'f32', 'f64', 'externref'] 
+                      }
+                    }
+                  },
+                  required: ['name']
+                }
+              },
+              memories: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    initial: { type: 'number', min: 1, max: 65536 },
+                    maximum: { type: 'number', min: 1, max: 65536 }
+                  }
+                }
+              },
+              tables: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    initial: { type: 'number', min: 0, max: 1000000 },
+                    maximum: { type: 'number', min: 0, max: 1000000 },
+                    element: { type: 'string', enum: ['anyfunc', 'externref'] }
+                  }
+                }
+              },
+              globals: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string', enum: ['i32', 'i64', 'f32', 'f64'] },
+                    mutable: { type: 'boolean' }
+                  },
+                  required: ['name', 'type']
+                }
+              }
+            }
+          }
+        }
+      },
+      exports: {
+        type: 'object',
+        properties: {
+          functions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                type: { 
+                  type: 'string', 
+                  enum: ['i32', 'i64', 'f32', 'f64', 'void', 'anyfunc'] 
+                },
+                params: { 
+                  type: 'array',
+                  items: { 
+                    type: 'string', 
+                    enum: ['i32', 'i64', 'f32', 'f64', 'externref'] 
+                  }
+                },
+                results: { 
+                  type: 'array',
+                  items: { 
+                    type: 'string', 
+                    enum: ['i32', 'i64', 'f32', 'f64', 'externref'] 
+                  }
+                }
+              },
+              required: ['name']
+            }
+          },
+          memories: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                shared: { type: 'boolean' }
+              },
+              required: ['name']
+            }
+          },
+          tables: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                element: { type: 'string', enum: ['anyfunc', 'externref'] }
+              },
+              required: ['name']
+            }
+          },
+          globals: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                type: { type: 'string', enum: ['i32', 'i64', 'f32', 'f64'] }
+              },
+              required: ['name', 'type']
+            }
+          }
+        }
+      },
+      linking: {
+        type: 'object',
+        properties: {
+          allowUndefined: { type: 'boolean', default: false },
+          stackSize: { type: 'number', min: 1024, max: 1048576, default: 65536 },
+          staticBump: { type: 'number', min: 0, max: 1048576, default: 16384 },
+          sharedMemory: { type: 'boolean', default: false },
+          isCommand: { type: 'boolean', default: false },
+          isReactor: { type: 'boolean', default: true }
+        }
+      }
+    },
+    
+    // Advanced build configuration
+    build: {
+      target: {
+        type: 'string',
+        enum: ['es5', 'es6', 'es2015', 'es2016', 'es2017', 'es2018', 'es2019', 'es2020', 'esnext', 'node', 'web', 'browser'],
+        default: 'es2015'
+      },
+      format: {
+        type: 'string',
+        enum: ['cjs', 'esm', 'umd', 'iife', 'amd'],
+        default: 'esm'
+      },
+      sourcemap: {
+        type: ['boolean', 'string'],
+        enum: [true, false, 'inline', 'external'],
+        default: false
+      },
+      minify: {
+        type: 'boolean',
+        default: false
+      },
+      optimize: {
+        type: 'object',
+        properties: {
+          treeshake: { type: 'boolean', default: true },
+          sideEffects: { type: 'boolean', default: true },
+          usedExports: { type: 'boolean', default: true },
+          concatenateModules: { type: 'boolean', default: false }
+        }
+      }
+    },
+    
+    // Publishing configuration
+    publishConfig: {
+      type: 'object',
+      properties: {
+        registry: { type: 'string', format: 'url' },
+        access: { type: 'string', enum: ['public', 'restricted'] },
+        tag: { type: 'string', pattern: '^[a-z0-9-]+$' }
+      }
+    },
+    
+    // Sandbox configuration
+    sandbox: {
+      type: 'object',
+      properties: {
+        level: { 
+          type: 'string', 
+          enum: ['strict', 'moderate', 'relaxed', 'wasm-sandbox'],
+          default: 'strict'
+        },
+        allowedAPIs: {
+          type: 'array',
+          items: { 
+            type: 'string',
+            enum: [
+              'fetch', 'WebSocket', 'localStorage', 'sessionStorage', 'indexedDB',
+              'crypto', 'performance', 'console', 'setTimeout', 'setInterval',
+              'Math', 'Date', 'JSON', 'TextEncoder', 'TextDecoder', 'URL',
+              'Blob', 'FileReader', 'FormData', 'Headers', 'Request', 'Response'
+            ]
+          }
+        },
+        memoryLimit: { type: 'number', min: 1024, max: 1073741824, default: 67108864 },
+        cpuLimit: { type: 'number', min: 1, max: 100, default: 50 },
+        timeout: { type: 'number', min: 100, max: 30000, default: 5000 },
+        networkAccess: { type: 'boolean', default: false },
+        fileSystemAccess: { type: 'boolean', default: false },
+        evalAllowed: { type: 'boolean', default: false },
+        dynamicImport: { type: 'boolean', default: false }
+      }
+    },
+    
+    // Custom fields for pack-specific configuration
+    pack: {
+      type: 'object',
+      properties: {
+        // Compilation settings
+        compile: {
+          type: 'object',
+          properties: {
+            toWasm: { type: 'boolean', default: false },
+            wasmFeatures: {
+              type: 'array',
+              items: { 
+                type: 'string',
+                enum: ['simd', 'threads', 'bulk-memory', 'reference-types', 'tail-call']
+              }
+            },
+            optimizeLevel: { type: 'number', min: 0, max: 3, default: 2 },
+            shrinkLevel: { type: 'number', min: 0, max: 2, default: 0 }
+          }
+        },
+        
+        // Bundle configuration
+        bundle: {
+          type: 'object',
+          properties: {
+            entry: { type: 'string' },
+            format: { type: 'string', enum: ['esm', 'cjs', 'iife'] },
+            splitting: { type: 'boolean', default: false },
+            external: { type: 'array', items: { type: 'string' } },
+            plugins: { type: 'array', items: { type: 'string' } }
+          }
+        },
+        
+        // Testing configuration
+        test: {
+          type: 'object',
+          properties: {
+            runner: { type: 'string', enum: ['jest', 'mocha', 'ava', 'tape'] },
+            coverage: { type: 'boolean', default: false },
+            watch: { type: 'boolean', default: false }
+          }
+        },
+        
+        // Documentation configuration
+        docs: {
+          type: 'object',
+          properties: {
+            generator: { type: 'string', enum: ['jsdoc', 'typedoc', 'esdoc'] },
+            output: { type: 'string' },
+            theme: { type: 'string' }
+          }
+        },
+        
+        // Runtime configuration
+        runtime: {
+          type: 'object',
+          properties: {
+            node: { type: 'string' },
+            browser: { type: 'string' },
+            deno: { type: 'boolean', default: false },
+            bun: { type: 'boolean', default: false }
+          }
+        }
+      }
+    }
+  },
+  
+  // Validation functions
+  validators: {
+    // Validate field based on package type
+    validateField: (field, value, packageType) => {
+      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      
+      // Check if field is allowed for this package type
+      if (!config.allowedFields.includes('*') && !config.allowedFields.includes(field)) {
+        return { valid: false, reason: `Field "${field}" is not allowed for ${packageType} packages` };
+      }
+      
+      // Type-specific validations
+      switch (field) {
+        case 'dependencies':
+          return validateDependencies(value, packageType);
+        case 'scripts':
+          return validateScripts(value, packageType);
+        case 'wasmConfig':
+          return packageType === 'wasm' ? 
+            { valid: true } : 
+            { valid: false, reason: 'wasmConfig is only allowed for wasm packages' };
+        default:
+          return { valid: true };
+      }
+    },
+    
+    // Custom dependency validation
+    validateDependencies: (deps, packageType) => {
+      if (!deps || typeof deps !== 'object') {
+        return { valid: true };
+      }
+      
+      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      const depCount = Object.keys(deps).length;
+      
+      if (depCount > config.maxDependencies) {
+        return { 
+          valid: false, 
+          reason: `Too many dependencies. Maximum ${config.maxDependencies} allowed for ${packageType} packages` 
+        };
+      }
+      
+      return { valid: true };
+    },
+    
+    // Custom scripts validation
+    validateScripts: (scripts, packageType) => {
+      if (!scripts || typeof scripts !== 'object') {
+        return { valid: true };
+      }
+      
+      const restrictedScripts = PACK_JSON_SCHEMA.advanced.scripts.restrictedScripts;
+      
+      for (const scriptName of Object.keys(scripts)) {
+        if (restrictedScripts.some(restricted => 
+            scriptName.includes(restricted) || 
+            scripts[scriptName].includes(restricted))) {
+          return { 
+            valid: false, 
+            reason: `Script "${scriptName}" contains restricted commands` 
+          };
+        }
+      }
+      
+      return { valid: true };
+    }
+  },
+  
+  // Transformation functions (for processing before saving)
+  transformers: {
+    // Add defaults to pack.json
+    addDefaults: (packJson, packageType) => {
+      const result = { ...packJson };
+      const optional = PACK_JSON_SCHEMA.optional;
+      
+      for (const [field, config] of Object.entries(optional)) {
+        if (result[field] === undefined && config.default !== undefined) {
+          result[field] = config.default;
+        }
+      }
+      
+      // Package type specific defaults
+      const pkgConfig = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      if (pkgConfig.requireDescription && !result.description) {
+        result.description = `A ${packageType} package for Pack ecosystem`;
+      }
+      
+      if (pkgConfig.requireLicense && !result.license) {
+        result.license = 'MIT';
+      }
+      
+      return result;
+    },
+    
+    // Sanitize pack.json (remove invalid fields)
+    sanitize: (packJson, packageType) => {
+      const result = {};
+      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      
+      // Copy allowed fields only
+      for (const [field, value] of Object.entries(packJson)) {
+        if (config.allowedFields.includes('*') || config.allowedFields.includes(field)) {
+          result[field] = value;
+        }
+      }
+      
+      return result;
+    }
+  },
+  
+  // Helper functions for pack.json generation
+  helpers: {
+    // Generate minimal pack.json
+    generateMinimal: (name, version, packageType = 'basic') => {
+      const base = {
+        name,
+        version,
+        description: `A ${packageType} package for Pack ecosystem`,
+        license: 'MIT',
+        pack: {
+          type: packageType,
+          sandbox: {
+            level: packageType === 'basic' ? 'strict' : 
+                   packageType === 'wasm' ? 'wasm-sandbox' : 'moderate'
+          }
+        }
+      };
+      
+      // Add package type specific fields
+      if (packageType === 'advanced' || packageType === 'wasm') {
+        base.keywords = [packageType, 'pack'];
+        base.author = '';
+        base.homepage = '';
+      }
+      
+      if (packageType === 'wasm') {
+        base.wasmConfig = {
+          memory: { initial: 256, maximum: 16384 },
+          exports: {
+            functions: [
+              { name: 'main', params: [], results: ['i32'] },
+              { name: 'calculate', params: ['i32', 'i32'], results: ['i32'] }
+            ]
+          }
+        };
+      }
+      
+      return base;
+    },
+    
+    // Generate from template
+    generateFromTemplate: (templateName, options = {}) => {
+      const templates = {
+        'library': {
+          name: options.name || 'my-library',
+          version: '1.0.0',
+          description: 'A reusable JavaScript library',
+          main: './dist/index.js',
+          module: './dist/index.esm.js',
+          types: './dist/index.d.ts',
+          files: ['dist'],
+          scripts: {
+            build: 'rollup -c',
+            test: 'jest',
+            lint: 'eslint src',
+            format: 'prettier --write src'
+          },
+          keywords: ['library', 'javascript', 'typescript'],
+          pack: {
+            compile: { toWasm: false },
+            sandbox: { level: 'moderate' }
+          }
+        },
+        
+        'wasm-module': {
+          name: options.name || 'my-wasm-module',
+          version: '1.0.0',
+          description: 'A WebAssembly module',
+          main: './dist/index.js',
+          wasm: './dist/module.wasm',
+          files: ['dist'],
+          scripts: {
+            build: 'npm run build:wasm && npm run build:js',
+            'build:wasm': 'asc src/module.ts --target release',
+            'build:js': 'rollup -c'
+          },
+          wasmConfig: {
+            memory: { initial: 256, maximum: 16384 },
+            exports: {
+              functions: [
+                { name: 'add', params: ['i32', 'i32'], results: ['i32'] },
+                { name: 'multiply', params: ['i32', 'i32'], results: ['i32'] }
+              ]
+            }
+          },
+          pack: {
+            type: 'wasm',
+            compile: { toWasm: true },
+            sandbox: { level: 'wasm-sandbox' }
+          }
+        },
+        
+        'cli-tool': {
+          name: options.name || 'my-cli-tool',
+          version: '1.0.0',
+          description: 'A command-line tool',
+          bin: {
+            'my-tool': './bin/cli.js'
+          },
+          files: ['bin', 'lib'],
+          scripts: {
+            start: 'node ./bin/cli.js',
+            test: 'mocha test/**/*.js'
+          },
+          dependencies: {
+            'commander': '^9.0.0',
+            'chalk': '^5.0.0'
+          },
+          pack: {
+            type: 'advanced',
+            sandbox: {
+              level: 'relaxed',
+              networkAccess: true,
+              fileSystemAccess: true
+            }
+          }
+        }
+      };
+      
+      return templates[templateName] || templates.library;
+    }
+  }
+};
 
 // ADVANCED ALLOWED NODE.JS MODULES (50 modules)
 const ADVANCED_NODE_MODULES = [
