@@ -198,11 +198,11 @@ function formatPackResponse(pack, metadata = null, versions = [], dependencies =
 // Helper to get all pack data
 async function getCompletePackData(packId, includeAdvanced = true) {
   try {
-// Get main pack data - FIXED QUERY
-    const { data: pack, error: packError } = await supabase
+// Get main pack data - SIMPLE FIX
+    let { data: pack, error: packError } = await supabase
       .from('packs')
       .select('*')
-      .or(`id.eq.${packId},url_id.eq.${packId}`)
+      .eq('url_id', packId)
       .single();
     
     if (packError || !pack) {
