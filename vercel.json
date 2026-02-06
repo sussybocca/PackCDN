@@ -299,10 +299,5 @@
     }
   ],
   "cleanUrls": false,
-  "trailingSlash": false,
-  "functions": {
-    "api/publish.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "trailingSlash": false
 }
