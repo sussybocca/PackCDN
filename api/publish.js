@@ -1291,8 +1291,7 @@ export class ${className}ComplexWASM {
     try {
       const wasmData = "${wasmBase64}";
       const wasmBuffer = Uint8Array.from(atob(wasmData), c => c.charCodeAt(0));
-      
-      // Enhanced import object with more capabilities
+         // Enhanced import object with more capabilities
       const importObject = {
         env: {
           memory: new WebAssembly.Memory({ 
@@ -1303,12 +1302,38 @@ export class ${className}ComplexWASM {
             initial: 256, 
             element: 'anyfunc' 
           }),
-          // Enhanced math functions
-         ...Object.fromEntries(
-  Object.getOwnPropertyNames(Math)
-    .filter(name => typeof Math[name] === 'function' && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name))
-    .map(name => [`Math_${name}`, Math[name]])
-),
+          // Enhanced math functions - manually expanded to avoid spread operator issues
+          Math_abs: Math.abs,
+          Math_sin: Math.sin,
+          Math_cos: Math.cos,
+          Math_tan: Math.tan,
+          Math_log: Math.log,
+          Math_exp: Math.exp,
+          Math_sqrt: Math.sqrt,
+          Math_pow: Math.pow,
+          Math_floor: Math.floor,
+          Math_ceil: Math.ceil,
+          Math_round: Math.round,
+          Math_random: Math.random,
+          // Additional safe math functions
+          Math_max: Math.max,
+          Math_min: Math.min,
+          Math_atan: Math.atan,
+          Math_atan2: Math.atan2,
+          Math_asin: Math.asin,
+          Math_acos: Math.acos,
+          Math_sinh: Math.sinh,
+          Math_cosh: Math.cosh,
+          Math_tanh: Math.tanh,
+          Math_log2: Math.log2,
+          Math_log10: Math.log10,
+          Math_sign: Math.sign,
+          Math_trunc: Math.trunc,
+          Math_cbrt: Math.cbrt,
+          Math_hypot: Math.hypot,
+          Math_fround: Math.fround,
+          Math_imul: Math.imul,
+          Math_clz32: Math.clz32,
           // String and memory utilities
           string_new: (ptr, length) => {
             const bytes = new Uint8Array(this.memory.buffer, ptr, length);
