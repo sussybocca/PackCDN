@@ -3814,6 +3814,9 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+  // Main export for Vercel API
+export default handler;
+
 // Export for testing
 export {
   validatePackageName,
