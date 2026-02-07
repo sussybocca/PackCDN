@@ -2973,7 +2973,7 @@ async function handleEditPack(req, res) {
 // MAIN PUBLISH API HANDLER
 // ============================================================================
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const startTime = Date.now();
   
   // CORS headers
@@ -3813,11 +3813,14 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+}
 
-  // Main export for Vercel API
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
 export default handler;
 
-// Export for testing
 export {
   validatePackageName,
   validateFilename,
