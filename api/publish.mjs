@@ -3429,13 +3429,63 @@ async function handler(req, res) {
       }
     }
 
-    // ============================================================================
+       // ============================================================================
     // VERSIONING AND DATABASE LOGIC
     // ============================================================================
     let versionNumber = sanitizeVersion(version);
     
-    // Check for existing package
-    if (!isNewVersion || !basePackId) {
+    // 🆕 FIXED LOGIC: Handle different publishing scenarios
+    if (isNewVersion && basePackId) {
+      // Scenario 1: User wants to create a new version of an existing package
+      console.log(`Creating new version for package ID: ${basePackId}`);
+      
+      // Verify the base pack exists
+      const { data: basePack } = await supabase
+        .from('packs')
+        .select('id, name, package_type')
+        .eq('id', basePackId)
+        .single();
+      
+      if (!basePack) {
+        return res.status(404).json({
+          success: false,
+          error: `Base package with ID "${basePackId}" not found`,
+          code: 'BASE_PACK_NOT_FOUND'
+        });
+      }
+      
+      // Check permissions (edit token required for anonymous users)
+      const canEdit = await canUserEditPack(basePackId, userId, editToken);
+      if (!canEdit) {
+        return res.status(403).json({
+          success: false,
+          error: 'You do not have permission to edit this package',
+          code: 'EDIT_PERMISSION_DENIED',
+          details: userId ? 
+            'Your user ID does not match the package owner' : 
+            'Valid edit token is required for anonymous users'
+        });
+      }
+      
+      // For new versions, use the original package's name
+      // Allow same name since we're creating a new version of the same package
+      console.log(`Creating version ${versionNumber} of "${basePack.name}"`);
+      
+    } else if (isNewVersion && !basePackId) {
+      // Scenario 2: User checked "Create New Version" but didn't provide basePackId
+      // This is invalid - we can't create a new version without knowing which package
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot create new version without specifying Base Pack ID',
+        code: 'MISSING_BASE_PACK_ID',
+        suggestion: 'Enter the original package ID or uncheck "Create New Version"'
+      });
+      
+    } else {
+      // Scenario 3: Creating a BRAND NEW package (not a new version)
+      console.log(`Creating new package: "${name}"`);
+      
+      // Check if package name already exists (only for brand new packages)
       const { data: existingPack } = await supabase
         .from('packs')
         .select('id, name, created_at')
@@ -3452,19 +3502,6 @@ async function handler(req, res) {
         });
       }
     }
-
-    // For new versions, check permissions
-    if (isNewVersion && basePackId) {
-      const canEdit = await canUserEditPack(basePackId, userId, editToken);
-      if (!canEdit) {
-        return res.status(403).json({
-          success: false,
-          error: 'You do not have permission to edit this package',
-          code: 'EDIT_PERMISSION_DENIED'
-        });
-      }
-    }
-
     // Generate secure URLs
     const urlId = generateSecureUrlId();
     const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
@@ -3631,7 +3668,7 @@ async function handler(req, res) {
       console.warn('Advanced features save failed (non-critical):', advancedError);
     }
 
-   // ============================================================================
+// ============================================================================
 // SUCCESS RESPONSE
 // ============================================================================
 const processingTime = Date.now() - startTime;
@@ -3648,10 +3685,13 @@ console.log(`Package published successfully: ${name} v${versionNumber}`, {
 
 // 🆕 GENERATE EDIT TOKEN FOR ANONYMOUS USER
 let editTokenData = null;
+let generatedToken = null; // ADD THIS LINE
 
 try {
   // Generate a secure edit token
   const token = crypto.randomBytes(32).toString('hex');
+  generatedToken = token; // 🔥 CRITICAL: SAVE THE GENERATED TOKEN HERE
+  
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year
   
   // Insert into edit_tokens table
@@ -3696,7 +3736,9 @@ res.status(201).json({
   complexWasmUrl,
   
   // 🆕 EDIT TOKEN INFORMATION (CRITICAL FOR ANONYMOUS USERS)
-  editToken: editToken,
+  // 🔥 FIXED: Return the ACTUALLY GENERATED token (generatedToken), not the request token
+  editToken: generatedToken || editToken, // ✅ This returns the newly generated token!
+  
   editTokenInfo: editTokenData ? {
     token: editTokenData.token,
     expiresAt: editTokenData.expires_at,
@@ -3706,13 +3748,16 @@ res.status(201).json({
   } : null,
   
   // 🆕 WARNING FOR ANONYMOUS USERS
+  // 🔥 FIXED: Use generatedToken in the warning message too
   securityWarning: !userId ? [
     '⚠️ IMPORTANT: You have published anonymously',
-    '🔑 Save this edit token: ' + (editToken || 'NOT GENERATED'),
+    '🔑 Save this edit token: ' + (generatedToken || editToken || 'NOT GENERATED'),
     '📝 You will need this token to update or delete this package',
     '💾 Store it securely - it cannot be recovered if lost',
     '🔗 Bookmark this page or save the token in a safe place'
   ] : null,
+  
+  // ... rest of the response ...
   
   installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
   npmInstallCommand: `npm install ${name}`,
