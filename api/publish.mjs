@@ -2881,7 +2881,8 @@ async function handleEditPack(req, res) {
       });
     }
 
-    const canEdit = await canUserEditPack(packId, userId, editToken);
+   // In handleEditPack function, around line ~1880:
+const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 ADD req PARAMETER
     if (!canEdit) {
       return res.status(403).json({
         success: false,
