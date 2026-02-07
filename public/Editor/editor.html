@@ -1904,32 +1904,15 @@ async function publishPackage() {
         
         const result = await response.json();
         
-        if (!response.ok) {
-            // 🆕 Handle specific API errors better
-            if (result.code === 'PACKAGE_NAME_EXISTS') {
-                // Offer to create a version instead
-                const shouldCreateVersion = confirm(
-                    `Package "${packageName}" already exists.\n\n` +
-                    `Would you like to create a new version instead?\n\n` +
-                    `Existing Package ID: ${result.existingPackageId}\n` +
-                    `Click OK to create version ${requestBody.version}`
-                );
-                
-                if (shouldCreateVersion) {
-                    // Auto-populate form for version creation
-                    isNewVersionCheckbox.checked = true;
-                    basePackIdInput.value = result.existingPackageId;
-                    logToTerminal(`✓ Auto-configured as new version of ${result.existingPackageId}`);
-                    
-                    // Close modal and let user retry
-                    publishModal.classList.remove('active');
-                    showSuccess('Form updated for version creation. Click Publish again.');
-                    return;
-                }
-            }
-            
-            throw new Error(result.error || `HTTP ${response.status}: ${result.details || 'Unknown error'}`);
-        }
+     if (!response.ok) {
+    // FIXED: Just show error and let user decide what to do next
+    showError(`API Error: ${result.error || result.details || 'Unknown error'}`);
+    console.log('API Response:', result);
+    
+    // Keep modal open so user can adjust settings
+    publishLoading.style.display = 'none';
+    return; // Don't throw, just return
+}
         
         // Hide loading, show results
         publishLoading.style.display = 'none';
