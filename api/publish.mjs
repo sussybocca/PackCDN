@@ -1357,6 +1357,118 @@ const PACK_JSON_SCHEMA = {
   }
 };
 
+class PackExecutor {
+  constructor(packJson, packageFiles, packageType) {
+    this.packJson = packJson;
+    this.packageFiles = packageFiles;
+    this.packageType = packageType;
+    this.executionHandlers = PACK_JSON_SCHEMA.execution.handlers;
+    this.context = this.executionHandlers.createExecutionContext(packageType, packJson);
+  }
+
+  // Execute a function from the package
+  async execute(functionName, ...args) {
+    try {
+      // Check if function exists in scripts
+      if (this.packJson.scripts && this.packJson.scripts[functionName]) {
+        return await this.runScript(functionName, args);
+      }
+      
+      // Otherwise look for it in files
+      return await this.executionHandlers.executeFunction(
+        this.packJson.name,
+        functionName,
+        args,
+        this.packageType,
+        this.packageFiles,
+        this.packJson
+      );
+    } catch (error) {
+      console.error(`Failed to execute ${functionName}:`, error);
+      throw error;
+    }
+  }
+
+  // Run a script from pack.json
+  async runScript(scriptName, args = []) {
+    return await this.executionHandlers.runScript(
+      this.packJson.name,
+      scriptName,
+      args,
+      this.packageType,
+      this.packageFiles,
+      this.packJson
+    );
+  }
+
+  // Initialize WASM if present
+  async initWasm() {
+    const wasmFiles = Object.entries(this.packageFiles)
+      .filter(([name, content]) => name.endsWith('.wasm'));
+    
+    if (wasmFiles.length > 0) {
+      const [wasmFilename, wasmContent] = wasmFiles[0];
+      const wasmConfig = this.packJson.wasmConfig || {};
+      
+      return await this.executionHandlers.initializeWasm(
+        this.packJson.name,
+        wasmConfig,
+        wasmContent
+      );
+    }
+    return null;
+  }
+
+  // Compile to WASM if configured
+  async compileToWasm() {
+    if (this.packJson.pack?.compile?.toWasm) {
+      // Find main JS file
+      const jsFiles = Object.entries(this.packageFiles)
+        .filter(([name]) => name.endsWith('.js') || name.endsWith('.ts'));
+      
+      if (jsFiles.length > 0) {
+        const [filename, content] = jsFiles[0];
+        return await this.executionHandlers.compileToWasm(
+          content,
+          this.packJson.pack.compile
+        );
+      }
+    }
+    return null;
+  }
+
+  // Get available functions/scripts
+  getAvailableActions() {
+    const actions = {
+      scripts: this.packJson.scripts ? Object.keys(this.packJson.scripts) : [],
+      exports: []
+    };
+
+    // Extract exports from files
+    for (const [filename, content] of Object.entries(this.packageFiles)) {
+      if (filename.endsWith('.js')) {
+        const exports = this.extractExports(content);
+        actions.exports.push(...exports);
+      }
+    }
+
+    return actions;
+  }
+
+  extractExports(content) {
+    const exports = [];
+    const exportRegex = /export\s+(?:async\s+)?(?:function\s+(\w+)|const\s+(\w+)|let\s+(\w+)|var\s+(\w+)|class\s+(\w+))/g;
+    let match;
+    
+    while ((match = exportRegex.exec(content)) !== null) {
+      for (let i = 1; i <= 5; i++) {
+        if (match[i]) exports.push(match[i]);
+      }
+    }
+    
+    return exports;
+  }
+}
 // ADVANCED ALLOWED NODE.JS MODULES (50 modules)
 const ADVANCED_NODE_MODULES = [
   // Core utilities
