@@ -2666,20 +2666,39 @@ if (typeof module !== 'undefined' && module.exports) {
 `;
 }
 
-async function canUserEditPack(packId, userId, editToken) {
+// 🆕 FIXED: Add req parameter
+async function canUserEditPack(packId, userId, editToken, req = null) {
+  console.log('Checking edit permissions for:', { packId, userId, editToken: editToken ? '***' + editToken.slice(-8) : 'none' });
+  
   // If we have an edit token, that's the primary method for anonymous users
   if (editToken) {
     try {
-      const { data: token } = await supabase
+      console.log('Validating edit token...');
+      
+      // 🆕 CRITICAL FIX: Select the id field so we can update use_count
+      const { data: token, error: tokenError } = await supabase
         .from('edit_tokens')
-        .select('expires_at, max_uses, use_count')
+        .select('*') // 🆕 SELECT ALL FIELDS INCLUDING id
         .eq('token', editToken)
         .eq('pack_id', packId)
         .single();
       
+      if (tokenError) {
+        console.error('Token lookup error:', tokenError);
+        return false;
+      }
+      
       if (token) {
         const now = new Date();
         const expiresAt = new Date(token.expires_at);
+        
+        console.log('Token found:', {
+          id: token.id,
+          expiresAt: expiresAt.toISOString(),
+          maxUses: token.max_uses,
+          useCount: token.use_count,
+          isValid: expiresAt > now && (token.max_uses === 0 || token.use_count < token.max_uses)
+        });
         
         if (expiresAt > now && (token.max_uses === 0 || token.use_count < token.max_uses)) {
           // 🔥 CRITICAL: Increment use count when token is used
@@ -2689,10 +2708,15 @@ async function canUserEditPack(packId, userId, editToken) {
               use_count: token.use_count + 1,
               updated_at: new Date().toISOString()
             })
-            .eq('id', token.id);
+            .eq('id', token.id); // 🆕 NOW WE HAVE THE id FIELD!
           
+          console.log('Edit token validated successfully');
           return true;
+        } else {
+          console.log('Token expired or max uses reached');
         }
+      } else {
+        console.log('No matching token found');
       }
     } catch (error) {
       console.error('Edit token validation failed:', error);
@@ -2700,37 +2724,64 @@ async function canUserEditPack(packId, userId, editToken) {
     }
   }
   
-  // For anonymous site, userId might be a temporary session ID or just not used
-  // If userId exists (might be IP hash or session token), check if they're the publisher
+  // For logged-in users with userId
   if (userId) {
     try {
+      console.log('Checking user permissions...');
       const { data: pack } = await supabase
         .from('packs')
-        .select('publisher_id, publisher_ip')
+        .select('publisher_id')
         .eq('id', packId)
         .single();
       
-      if (pack) {
-        // Option 1: Check if userId matches publisher_id (could be IP hash)
-        if (pack.publisher_id === userId) {
-          return true;
-        }
+      if (pack && pack.publisher_id === userId) {
+        console.log('User is the package owner');
+        return true;
+      }
+      
+      // Also check collaborators table
+      const { data: collaborator } = await supabase
+        .from('pack_collaborators')
+        .select('*')
+        .eq('pack_id', packId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (collaborator) {
+        console.log('User is a collaborator');
+        return true;
+      }
+    } catch (error) {
+      console.error('User permission check failed:', error);
+    }
+  }
+  
+  // For anonymous users with IP matching (optional security)
+  if (req) {
+    try {
+      // 🆕 NOW req IS DEFINED!
+      const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 
+                      req.socket?.remoteAddress;
+      
+      if (clientIp) {
+        console.log('Checking IP match:', clientIp);
+        const { data: pack } = await supabase
+          .from('packs')
+          .select('publisher_ip')
+          .eq('id', packId)
+          .single();
         
-        // Option 2: For anonymous publishing, we might store IP
-        // Check if IP matches (for security, compare hashed IPs)
-        const clientIp = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 
-                        req?.socket?.remoteAddress;
-        
-        if (clientIp && pack.publisher_ip === clientIp) {
+        if (pack && pack.publisher_ip === clientIp) {
+          console.log('IP matches original publisher');
           return true;
         }
       }
     } catch (error) {
-      console.error('Publisher check failed:', error);
+      console.error('IP check failed:', error);
     }
   }
   
-  // Default: No permission
+  console.log('All permission checks failed');
   return false;
 }
 async function getNextVersionNumber(packId) {
