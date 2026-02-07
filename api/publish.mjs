@@ -3647,7 +3647,6 @@ console.log(`Package published successfully: ${name} v${versionNumber}`, {
 });
 
 // 🆕 GENERATE EDIT TOKEN FOR ANONYMOUS USER
-let editToken = null;
 let editTokenData = null;
 
 try {
@@ -3674,7 +3673,6 @@ try {
     
   if (!tokenError && tokenResult) {
     editTokenData = tokenResult;
-    editToken = token;
     console.log(`Generated edit token for pack ${pack.id}`);
   } else {
     console.warn('Failed to generate edit token (non-critical):', tokenError);
