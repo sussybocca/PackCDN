@@ -918,18 +918,17 @@ const PACK_JSON_SCHEMA = {
               ${code}
               return (typeof module !== 'undefined' && module.exports) || 
                      (typeof exports !== 'undefined' && exports) ||
-                     (typeof window !== 'undefined' ? window : {});
+                     {};
             })()
           `;
           
-          // Evaluate in isolated context
-          const executor = new Function('context', `
-            with(context) {
-              return (${moduleCode});
-            }
+          // Properly bind context
+          const executor = new Function(...Object.keys(context), `
+            ${Object.keys(context).map(key => `const ${key} = arguments[${Object.keys(context).indexOf(key)}];`).join('\n')}
+            return (${moduleCode});
           `);
           
-          const result = executor(context);
+          const result = executor(...Object.values(context));
           
           // Store exports in context
           if (result && typeof result === 'object') {
@@ -966,30 +965,33 @@ const PACK_JSON_SCHEMA = {
       },
       
       // Evaluate a script
-      evaluateScript: async function(script, args, context) {
+           evaluateScript: async function(script, args, context) {
         try {
           const scriptCode = `
             (function() {
               'use strict';
               const args = ${JSON.stringify(args)};
-              ${script}
+              try {
+                ${script}
+              } catch(e) {
+                return { error: e.message, stack: e.stack };
+              }
             })()
           `;
           
-          const executor = new Function('context', `
-            with(context) {
-              return (${scriptCode});
-            }
+          // Create a function that properly binds context
+          const executor = new Function(...Object.keys(context), `
+            ${Object.keys(context).map(key => `const ${key} = arguments[${Object.keys(context).indexOf(key)}];`).join('\n')}
+            return (${scriptCode});
           `);
           
-          return executor(context);
+          return executor(...Object.values(context));
           
         } catch (error) {
           console.error('[SCRIPT] Evaluation error:', error);
-          throw error;
+          return { error: error.message, stack: error.stack };
         }
       },
-      
       // Compile JavaScript to WASM
       compileToWasm: async function(jsCode, config = {}) {
         try {
