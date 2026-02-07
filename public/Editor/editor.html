@@ -1799,10 +1799,18 @@ async function publishPackage() {
         return;
     }
     
-    // 🆕 FIXED: Validate version update scenario
-    const isNewVersion = isNewVersionCheckbox.checked && basePackIdInput.value.trim();
+    // 🆕 REMOVED: Frontend duplicate name check - API handles this now
+    const packageName = packageNameInput.value.trim();
+    if (!packageName) {
+        showError('Package name is required');
+        return;
+    }
     
-    if (isNewVersionCheckbox.checked && !basePackIdInput.value.trim()) {
+    // 🆕 FIXED: Validate version update scenario
+    const isNewVersion = isNewVersionCheckbox.checked;
+    const basePackId = basePackIdInput.value.trim();
+    
+    if (isNewVersion && !basePackId) {
         showError('For version updates, you must provide the Base Pack ID');
         return;
     }
@@ -1821,7 +1829,7 @@ async function publishPackage() {
             throw new Error('Invalid JSON in package.json');
         }
         
-        packageJson.name = packageNameInput.value;
+        packageJson.name = packageName;
         packageJson.version = packageVersionInput.value;
         
         // Ensure pack.json structure exists
@@ -1862,14 +1870,14 @@ async function publishPackage() {
         
         // 🆕 FIXED: Prepare request body with proper version update logic
         const requestBody = {
-            name: packageNameInput.value,
+            name: packageName,
             packJson: JSON.stringify(packageJson),
             files: files,
             isPublic: isPublicCheckbox.checked,
             packageType: appState.packageType,
             version: packageVersionInput.value,
             isNewVersion: isNewVersion,
-            basePackId: isNewVersion ? basePackIdInput.value.trim() : null,
+            basePackId: isNewVersion ? basePackId : null,
             userId: userIdInput.value.trim() || null,
             editToken: editTokenInput.value.trim() || null,
             collaborators: collaborators,
@@ -1897,6 +1905,29 @@ async function publishPackage() {
         const result = await response.json();
         
         if (!response.ok) {
+            // 🆕 Handle specific API errors better
+            if (result.code === 'PACKAGE_NAME_EXISTS') {
+                // Offer to create a version instead
+                const shouldCreateVersion = confirm(
+                    `Package "${packageName}" already exists.\n\n` +
+                    `Would you like to create a new version instead?\n\n` +
+                    `Existing Package ID: ${result.existingPackageId}\n` +
+                    `Click OK to create version ${requestBody.version}`
+                );
+                
+                if (shouldCreateVersion) {
+                    // Auto-populate form for version creation
+                    isNewVersionCheckbox.checked = true;
+                    basePackIdInput.value = result.existingPackageId;
+                    logToTerminal(`✓ Auto-configured as new version of ${result.existingPackageId}`);
+                    
+                    // Close modal and let user retry
+                    publishModal.classList.remove('active');
+                    showSuccess('Form updated for version creation. Click Publish again.');
+                    return;
+                }
+            }
+            
             throw new Error(result.error || `HTTP ${response.status}: ${result.details || 'Unknown error'}`);
         }
         
