@@ -1790,292 +1790,315 @@ MIT
             
             return { errors, warnings, info };
         }
-
-        // 🆕 UPDATED: Publish package using the new API with all features
-        async function publishPackage() {
-            // Validate first
-            const validation = validatePackage();
-            if (validation.errors.length > 0) {
-                showError('Cannot publish: ' + validation.errors[0]);
-                return;
-            }
-            
-            // Show loading
-            publishLoading.style.display = 'block';
-            publishResults.classList.remove('active');
-            securityWarning.style.display = 'none';
-            
-            try {
-                // Prepare package.json
-                let packageJson;
-                try {
-                    packageJson = JSON.parse(appState.files['package.json'].content);
-                } catch (e) {
-                    throw new Error('Invalid JSON in package.json');
-                }
-                
-                packageJson.name = packageNameInput.value;
-                packageJson.version = packageVersionInput.value;
-                
-                // Ensure pack.json structure exists
-                if (!packageJson.pack) {
-                    packageJson.pack = {
-                        type: appState.packageType,
-                        sandbox: {
-                            level: appState.packageType === 'basic' ? 'strict' : 'moderate'
-                        }
-                    };
-                }
-                
-                // Prepare files for upload
-                const files = {};
-                
-                // Add regular files
-                Object.keys(appState.files).forEach(fileName => {
-                    files[fileName] = appState.files[fileName].content;
-                });
-                
-                // Add WASM files as base64
-                Object.keys(appState.wasmFiles).forEach(fileName => {
-                    const wasmFile = appState.wasmFiles[fileName];
-                    const bytes = new Uint8Array(wasmFile.data);
-                    let binary = '';
-                    for (let i = 0; i < bytes.byteLength; i++) {
-                        binary += String.fromCharCode(bytes[i]);
-                    }
-                    files[fileName] = btoa(binary);
-                });
-                
-                // Parse collaborators
-                const collaborators = collaboratorsInput.value
-                    ? collaboratorsInput.value.split(',')
-                          .map(c => c.trim())
-                          .filter(c => c.length > 0)
-                    : [];
-                
-                // Prepare request body for the new API
-                const requestBody = {
-                    name: packageNameInput.value,
-                    packJson: JSON.stringify(packageJson),
-                    files: files,
-                    isPublic: isPublicCheckbox.checked,
-                    packageType: appState.packageType,
-                    version: packageVersionInput.value,
-                    isNewVersion: isNewVersionCheckbox.checked,
-                    basePackId: basePackIdInput.value || null,
-                    userId: userIdInput.value || null,
-                    editToken: editTokenInput.value || null,
-                    collaborators: collaborators,
-                    compileToWasm: compileWasmCheckbox.checked,
-                    wasmConfig: {
-                        initialMemory: 1,
-                        maxMemory: 65536
-                    }
-                };
-                
-                logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
-                
-                // Call the publish API
-                const response = await fetch('/api/publish.mjs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(result.error || `HTTP ${response.status}: ${result.details || 'Unknown error'}`);
-                }
-                
-                // Hide loading, show results
-                publishLoading.style.display = 'none';
-                publishResults.classList.add('active');
-                
-                // 🆕 NEW: Show security warning for anonymous publishing
-                if (!userIdInput.value && result.editToken) {
-                    securityWarning.style.display = 'block';
-                    editTokenDisplay.textContent = result.editToken;
-                    
-                    // Setup copy token button
-                    copyTokenBtn.onclick = () => {
-                        navigator.clipboard.writeText(result.editToken).then(() => {
-                            copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                            setTimeout(() => {
-                                copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-                            }, 2000);
-                        }).catch(err => {
-                            console.error('Failed to copy:', err);
-                            copyTokenBtn.innerHTML = '<i class="fas fa-times"></i> Failed';
-                            setTimeout(() => {
-                                copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-                            }, 2000);
-                        });
-                    };
-                }
-                
-                // Display results
-                publishResults.innerHTML = `
-                    <div class="result-item">
-                        <div class="result-label">✓ Published Successfully!</div>
-                        <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">Package ID</div>
-                        <div class="result-value">${result.packId}</div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">URL ID</div>
-                        <div class="result-value">${result.urlId}</div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">CDN URL</div>
-                        <div class="result-value">
-                            <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
-                        </div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">Worker URL</div>
-                        <div class="result-value">
-                            <a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a>
-                        </div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">Install Command</div>
-                        <div class="result-value">
-                            <code>${result.installCommand}</code>
-                        </div>
-                    </div>
-                    
-                    ${result.wasmUrl ? `
-                    <div class="result-item">
-                        <div class="result-label">WASM URL</div>
-                        <div class="result-value">
-                            <a href="${result.wasmUrl}" target="_blank">${result.wasmUrl}</a>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    ${result.complexWasmUrl ? `
-                    <div class="result-item">
-                        <div class="result-label">Complex WASM URL</div>
-                        <div class="result-value">
-                            <a href="${result.complexWasmUrl}" target="_blank">${result.complexWasmUrl}</a>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    ${result.encryptedKey ? `
-                    <div class="result-item">
-                        <div class="result-label">🔐 Encryption Key</div>
-                        <div class="result-value" style="color: #f2c811;">
-                            ${result.encryptedKey}
-                        </div>
-                        <div style="font-size: 12px; color: #f2c811; margin-top: 4px;">
-                            Save this key! It won't be shown again.
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="result-item">
-                        <div class="result-label">Processing Time</div>
-                        <div class="result-value">${result.processingTime}</div>
-                    </div>
-                    
-                    <div class="result-item">
-                        <div class="result-label">Advanced Features</div>
-                        <div class="result-value">
-                            <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
-                                ✓ Versioning
-                            </span> | 
-                            <span style="color: ${result.advancedFeatures?.collaboration ? '#4ec9b0' : '#858585'}">
-                                ✓ Collaboration
-                            </span> | 
-                            <span style="color: ${result.advancedFeatures?.wasmSupport ? '#4ec9b0' : '#858585'}">
-                                ✓ WASM Support
-                            </span> |
-                            <span style="color: ${result.advancedFeatures?.packJsonExecution ? '#4ec9b0' : '#858585'}">
-                                ✓ Pack.json Execution
-                            </span>
-                        </div>
-                    </div>
-                    
-                    ${result.nextSteps ? `
-                    <div class="result-item">
-                        <div class="result-label">Next Steps</div>
-                        <div class="result-value">
-                            <ul style="margin: 0; padding-left: 20px;">
-                                ${result.nextSteps.map(step => `<li>${step}</li>`).join('')}
-                            </ul>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button id="explore-package" style="
-                            flex: 1;
-                            padding: 12px;
-                            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 600;
-                        ">
-                            <i class="fas fa-external-link-alt"></i> Explore Package
-                        </button>
-                        <button id="copy-links" style="
-                            padding: 12px;
-                            background: rgba(0, 122, 204, 0.1);
-                            color: var(--primary-color);
-                            border: 2px solid var(--primary-color);
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 600;
-                        ">
-                            <i class="fas fa-copy"></i> Copy Links
-                        </button>
-                    </div>
-                `;
-                
-                // Add event listeners for result buttons
-                document.getElementById('explore-package').addEventListener('click', () => {
-                    window.open(result.cdnUrl, '_blank');
-                });
-                
-                document.getElementById('copy-links').addEventListener('click', () => {
-                    const links = [
-                        `Package: ${result.cdnUrl}`,
-                        `CDN: ${result.cdnUrl}`,
-                        `Install: ${result.installCommand}`,
-                        result.wasmUrl ? `WASM: ${result.wasmUrl}` : '',
-                        result.complexWasmUrl ? `Complex WASM: ${result.complexWasmUrl}` : ''
-                    ].filter(l => l).join('\n');
-                    
-                    navigator.clipboard.writeText(links).then(() => {
-                        showSuccess('Links copied to clipboard!');
-                    }).catch(err => {
-                        console.error('Failed to copy links:', err);
-                    });
-                });
-                
-                logToTerminal(`✓ Package published successfully! ID: ${result.packId}`);
-                
-            } catch (error) {
-                publishLoading.style.display = 'none';
-                showError(`Publish failed: ${error.message}`);
-                logToTerminal(`✗ Publish failed: ${error.message}`, 'error');
-                console.error('Publish error:', error);
-            }
+// 🆕 UPDATED: Publish package using the new API with all features
+async function publishPackage() {
+    // Validate first
+    const validation = validatePackage();
+    if (validation.errors.length > 0) {
+        showError('Cannot publish: ' + validation.errors[0]);
+        return;
+    }
+    
+    // 🆕 FIXED: Validate version update scenario
+    const isNewVersion = isNewVersionCheckbox.checked && basePackIdInput.value.trim();
+    
+    if (isNewVersionCheckbox.checked && !basePackIdInput.value.trim()) {
+        showError('For version updates, you must provide the Base Pack ID');
+        return;
+    }
+    
+    // Show loading
+    publishLoading.style.display = 'block';
+    publishResults.classList.remove('active');
+    securityWarning.style.display = 'none';
+    
+    try {
+        // Prepare package.json
+        let packageJson;
+        try {
+            packageJson = JSON.parse(appState.files['package.json'].content);
+        } catch (e) {
+            throw new Error('Invalid JSON in package.json');
         }
-
+        
+        packageJson.name = packageNameInput.value;
+        packageJson.version = packageVersionInput.value;
+        
+        // Ensure pack.json structure exists
+        if (!packageJson.pack) {
+            packageJson.pack = {
+                type: appState.packageType,
+                sandbox: {
+                    level: appState.packageType === 'basic' ? 'strict' : 'moderate'
+                }
+            };
+        }
+        
+        // Prepare files for upload
+        const files = {};
+        
+        // Add regular files
+        Object.keys(appState.files).forEach(fileName => {
+            files[fileName] = appState.files[fileName].content;
+        });
+        
+        // Add WASM files as base64
+        Object.keys(appState.wasmFiles).forEach(fileName => {
+            const wasmFile = appState.wasmFiles[fileName];
+            const bytes = new Uint8Array(wasmFile.data);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            files[fileName] = btoa(binary);
+        });
+        
+        // Parse collaborators
+        const collaborators = collaboratorsInput.value
+            ? collaboratorsInput.value.split(',')
+                  .map(c => c.trim())
+                  .filter(c => c.length > 0)
+            : [];
+        
+        // 🆕 FIXED: Prepare request body with proper version update logic
+        const requestBody = {
+            name: packageNameInput.value,
+            packJson: JSON.stringify(packageJson),
+            files: files,
+            isPublic: isPublicCheckbox.checked,
+            packageType: appState.packageType,
+            version: packageVersionInput.value,
+            isNewVersion: isNewVersion,
+            basePackId: isNewVersion ? basePackIdInput.value.trim() : null,
+            userId: userIdInput.value.trim() || null,
+            editToken: editTokenInput.value.trim() || null,
+            collaborators: collaborators,
+            compileToWasm: compileWasmCheckbox.checked,
+            wasmConfig: {
+                initialMemory: 1,
+                maxMemory: 65536
+            }
+        };
+        
+        logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
+        if (isNewVersion) {
+            logToTerminal(`📝 Creating new version of package ID: ${requestBody.basePackId}`);
+        }
+        
+        // Call the publish API
+        const response = await fetch('/api/publish.mjs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || `HTTP ${response.status}: ${result.details || 'Unknown error'}`);
+        }
+        
+        // Hide loading, show results
+        publishLoading.style.display = 'none';
+        publishResults.classList.add('active');
+        
+        // 🆕 NEW: Show security warning for anonymous publishing
+        if (!userIdInput.value.trim() && result.editToken) {
+            securityWarning.style.display = 'block';
+            editTokenDisplay.textContent = result.editToken;
+            
+            // Setup copy token button
+            copyTokenBtn.onclick = () => {
+                navigator.clipboard.writeText(result.editToken).then(() => {
+                    copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => {
+                        copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    copyTokenBtn.innerHTML = '<i class="fas fa-times"></i> Failed';
+                    setTimeout(() => {
+                        copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                    }, 2000);
+                });
+            };
+        }
+        
+        // 🆕 FIXED: Display results with version info
+        publishResults.innerHTML = `
+            <div class="result-item">
+                <div class="result-label">${isNewVersion ? '✓ Version Updated Successfully!' : '✓ Published Successfully!'}</div>
+                <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
+            </div>
+            
+            ${isNewVersion ? `
+            <div class="result-item">
+                <div class="result-label">Version Type</div>
+                <div class="result-value">📝 New version of existing package</div>
+            </div>
+            ` : ''}
+            
+            <div class="result-item">
+                <div class="result-label">Package ID</div>
+                <div class="result-value">${result.packId}</div>
+            </div>
+            
+            ${isNewVersion ? `
+            <div class="result-item">
+                <div class="result-label">Base Package ID</div>
+                <div class="result-value">${requestBody.basePackId}</div>
+            </div>
+            ` : ''}
+            
+            <div class="result-item">
+                <div class="result-label">URL ID</div>
+                <div class="result-value">${result.urlId}</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">CDN URL</div>
+                <div class="result-value">
+                    <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
+                </div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Worker URL</div>
+                <div class="result-value">
+                    <a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a>
+                </div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Install Command</div>
+                <div class="result-value">
+                    <code>${result.installCommand}</code>
+                </div>
+            </div>
+            
+            ${result.wasmUrl ? `
+            <div class="result-item">
+                <div class="result-label">WASM URL</div>
+                <div class="result-value">
+                    <a href="${result.wasmUrl}" target="_blank">${result.wasmUrl}</a>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${result.complexWasmUrl ? `
+            <div class="result-item">
+                <div class="result-label">Complex WASM URL</div>
+                <div class="result-value">
+                    <a href="${result.complexWasmUrl}" target="_blank">${result.complexWasmUrl}</a>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${result.encryptedKey ? `
+            <div class="result-item">
+                <div class="result-label">🔐 Encryption Key</div>
+                <div class="result-value" style="color: #f2c811;">
+                    ${result.encryptedKey}
+                </div>
+                <div style="font-size: 12px; color: #f2c811; margin-top: 4px;">
+                    Save this key! It won't be shown again.
+                </div>
+            </div>
+            ` : ''}
+            
+            <div class="result-item">
+                <div class="result-label">Processing Time</div>
+                <div class="result-value">${result.processingTime}</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Advanced Features</div>
+                <div class="result-value">
+                    <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
+                        ✓ Versioning
+                    </span> | 
+                    <span style="color: ${result.advancedFeatures?.collaboration ? '#4ec9b0' : '#858585'}">
+                        ✓ Collaboration
+                    </span> | 
+                    <span style="color: ${result.advancedFeatures?.wasmSupport ? '#4ec9b0' : '#858585'}">
+                        ✓ WASM Support
+                    </span> |
+                    <span style="color: ${result.advancedFeatures?.packJsonExecution ? '#4ec9b0' : '#858585'}">
+                        ✓ Pack.json Execution
+                    </span>
+                </div>
+            </div>
+            
+            ${result.nextSteps ? `
+            <div class="result-item">
+                <div class="result-label">Next Steps</div>
+                <div class="result-value">
+                    <ul style="margin: 0; padding-left: 20px;">
+                        ${result.nextSteps.map(step => `<li>${step}</li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+            ` : ''}
+            
+            <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="explore-package" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">
+                    <i class="fas fa-external-link-alt"></i> Explore Package
+                </button>
+                <button id="copy-links" style="
+                    padding: 12px;
+                    background: rgba(0, 122, 204, 0.1);
+                    color: var(--primary-color);
+                    border: 2px solid var(--primary-color);
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">
+                    <i class="fas fa-copy"></i> Copy Links
+                </button>
+            </div>
+        `;
+        
+        // Add event listeners for result buttons
+        document.getElementById('explore-package').addEventListener('click', () => {
+            window.open(result.cdnUrl, '_blank');
+        });
+        
+        document.getElementById('copy-links').addEventListener('click', () => {
+            const links = [
+                `Package: ${result.cdnUrl}`,
+                `CDN: ${result.cdnUrl}`,
+                `Install: ${result.installCommand}`,
+                result.wasmUrl ? `WASM: ${result.wasmUrl}` : '',
+                result.complexWasmUrl ? `Complex WASM: ${result.complexWasmUrl}` : ''
+            ].filter(l => l).join('\n');
+            
+            navigator.clipboard.writeText(links).then(() => {
+                showSuccess('Links copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy links:', err);
+            });
+        });
+        
+        logToTerminal(`✓ Package ${isNewVersion ? 'updated' : 'published'} successfully! ID: ${result.packId}`);
+        
+    } catch (error) {
+        publishLoading.style.display = 'none';
+        showError(`Publish failed: ${error.message}`);
+        logToTerminal(`✗ Publish failed: ${error.message}`, 'error');
+        console.error('Publish error:', error);
+    }
+}
         // Utility functions
         function getFileIcon(fileName) {
             const extension = fileName.split('.').pop().toLowerCase();
