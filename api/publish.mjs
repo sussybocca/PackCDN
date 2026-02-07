@@ -2667,31 +2667,9 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 async function canUserEditPack(packId, userId, editToken) {
-  if (!userId) return false;
-  
-  try {
-    const { data: pack } = await supabase
-      .from('packs')
-      .select('publisher_id')
-      .eq('id', packId)
-      .single();
-    
-    if (pack && pack.publisher_id === userId) {
-      return true;
-    }
-    
-    const { data: collaborator } = await supabase
-      .from('pack_collaborators')
-      .select('permission_level')
-      .eq('pack_id', packId)
-      .eq('user_id', userId)
-      .single();
-    
-    if (collaborator && ['editor', 'admin'].includes(collaborator.permission_level)) {
-      return true;
-    }
-    
-    if (editToken) {
+  // If we have an edit token, that's the primary method for anonymous users
+  if (editToken) {
+    try {
       const { data: token } = await supabase
         .from('edit_tokens')
         .select('expires_at, max_uses, use_count')
@@ -2704,19 +2682,57 @@ async function canUserEditPack(packId, userId, editToken) {
         const expiresAt = new Date(token.expires_at);
         
         if (expiresAt > now && (token.max_uses === 0 || token.use_count < token.max_uses)) {
+          // 🔥 CRITICAL: Increment use count when token is used
+          await supabase
+            .from('edit_tokens')
+            .update({ 
+              use_count: token.use_count + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', token.id);
+          
           return true;
         }
       }
+    } catch (error) {
+      console.error('Edit token validation failed:', error);
+      return false;
     }
-    
-    return false;
-    
-  } catch (error) {
-    console.error('Edit permission check failed:', error);
-    return false;
   }
+  
+  // For anonymous site, userId might be a temporary session ID or just not used
+  // If userId exists (might be IP hash or session token), check if they're the publisher
+  if (userId) {
+    try {
+      const { data: pack } = await supabase
+        .from('packs')
+        .select('publisher_id, publisher_ip')
+        .eq('id', packId)
+        .single();
+      
+      if (pack) {
+        // Option 1: Check if userId matches publisher_id (could be IP hash)
+        if (pack.publisher_id === userId) {
+          return true;
+        }
+        
+        // Option 2: For anonymous publishing, we might store IP
+        // Check if IP matches (for security, compare hashed IPs)
+        const clientIp = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 
+                        req?.socket?.remoteAddress;
+        
+        if (clientIp && pack.publisher_ip === clientIp) {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Publisher check failed:', error);
+    }
+  }
+  
+  // Default: No permission
+  return false;
 }
-
 async function getNextVersionNumber(packId) {
   try {
     const { data: versions } = await supabase
@@ -3615,90 +3631,179 @@ export default async function handler(req, res) {
       console.warn('Advanced features save failed (non-critical):', advancedError);
     }
 
-    // ============================================================================
-    // SUCCESS RESPONSE
-    // ============================================================================
-    const processingTime = Date.now() - startTime;
-    
-    console.log(`Package published successfully: ${name} v${versionNumber}`, {
-      packageType,
-      fileCount,
-      totalSize: `${(totalSize / 1024).toFixed(2)}KB`,
-      processingTime: `${processingTime}ms`,
-      wasmGenerated: !!compiledWasm,
-      complexWasmGenerated: !!complexWasm,
-      hasExecutionMethods: true
-    });
+   // ============================================================================
+// SUCCESS RESPONSE
+// ============================================================================
+const processingTime = Date.now() - startTime;
 
-    // Return success response
-    res.status(201).json({
-      success: true,
-      packId: pack.id,
-      urlId,
-      cdnUrl,
-      workerUrl,
-      wasmUrl,
-      complexWasmUrl,
-      installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
-      npmInstallCommand: `npm install ${name}`,
-      encryptedKey,
-      isNewVersion,
-      basePackId,
-      version: versionNumber,
-      metadata: {
-        name,
-        version: versionNumber,
-        packageType,
-        fileCount,
-        totalSize,
-        isPublic,
-        dependencies: Array.from(fileDependencies),
-        wasmGenerated: !!compiledWasm,
-        complexWasmGenerated: !!complexWasm,
-        wasmFunctions: wasmMetadata?.functions || [],
-        createdAt: now,
-        checksum: packageChecksum,
-        hasExecutionMethods: true
-      },
-      links: {
-        cdn: cdnUrl,
-        info: workerUrl,
-        download: `${cdnUrl}/index.js`,
-        wasm: wasmUrl,
-        complexWasm: complexWasmUrl,
-        api: `/api/get-pack?id=${urlId}`,
-        versions: `/api/pack-versions?id=${pack.id}`,
-        edit: `/api/edit-pack?id=${pack.id}${editToken ? `&token=${editToken}` : ''}`
-      },
-      advancedFeatures: {
-        versioning: true,
-        collaboration: true,
-        dependencies: fileDependencies.size > 0,
-        wasmSupport: true,
-        complexWasmSupport: !!complexWasm,
-        compileToWasm: compileToWasm,
-        webAccessible: true,
-        sandboxed: true,
-        packJsonExecution: true
-      },
-      processingTime: `${processingTime}ms`
-    });
+console.log(`Package published successfully: ${name} v${versionNumber}`, {
+  packageType,
+  fileCount,
+  totalSize: `${(totalSize / 1024).toFixed(2)}KB`,
+  processingTime: `${processingTime}ms`,
+  wasmGenerated: !!compiledWasm,
+  complexWasmGenerated: !!complexWasm,
+  hasExecutionMethods: true
+});
 
-  } catch (error) {
-    console.error('Publish error:', {
-      message: error.message,
-      stack: error.stack,
-      clientIp,
-      timestamp: new Date().toISOString()
-    });
+// 🆕 GENERATE EDIT TOKEN FOR ANONYMOUS USER
+let editToken = null;
+let editTokenData = null;
+
+try {
+  // Generate a secure edit token
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year
+  
+  // Insert into edit_tokens table
+  const { data: tokenResult, error: tokenError } = await supabase
+    .from('edit_tokens')
+    .insert([{
+      pack_id: pack.id,
+      token: token,
+      created_by: userId || 'anonymous',
+      creator_ip: clientIp,
+      expires_at: expiresAt,
+      max_uses: 50, // Generous number of edits
+      use_count: 0,
+      created_at: now,
+      updated_at: now
+    }])
+    .select()
+    .single();
     
-    res.status(500).json({ 
-      success: false, 
-      error: 'An unexpected error occurred. Please try again later.',
-      code: 'INTERNAL_SERVER_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+  if (!tokenError && tokenResult) {
+    editTokenData = tokenResult;
+    editToken = token;
+    console.log(`Generated edit token for pack ${pack.id}`);
+  } else {
+    console.warn('Failed to generate edit token (non-critical):', tokenError);
   }
+} catch (tokenError) {
+  console.warn('Edit token generation failed (non-critical):', tokenError);
+}
+
+// 🆕 Generate secure URLs with token
+const editUrl = `/api/edit-pack?id=${pack.id}${editToken ? `&token=${editToken}` : ''}`;
+const manageUrl = editToken ? `/manage/${pack.id}?token=${editToken}` : `/manage/${pack.id}`;
+
+// Return success response
+res.status(201).json({
+  success: true,
+  packId: pack.id,
+  urlId,
+  cdnUrl,
+  workerUrl,
+  wasmUrl,
+  complexWasmUrl,
+  
+  // 🆕 EDIT TOKEN INFORMATION (CRITICAL FOR ANONYMOUS USERS)
+  editToken: editToken,
+  editTokenInfo: editTokenData ? {
+    token: editTokenData.token,
+    expiresAt: editTokenData.expires_at,
+    maxUses: editTokenData.max_uses,
+    remainingUses: editTokenData.max_uses - editTokenData.use_count,
+    createdAt: editTokenData.created_at
+  } : null,
+  
+  // 🆕 WARNING FOR ANONYMOUS USERS
+  securityWarning: !userId ? [
+    '⚠️ IMPORTANT: You have published anonymously',
+    '🔑 Save this edit token: ' + (editToken || 'NOT GENERATED'),
+    '📝 You will need this token to update or delete this package',
+    '💾 Store it securely - it cannot be recovered if lost',
+    '🔗 Bookmark this page or save the token in a safe place'
+  ] : null,
+  
+  installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
+  npmInstallCommand: `npm install ${name}`,
+  encryptedKey,
+  isNewVersion,
+  basePackId,
+  version: versionNumber,
+  metadata: {
+    name,
+    version: versionNumber,
+    packageType,
+    fileCount,
+    totalSize,
+    isPublic,
+    dependencies: Array.from(fileDependencies),
+    wasmGenerated: !!compiledWasm,
+    complexWasmGenerated: !!complexWasm,
+    wasmFunctions: wasmMetadata?.functions || [],
+    createdAt: now,
+    checksum: packageChecksum,
+    hasExecutionMethods: true,
+    publisherType: userId ? 'authenticated' : 'anonymous',
+    publisherIpHash: clientIp ? crypto.createHash('sha256').update(clientIp).digest('hex').substring(0, 16) : null
+  },
+  links: {
+    cdn: cdnUrl,
+    info: workerUrl,
+    download: `${cdnUrl}/index.js`,
+    wasm: wasmUrl,
+    complexWasm: complexWasmUrl,
+    api: `/api/get-pack?id=${urlId}`,
+    versions: `/api/pack-versions?id=${pack.id}`,
+    edit: editUrl, // 🆕 Includes token if available
+    manage: manageUrl, // 🆕 User-friendly management URL
+    embed: `${workerUrl}/embed`,
+    raw: `${cdnUrl}/raw/${name}.js`
+  },
+  advancedFeatures: {
+    versioning: true,
+    collaboration: true,
+    dependencies: fileDependencies.size > 0,
+    wasmSupport: true,
+    complexWasmSupport: !!complexWasm,
+    compileToWasm: compileToWasm,
+    webAccessible: true,
+    sandboxed: true,
+    packJsonExecution: true,
+    anonymousPublishing: !userId, // 🆕 Indicate this was anonymous
+    editTokenProvided: !!editToken // 🆕 Indicate if edit token was generated
+  },
+  quickActions: {
+    testPackage: `curl "${workerUrl}/test"`,
+    runPackage: `pack run ${name}`,
+    updatePackage: `curl -X POST "${editUrl}" -H "Content-Type: application/json" -d '{"files": {...}}'`,
+    deletePackage: editToken ? `curl -X DELETE "${workerUrl}/delete?token=${editToken}"` : 'Requires edit token'
+  },
+  processingTime: `${processingTime}ms`,
+  
+  // 🆕 RECOMMENDED NEXT STEPS
+  nextSteps: [
+    'Test your package: ' + `${workerUrl}/test`,
+    'Share your package: ' + cdnUrl,
+    'Embed in website: ' + `<script src="${cdnUrl}/embed.js"></script>`,
+    editToken ? 'Save your edit token for future updates' : 'No edit token generated - contact support if needed'
+  ]
+});
+
+} catch (error) {
+  console.error('Publish error:', {
+    message: error.message,
+    stack: error.stack,
+    clientIp,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(500).json({ 
+    success: false, 
+    error: 'An unexpected error occurred. Please try again later.',
+    code: 'INTERNAL_SERVER_ERROR',
+    details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    
+    // 🆕 Helpful recovery information
+    recoveryTips: [
+      'Check your package.json for syntax errors',
+      'Ensure all file sizes are under 10MB',
+      'Verify package name follows naming conventions',
+      'Try reducing the number of files if over limit'
+    ]
+  });
 }
 
 // Cleanup rate limiting store
