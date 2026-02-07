@@ -3481,144 +3481,216 @@ async function handler(req, res) {
       }
     }
 
-       // ============================================================================
-    // VERSIONING AND DATABASE LOGIC
-    // ============================================================================
-    let versionNumber = sanitizeVersion(version);
+   // ============================================================================
+// VERSIONING AND DATABASE LOGIC
+// ============================================================================
+let versionNumber = sanitizeVersion(version);
+let isVersionOfId = null; // Track if this is a version of another package
+
+// 🆕 FIXED LOGIC: Handle different publishing scenarios
+if (isNewVersion && basePackId) {
+    // Scenario 1: User wants to create a new version of an existing package
+    console.log(`Creating new version for package ID: ${basePackId}`);
     
-    // 🆕 FIXED LOGIC: Handle different publishing scenarios
-    if (isNewVersion && basePackId) {
-      // Scenario 1: User wants to create a new version of an existing package
-      console.log(`Creating new version for package ID: ${basePackId}`);
-      
-      // Verify the base pack exists
-      const { data: basePack } = await supabase
+    // Verify the base pack exists
+    const { data: basePack } = await supabase
         .from('packs')
         .select('id, name, package_type')
         .eq('id', basePackId)
         .single();
-      
-      if (!basePack) {
+    
+    if (!basePack) {
         return res.status(404).json({
-          success: false,
-          error: `Base package with ID "${basePackId}" not found`,
-          code: 'BASE_PACK_NOT_FOUND'
+            success: false,
+            error: `Base package with ID "${basePackId}" not found`,
+            code: 'BASE_PACK_NOT_FOUND'
         });
-      }
-      
-      // Check permissions (edit token required for anonymous users)
-      const canEdit = await canUserEditPack(basePackId, userId, editToken);
-      if (!canEdit) {
-        return res.status(403).json({
-          success: false,
-          error: 'You do not have permission to edit this package',
-          code: 'EDIT_PERMISSION_DENIED',
-          details: userId ? 
-            'Your user ID does not match the package owner' : 
-            'Valid edit token is required for anonymous users'
-        });
-      }
-      
-      // For new versions, use the original package's name
-      // Allow same name since we're creating a new version of the same package
-      console.log(`Creating version ${versionNumber} of "${basePack.name}"`);
-      
-    } else if (isNewVersion && !basePackId) {
-      // Scenario 2: User checked "Create New Version" but didn't provide basePackId
-      // This is invalid - we can't create a new version without knowing which package
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot create new version without specifying Base Pack ID',
-        code: 'MISSING_BASE_PACK_ID',
-        suggestion: 'Enter the original package ID or uncheck "Create New Version"'
-      });
-      
-    } else {
-      // Scenario 3: Creating a BRAND NEW package (not a new version)
-      console.log(`Creating new package: "${name}"`);
-      
-      // Check if package name already exists (only for brand new packages)
-      const { data: existingPack } = await supabase
-        .from('packs')
-        .select('id, name, created_at')
-        .eq('name', name)
-        .limit(1);
-      
-      if (existingPack && existingPack.length > 0) {
-        return res.status(409).json({
-          success: false,
-          error: `Package name "${name}" is already taken. Package names must be unique.`,
-          code: 'PACKAGE_NAME_EXISTS',
-          existingPackageId: existingPack[0].id,
-          suggestion: `Use "isNewVersion: true" and "basePackId: "${existingPack[0].id}" to create a new version`
-        });
-      }
     }
-    // Generate secure URLs
-    const urlId = generateSecureUrlId();
-    const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
-    const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
-    const wasmUrl = compiledWasm ? `${cdnUrl}/compiled.wasm` : null;
-    const complexWasmUrl = complexWasm ? `${cdnUrl}/complex.wasm` : null;
     
-    // Generate encryption key for private packages
-    const encryptedKey = !isPublic ? generateSecureEncryptionKey() : null;
-    
-    // Generate checksum
-    const packageChecksum = generateChecksum(JSON.stringify(processedFiles));
-    
-    // Prepare package data
-    const now = new Date().toISOString();
-    const packData = {
-      url_id: urlId,
-      name,
-      pack_json: JSON.stringify(enhancedPackJson),
-      files: processedFiles,
-      cdn_url: cdnUrl,
-      worker_url: workerUrl,
-      encrypted_key: encryptedKey,
-      is_public: isPublic,
-      version: versionNumber,
-      package_type: packageType,
-      created_at: now,
-      updated_at: now,
-      views: 0,
-      downloads: 0,
-      publish_ip: clientIp,
-      last_accessed: now,
-      publisher_id: userId,
-      wasm_url: wasmUrl,
-      complex_wasm_url: complexWasmUrl,
-      wasm_metadata: wasmMetadata,
-      compile_to_wasm: compileToWasm
-    };
-
-    // Save to main packs table
-    const { data: pack, error: packError } = await supabase
-      .from('packs')
-      .insert([packData])
-      .select()
-      .single();
-
-    if (packError) {
-      console.error('Supabase insert error:', packError);
-      
-      if (packError.code === '23505') {
-        return res.status(409).json({ 
-          success: false, 
-          error: 'Package with this name already exists',
-          code: 'DUPLICATE_PACKAGE'
+    // Check permissions (edit token required for anonymous users)
+    const canEdit = await canUserEditPack(basePackId, userId, editToken);
+    if (!canEdit) {
+        return res.status(403).json({
+            success: false,
+            error: 'You do not have permission to edit this package',
+            code: 'EDIT_PERMISSION_DENIED',
+            details: userId ? 
+                'Your user ID does not match the package owner' : 
+                'Valid edit token is required for anonymous users'
         });
-      }
-      
-      return res.status(500).json({ 
+    }
+    
+    // Set this as a version of the base package
+    isVersionOfId = basePackId;
+    console.log(`Creating version ${versionNumber} of "${basePack.name}" (ID: ${basePackId})`);
+    
+} else if (isNewVersion && !basePackId) {
+    // Scenario 2: User checked "Create New Version" but didn't provide basePackId
+    console.log(`Looking for original package with name: "${name}"`);
+    
+    try {
+        const { data: originalPack } = await supabase
+            .from('packs')
+            .select('id, name, created_at')
+            .eq('name', name)
+            .order('created_at', { ascending: true })
+            .limit(1);
+        
+        if (originalPack && originalPack[0]) {
+            isVersionOfId = originalPack[0].id;
+            console.log(`Found original package ID: ${isVersionOfId} for name: "${name}"`);
+            
+            // Check permissions
+            const canEdit = await canUserEditPack(isVersionOfId, userId, editToken);
+            if (!canEdit) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'You do not have permission to create a version of this package',
+                    code: 'EDIT_PERMISSION_DENIED',
+                    details: userId ? 
+                        'Your user ID does not match the package owner' : 
+                        'Valid edit token is required for anonymous users'
+                });
+            }
+            
+            console.log(`Creating new version ${versionNumber} of existing package "${name}"`);
+        } else {
+            // No existing package found with this name
+            return res.status(400).json({
+                success: false,
+                error: `Cannot create new version - no existing package found with name "${name}"`,
+                code: 'NO_EXISTING_PACKAGE',
+                suggestion: 'Create a new package instead or provide the correct basePackId'
+            });
+        }
+    } catch (lookupError) {
+        console.error('Package lookup error:', lookupError);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to check for existing packages',
+            code: 'LOOKUP_ERROR'
+        });
+    }
+    
+} else {
+    // Scenario 3: Creating a BRAND NEW package (not a new version)
+    console.log(`Creating new package: "${name}"`);
+    isVersionOfId = null; // This is an original, not a version
+    
+    // Check if package name already exists (only for brand new packages)
+    // But we need to check differently because of our new schema
+    const { data: existingPack } = await supabase
+        .from('packs')
+        .select('id, name, created_at, is_version_of')
+        .eq('name', name)
+        .limit(5);
+    
+    if (existingPack && existingPack.length > 0) {
+        // Check if any existing package is an original (not a version)
+        const originalPacks = existingPack.filter(p => p.is_version_of === null);
+        
+        if (originalPacks.length > 0) {
+            // Found an original package with this name
+            const originalPack = originalPacks[0];
+            return res.status(409).json({
+                success: false,
+                error: `Package name "${name}" is already taken. Package names must be unique for new packages.`,
+                code: 'PACKAGE_NAME_EXISTS',
+                existingPackageId: originalPack.id,
+                suggestion: `Use "isNewVersion: true" and "basePackId: "${originalPack.id}" to create a new version`,
+                existingVersions: existingPack.length,
+                originalCreated: originalPack.created_at
+            });
+        }
+        // If all existing packages are versions (is_version_of is not null), 
+        // then this name is available for a new original package
+        console.log(`Name "${name}" has ${existingPack.length} versions but no original package. Creating new original.`);
+    }
+}
+
+// Generate secure URLs
+const urlId = generateSecureUrlId();
+const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
+const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
+const wasmUrl = compiledWasm ? `${cdnUrl}/compiled.wasm` : null;
+const complexWasmUrl = complexWasm ? `${cdnUrl}/complex.wasm` : null;
+
+// Generate encryption key for private packages
+const encryptedKey = !isPublic ? generateSecureEncryptionKey() : null;
+
+// Generate checksum
+const packageChecksum = generateChecksum(JSON.stringify(processedFiles));
+
+// Prepare package data
+const now = new Date().toISOString();
+const packData = {
+    url_id: urlId,
+    name,
+    pack_json: JSON.stringify(enhancedPackJson),
+    files: processedFiles,
+    cdn_url: cdnUrl,
+    worker_url: workerUrl,
+    encrypted_key: encryptedKey,
+    is_public: isPublic,
+    version: versionNumber,
+    package_type: packageType,
+    created_at: now,
+    updated_at: now,
+    views: 0,
+    downloads: 0,
+    publish_ip: clientIp,
+    last_accessed: now,
+    publisher_id: userId,
+    wasm_url: wasmUrl,
+    complex_wasm_url: complexWasmUrl,
+    wasm_metadata: wasmMetadata,
+    compile_to_wasm: compileToWasm,
+    
+    // 🔥 CRITICAL FIX: Add the is_version_of field that matches your PostgreSQL schema
+    is_version_of: isVersionOfId // This tells the database if it's a new version
+};
+
+// Save to main packs table
+console.log('Inserting pack data with is_version_of:', isVersionOfId);
+const { data: pack, error: packError } = await supabase
+    .from('packs')
+    .insert([packData])
+    .select()
+    .single();
+
+if (packError) {
+    console.error('Supabase insert error:', packError);
+    
+    // Check for specific database errors
+    if (packError.code === '23505') {
+        // Unique constraint violation - name already exists
+        return res.status(409).json({ 
+            success: false, 
+            error: 'Package name already exists. Use isNewVersion: true to create a new version.',
+            code: 'DUPLICATE_PACKAGE_NAME',
+            details: packError.message,
+            suggestion: 'Set isNewVersion: true and provide basePackId or leave blank to find original'
+        });
+    } else if (packError.code === 'P0001') {
+        // PostgreSQL function exception (our trigger function)
+        return res.status(409).json({
+            success: false,
+            error: packError.message,
+            code: 'DATABASE_VALIDATION_ERROR',
+            suggestion: 'This is likely a duplicate name error. Use versioning instead.'
+        });
+    }
+    
+    return res.status(500).json({ 
         success: false, 
         error: 'Failed to save package to database',
         code: 'DATABASE_ERROR',
-        details: packError.message
-      });
-    }
+        details: packError.message,
+        databaseError: packError.code
+    });
+}
 
+console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_version_of}`);
     // Save advanced features
     try {
       // Save to pack_versions table
