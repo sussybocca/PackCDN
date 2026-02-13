@@ -2,24 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Pack Studio - Immersive WebAssembly Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>⚡ PACK STUDIO · HYPERION EDITION</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ---------- Root variables with neon palette ---------- */
+        /* ---------- ROOT VARIABLES - MAXIMUM NEON ---------- */
         :root {
             --primary-neon: #00ffff;
-            --primary-glow: 0 0 10px #00ffff, 0 0 20px #00aaff;
+            --primary-glow: 0 0 20px #00ffff, 0 0 40px #00aaff, 0 0 80px #0044ff;
             --accent-neon: #ff44cc;
-            --accent-glow: 0 0 10px #ff44cc, 0 0 20px #aa22ff;
-            --bg-deep: #0b0f17;
-            --bg-panel: rgba(18, 25, 40, 0.85);
-            --border-glow: 1px solid rgba(0, 255, 255, 0.2);
+            --accent-glow: 0 0 20px #ff44cc, 0 0 40px #aa22ff, 0 0 80px #ff0080;
+            --bg-deep: #03050a;
+            --bg-panel: rgba(5, 10, 20, 0.95);
+            --border-neon: 1px solid rgba(0, 255, 255, 0.4);
             --text-bright: #f0f0f0;
-            --text-soft: #b0b0b0;
-            --editor-bg: #0d111c;
-            --terminal-bg: #0a0e15;
+            --text-soft: #b0b0ff;
+            --editor-bg: #0a0c15;
+            --terminal-bg: #05070c;
+            --grid-color: rgba(0, 255, 255, 0.05);
+            --scanline: rgba(0, 255, 255, 0.03);
         }
 
         * {
@@ -35,11 +37,38 @@
             height: 100vh;
             overflow: hidden;
             position: relative;
-            user-select: none;
-            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8' fill='%2300ffff' /%3E%3C/svg%3E") 12 12, auto;
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%2300ffff' stroke-width='2' /%3E%3Ccircle cx='16' cy='16' r='4' fill='%2300ffff' /%3E%3C/svg%3E") 16 16, auto;
         }
 
-        /* ---------- Particle canvas with depth ---------- */
+        /* ---------- HYPER COMPLEX BACKGROUND LAYERS ---------- */
+        #bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 0;
+            pointer-events: none;
+            animation: gridPulse 8s infinite alternate;
+        }
+
+        #bg-radial {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(0,255,255,0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 60%, rgba(255,68,204,0.15) 0%, transparent 50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: rotateSlow 60s linear infinite;
+        }
+
         #particle-canvas {
             position: fixed;
             top: 0;
@@ -47,596 +76,610 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 0;
-            opacity: 0.7;
-            filter: blur(1px);
+            z-index: 1;
+            opacity: 0.9;
+            filter: blur(2px) brightness(1.2);
         }
 
-        /* ---------- Cinematic preloader (boot sequence) ---------- */
+        #particle-canvas-2 {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.5;
+            mix-blend-mode: screen;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, var(--scanline) 0px, var(--scanline) 2px, transparent 2px, transparent 8px);
+            z-index: 2;
+            pointer-events: none;
+            animation: scanMove 12s linear infinite;
+        }
+
+        .glow-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0,255,255,0.1) 0%, transparent 50%);
+            z-index: 3;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        @keyframes gridPulse {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.8; }
+        }
+
+        @keyframes rotateSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes scanMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 20px; }
+        }
+
+        /* ---------- PRELOADER - ULTRA COMPLEX ---------- */
         #preloader {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at 30% 40%, #0c1a2b, #020408);
+            background: radial-gradient(circle at 20% 30%, #0a1a3a, #010101);
             z-index: 10000;
             display: flex;
             justify-content: center;
             align-items: center;
             flex-direction: column;
-            transition: opacity 1.5s ease, visibility 1.5s ease;
+            transition: opacity 2s ease, visibility 2s ease;
             pointer-events: none;
             font-family: 'Courier New', monospace;
+            backdrop-filter: blur(20px);
         }
         #preloader.fade-out {
             opacity: 0;
             visibility: hidden;
         }
         .preloader-logo {
-            font-size: 5rem;
+            font-size: 8rem;
             color: var(--primary-neon);
-            text-shadow: var(--primary-glow), 0 0 40px var(--accent-neon);
-            margin-bottom: 2rem;
-            animation: glitch 2s infinite;
+            text-shadow: 0 0 30px #00ffff, 0 0 60px #ff44cc, 0 0 120px #00aaff;
+            margin-bottom: 3rem;
+            animation: glitch3d 2.5s infinite;
+            transform-style: preserve-3d;
         }
         .preloader-text {
-            font-size: 2rem;
-            letter-spacing: 0.8rem;
-            background: linear-gradient(45deg, var(--primary-neon), var(--accent-neon));
+            font-size: 3rem;
+            letter-spacing: 1.2rem;
+            background: linear-gradient(45deg, #fff, var(--primary-neon), var(--accent-neon), #fff);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            animation: flicker 3s infinite;
+            animation: flickerIntense 2s infinite;
+            filter: drop-shadow(0 0 20px cyan);
         }
         .preloader-bar {
-            width: 300px;
-            height: 4px;
-            background: rgba(255,255,255,0.05);
-            margin-top: 2rem;
-            border-radius: 2px;
+            width: 500px;
+            max-width: 80%;
+            height: 8px;
+            background: rgba(0,0,0,0.7);
+            margin-top: 3rem;
+            border-radius: 4px;
             overflow: hidden;
-            box-shadow: 0 0 10px var(--primary-neon);
+            box-shadow: 0 0 30px var(--primary-neon), inset 0 0 10px black;
+            position: relative;
         }
         .preloader-bar::after {
             content: '';
             display: block;
-            width: 50%;
+            width: 200%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, var(--primary-neon), var(--accent-neon), transparent);
-            animation: load 1.8s infinite;
+            background: linear-gradient(90deg, transparent, var(--primary-neon), var(--accent-neon), var(--primary-neon), transparent);
+            animation: loadHyper 2.2s infinite;
         }
-        @keyframes load {
+        .preloader-bar::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: inherit;
+            filter: blur(20px);
+            opacity: 0.7;
+        }
+        @keyframes loadHyper {
             0% { transform: translateX(-100%); }
-            100% { transform: translateX(200%); }
+            100% { transform: translateX(50%); }
         }
-        @keyframes glitch {
-            0%, 100% { transform: skew(0deg, 0deg); opacity: 1; }
-            95% { transform: skew(5deg, 2deg); opacity: 0.8; text-shadow: 2px 0 red, -2px 0 blue; }
-            96% { transform: skew(-5deg, -2deg); }
+        @keyframes glitch3d {
+            0%,100% { transform: skew(0deg, 0deg) scale(1); text-shadow: 0 0 30px cyan; }
+            2% { transform: skew(5deg, 3deg) scale(1.05); text-shadow: 3px 0 red, -3px 0 blue; }
+            4% { transform: skew(-5deg, -3deg) scale(0.95); text-shadow: -3px 0 lime, 3px 0 magenta; }
+            6% { transform: skew(0deg, 0deg) scale(1); }
         }
-        @keyframes flicker {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; text-shadow: 0 0 20px var(--primary-neon); }
+        @keyframes flickerIntense {
+            0%,100% { opacity: 1; text-shadow: 0 0 30px cyan; }
+            10% { opacity: 0.7; text-shadow: 0 0 50px magenta; }
+            20% { opacity: 1; }
+            30% { opacity: 0.8; }
+            40% { opacity: 1; }
         }
 
-        /* ---------- Main layout grid (rock solid) ---------- */
+        /* ---------- MAIN APP GRID ---------- */
         .app {
             display: grid;
             grid-template-rows: auto 1fr auto;
             height: 100vh;
             position: relative;
-            z-index: 10;
-            backdrop-filter: blur(2px);
+            z-index: 20;
+            backdrop-filter: blur(4px);
         }
 
-        /* Header with neon underline */
+        /* ===== HEADER - MAXIMUM GLOW ===== */
         .header {
-            background: rgba(8, 12, 20, 0.8);
-            backdrop-filter: blur(12px);
-            border-bottom: 2px solid transparent;
-            border-image: linear-gradient(90deg, var(--primary-neon), var(--accent-neon), var(--primary-neon)) 1;
-            padding: 12px 24px;
+            background: rgba(0, 5, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 3px solid transparent;
+            border-image: repeating-linear-gradient(90deg, var(--primary-neon), var(--accent-neon), var(--primary-neon), transparent) 30;
+            padding: 16px 32px;
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            gap: 16px 30px;
+            box-shadow: 0 0 60px rgba(0, 255, 255, 0.4), 0 10px 30px black;
+            position: relative;
+            z-index: 25;
         }
-
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-neon), var(--accent-neon), transparent);
+            filter: blur(4px);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transform-style: preserve-3d;
+            animation: logoFloat 6s ease-in-out infinite;
+        }
+        @keyframes logoFloat {
+            0%,100% { transform: translateY(0) rotateY(0deg); }
+            50% { transform: translateY(-5px) rotateY(5deg); }
+        }
         .logo-icon {
-            font-size: 30px;
+            font-size: 48px;
             color: var(--primary-neon);
-            filter: drop-shadow(0 0 15px currentColor);
-            animation: rotate 8s linear infinite;
+            filter: drop-shadow(0 0 30px currentColor) drop-shadow(0 0 60px var(--accent-neon));
+            animation: rotate3d 12s infinite linear;
         }
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        @keyframes rotate3d {
+            from { transform: rotateY(0deg) rotateX(0deg); }
+            to { transform: rotateY(360deg) rotateX(360deg); }
         }
-
         .logo-text {
-            font-size: 26px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff, var(--primary-neon), var(--accent-neon));
+            font-size: clamp(28px, 6vw, 40px);
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff, var(--primary-neon), var(--accent-neon), #fff);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            text-shadow: 0 0 20px rgba(0,255,255,0.5);
-            letter-spacing: 3px;
+            text-shadow: 0 0 40px rgba(0,255,255,0.8), 0 0 80px rgba(255,68,204,0.6);
+            letter-spacing: 6px;
+            transform: translateZ(20px);
         }
-
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
         .status-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: rgba(0, 255, 255, 0.05);
-            border-radius: 30px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            box-shadow: 0 0 15px rgba(0,255,255,0.2);
+            gap: 10px;
+            padding: 8px 20px;
+            background: rgba(0, 20, 40, 0.6);
+            border-radius: 40px;
+            border: 1px solid var(--primary-neon);
+            box-shadow: 0 0 25px var(--primary-neon), inset 0 0 15px rgba(0,255,255,0.2);
+            font-size: clamp(13px, 3vw, 16px);
+            backdrop-filter: blur(10px);
+            transition: 0.3s;
         }
-        .status-item i {
-            color: var(--primary-neon);
+        .status-item:hover {
+            transform: scale(1.1) translateY(-3px);
+            box-shadow: 0 0 45px var(--accent-neon), inset 0 0 25px var(--accent-neon);
+            border-color: var(--accent-neon);
         }
 
-        /* Main container: grid with 3 columns (sidebar, editor, terminal) */
+        /* ===== MAIN CONTAINER – 3D ENHANCED ===== */
         .container {
             display: grid;
-            grid-template-columns: 320px 1fr 360px;
-            gap: 12px;
-            padding: 12px;
+            grid-template-columns: minmax(280px, 340px) minmax(300px, 1fr) minmax(280px, 340px);
+            gap: 16px;
+            padding: 16px;
             overflow: hidden;
             height: 100%;
+            transition: all 0.3s cubic-bezier(0.2,1,0.3,1);
+            perspective: 1200px;
         }
 
-        /* Sidebar panels */
-        .sidebar {
+        /* Tablet landscape */
+        @media (max-width: 1100px) {
+            .container {
+                grid-template-columns: minmax(240px, 280px) 1fr;
+                grid-template-rows: 1fr 300px;
+            }
+            .terminal-panel { grid-column: span 2; }
+        }
+        @media (max-width: 750px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            .sidebar, .editor-area, .terminal-panel { grid-column: span 1; }
+        }
+
+        /* ---------- PANELS WITH 3D HOVER & MAXIMUM GLAM ---------- */
+        .sidebar, .editor-area, .terminal-panel {
             background: var(--bg-panel);
-            backdrop-filter: blur(16px);
-            border-radius: 20px;
-            border: var(--border-glow);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 2px rgba(0,255,255,0.1) inset;
-            display: flex;
-            flex-direction: column;
+            backdrop-filter: blur(25px);
+            border-radius: 30px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 2px rgba(0,255,255,0.2) inset, 0 0 40px rgba(0,255,255,0.3);
+            transition: transform 0.4s cubic-bezier(0.2,0.9,0.3,1.2), box-shadow 0.4s;
+            transform-style: preserve-3d;
             overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.3s;
+            position: relative;
         }
-        .sidebar:hover {
-            box-shadow: 0 20px 50px rgba(0,255,255,0.3), 0 0 0 2px rgba(0,255,255,0.3) inset;
-            transform: translateY(-2px);
+        .sidebar::before, .editor-area::before, .terminal-panel::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 32px;
+            background: linear-gradient(45deg, transparent 30%, var(--primary-neon), var(--accent-neon), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.6s;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .sidebar:hover, .editor-area:hover, .terminal-panel:hover {
+            transform: translateY(-8px) rotateX(2deg) rotateY(1deg) scale(1.02);
+            box-shadow: 0 40px 80px rgba(0,255,255,0.5), 0 0 0 4px rgba(0,255,255,0.4) inset, 0 0 80px var(--primary-neon);
+        }
+        .sidebar:hover::before, .editor-area:hover::before, .terminal-panel:hover::before {
+            opacity: 1;
         }
 
+        /* File tree and other internals – keep original classes, but enhance */
         .sidebar-section {
-            padding: 18px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 20px;
+            border-bottom: 1px solid rgba(0,255,255,0.15);
         }
         .section-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-            color: var(--primary-neon);
-            font-size: 16px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-shadow: 0 0 8px currentColor;
-        }
-
-        /* File tree with holographic items */
-        .file-tree {
-            list-style: none;
-        }
-        .file-item {
-            padding: 8px 12px;
-            border-radius: 10px;
-            margin: 4px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 3px solid transparent;
-            background: rgba(255,255,255,0.02);
-        }
-        .file-item:hover {
-            background: rgba(0, 255, 255, 0.1);
-            border-left-color: var(--primary-neon);
-            box-shadow: 0 0 20px rgba(0,255,255,0.2);
-            transform: translateX(4px);
-        }
-        .file-item.active {
-            background: rgba(0, 255, 255, 0.15);
-            border-left-color: var(--accent-neon);
-            box-shadow: 0 0 20px rgba(255,68,204,0.3);
-        }
-        .file-icon {
-            width: 24px;
-            text-align: center;
+            gap: 12px;
+            margin-bottom: 20px;
             color: var(--primary-neon);
             font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px currentColor, 0 0 30px var(--accent-neon);
         }
-        .file-btn {
-            background: none;
-            border: none;
-            color: var(--text-soft);
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
+        .file-tree {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-neon) #0a0e15;
         }
-        .file-btn:hover {
-            color: var(--primary-neon);
-            background: rgba(0,255,255,0.2);
-            box-shadow: 0 0 10px currentColor;
+        .file-tree::-webkit-scrollbar {
+            width: 8px;
         }
-
-        /* WASM upload area */
-        .wasm-upload {
-            text-align: center;
-            padding: 20px;
-            border: 2px dashed var(--primary-neon);
-            border-radius: 16px;
-            margin: 10px 0;
+        .file-tree::-webkit-scrollbar-track {
+            background: #0a0e15;
+            border-radius: 10px;
+        }
+        .file-tree::-webkit-scrollbar-thumb {
+            background: linear-gradient(var(--primary-neon), var(--accent-neon));
+            border-radius: 10px;
+            box-shadow: 0 0 20px var(--primary-neon);
+        }
+        .file-item {
+            padding: 12px 16px;
+            border-radius: 14px;
+            margin: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
             cursor: pointer;
             transition: all 0.3s;
-            background: rgba(0,255,255,0.03);
-            box-shadow: 0 0 30px rgba(0,255,255,0.1);
+            border-left: 4px solid transparent;
+            background: rgba(0, 20, 40, 0.4);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
         }
-        .wasm-upload:hover {
-            background: rgba(0,255,255,0.1);
-            border-color: var(--accent-neon);
-            box-shadow: 0 0 40px var(--primary-neon);
-            transform: scale(1.02);
+        .file-item:hover {
+            background: rgba(0, 255, 255, 0.2);
+            border-left-color: var(--primary-neon);
+            box-shadow: 0 0 30px var(--primary-neon), 0 8px 16px black;
+            transform: translateX(10px) scale(1.02);
         }
-        .wasm-upload i {
-            font-size: 40px;
-            color: var(--primary-neon);
-            filter: drop-shadow(0 0 10px currentColor);
+        .file-item.active {
+            background: rgba(0, 255, 255, 0.3);
+            border-left-color: var(--accent-neon);
+            box-shadow: 0 0 40px var(--accent-neon), inset 0 0 20px rgba(255,68,204,0.3);
         }
 
-        /* Config panel with neon scrollbar */
+        /* WASM upload */
+        .wasm-upload {
+            padding: 30px 15px;
+            border: 3px dashed var(--primary-neon);
+            border-radius: 30px;
+            margin: 15px 0;
+            background: rgba(0,40,40,0.2);
+            box-shadow: 0 0 50px rgba(0,255,255,0.3), inset 0 0 30px rgba(0,255,255,0.2);
+            transition: 0.4s;
+        }
+        .wasm-upload i {
+            font-size: 60px;
+            filter: drop-shadow(0 0 30px currentColor);
+        }
+        .wasm-upload:hover {
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 80px var(--accent-neon), inset 0 0 50px var(--accent-neon);
+            transform: scale(1.05) rotate(1deg);
+        }
+
+        /* Config panel */
         .config-panel {
             max-height: 400px;
             overflow-y: auto;
             padding-right: 8px;
         }
-        .config-panel::-webkit-scrollbar {
-            width: 8px;
-        }
-        .config-panel::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
-        }
-        .config-panel::-webkit-scrollbar-thumb {
-            background: linear-gradient(var(--primary-neon), var(--accent-neon));
-            border-radius: 4px;
-            box-shadow: 0 0 10px var(--primary-neon);
-        }
         .config-input {
-            width: 100%;
-            padding: 12px;
-            background: rgba(0,0,0,0.4);
-            border: 2px solid rgba(0,255,255,0.2);
-            border-radius: 10px;
+            background: rgba(0,10,20,0.8);
+            border: 2px solid var(--primary-neon);
+            border-radius: 16px;
             color: var(--text-bright);
-            font-family: inherit;
-            transition: all 0.3s;
+            padding: 14px;
+            font-size: 15px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2), inset 0 0 10px black;
         }
         .config-input:focus {
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 40px var(--accent-neon), inset 0 0 20px rgba(0,255,255,0.3);
             outline: none;
-            border-color: var(--primary-neon);
-            box-shadow: 0 0 20px var(--primary-neon);
-            background: rgba(0,0,0,0.6);
         }
 
-        /* Type cards with holographic flip */
+        /* Type cards with 3D flip */
         .type-info-cards {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 12px;
+            perspective: 1000px;
         }
         .type-card {
-            padding: 16px;
-            border-radius: 16px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.05);
+            padding: 20px 8px;
+            border-radius: 20px;
+            background: rgba(0,10,20,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
             cursor: pointer;
-            transition: all 0.3s;
+            transition: 0.5s;
             text-align: center;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(10px);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
         }
         .type-card:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 0 30px var(--primary-neon);
+            transform: rotateY(10deg) rotateX(5deg) translateY(-10px) scale(1.1);
+            box-shadow: 0 0 50px var(--primary-neon), 0 20px 40px black;
             border-color: var(--primary-neon);
-            background: rgba(0,255,255,0.1);
+            background: rgba(0,255,255,0.15);
         }
         .type-card.active {
             border-color: var(--accent-neon);
-            box-shadow: 0 0 30px var(--accent-neon);
-            background: rgba(255,68,204,0.1);
-        }
-        .type-icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-            filter: drop-shadow(0 0 8px currentColor);
+            box-shadow: 0 0 60px var(--accent-neon);
+            background: rgba(255,68,204,0.15);
         }
 
-        /* Editor area - the star */
+        /* ---------- MONACO EDITOR - ULTIMATE UPGRADE ---------- */
         .editor-area {
-            background: var(--bg-panel);
-            backdrop-filter: blur(16px);
-            border-radius: 20px;
-            border: var(--border-glow);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 2px rgba(0,255,255,0.1) inset;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transition: all 0.3s;
+            /* additional editor-specific glow */
         }
-        .editor-area:hover {
-            box-shadow: 0 20px 60px rgba(0,255,255,0.3), 0 0 0 3px rgba(0,255,255,0.3) inset;
-        }
-
         .editor-tabs {
-            display: flex;
-            background: rgba(0,0,0,0.3);
-            border-bottom: 1px solid rgba(0,255,255,0.2);
-            padding: 0 12px;
-            gap: 4px;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 2px solid var(--primary-neon);
+            padding: 0 16px;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-neon) #000;
+        }
+        .editor-tabs::-webkit-scrollbar {
+            height: 6px;
+        }
+        .editor-tabs::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, var(--primary-neon), var(--accent-neon));
+            border-radius: 10px;
         }
         .tab {
-            padding: 10px 18px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid transparent;
-            transition: all 0.2s;
+            padding: 12px 22px;
+            background: rgba(0,10,20,0.7);
+            border: 1px solid rgba(0,255,255,0.2);
             color: var(--text-soft);
+            font-weight: 500;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            transition: 0.3s;
+            box-shadow: inset 0 -2px 5px rgba(0,0,0,0.5);
         }
         .tab:hover {
-            background: rgba(0,255,255,0.1);
-            border-color: rgba(0,255,255,0.3);
-            color: var(--text-bright);
+            background: rgba(0,255,255,0.2);
+            border-color: var(--primary-neon);
+            color: white;
+            transform: translateY(-3px);
         }
         .tab.active {
-            background: rgba(0,255,255,0.15);
-            border-color: var(--primary-neon);
+            background: rgba(0,255,255,0.25);
+            border-color: var(--primary-neon) var(--primary-neon) transparent var(--primary-neon);
             color: var(--primary-neon);
-            box-shadow: 0 -2px 10px var(--primary-neon);
+            text-shadow: 0 0 15px currentColor;
+            box-shadow: 0 -5px 30px var(--primary-neon);
         }
 
-        .editor-container {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
+        /* Monaco custom theme extended */
+        .monaco-editor {
+            --vscode-editor-background: #0a0d1a !important;
+            --vscode-editor-foreground: #e0e0ff !important;
         }
-        #monaco-editor {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+        .monaco-editor .cursor {
+            background-color: var(--primary-neon) !important;
+            box-shadow: 0 0 20px var(--primary-neon), 0 0 40px #00aaff !important;
+            width: 4px !important;
+        }
+        .monaco-editor .line-numbers {
+            color: #4a8cff !important;
+            text-shadow: 0 0 10px #00aaff, 0 0 20px #0044ff !important;
+            font-weight: bold;
+        }
+        .monaco-editor .current-line {
+            border: 2px solid rgba(0,255,255,0.4) !important;
+            background: rgba(0,255,255,0.05) !important;
+        }
+        .monaco-editor .view-overlays .current-line {
+            border: 2px solid rgba(0,255,255,0.4) !important;
+        }
+        /* Enhanced syntax highlighting */
+        .monaco-editor .mtk1 { color: #c0c0ff; } /* default */
+        .monaco-editor .mtk2 { color: #f0f0ff; }
+        .monaco-editor .mtk3 { color: #9cdcfe; text-shadow: 0 0 5px #00aaff; } /* variables */
+        .monaco-editor .mtk4 { color: #569cd6; text-shadow: 0 0 10px #569cd6, 0 0 20px #0044ff; } /* keywords */
+        .monaco-editor .mtk5 { color: #ce9178; text-shadow: 0 0 5px #ff8866; } /* strings */
+        .monaco-editor .mtk6 { color: #b5cea8; text-shadow: 0 0 5px #aaffaa; } /* numbers */
+        .monaco-editor .mtk7 { color: #4ec9b0; text-shadow: 0 0 8px #00ffaa; } /* types */
+        .monaco-editor .mtk8 { color: #c586c0; text-shadow: 0 0 10px #ff88ff; } /* functions */
+        .monaco-editor .mtk9 { color: #dcdcaa; }
+        .monaco-editor .mtk15 { color: #6a9955; text-shadow: 0 0 5px #88ff88; } /* comments */
+        .monaco-editor .mtk16 { color: #808080; }
+        .monaco-editor .mtk17 { color: #569cd6; }
+        .monaco-editor .mtk18 { color: #f44747; text-shadow: 0 0 10px red; }
+
+        /* Scrollbar inside editor */
+        .monaco-editor .scrollbar.vertical .slider {
+            background: linear-gradient(var(--primary-neon), var(--accent-neon)) !important;
+            box-shadow: 0 0 20px var(--primary-neon) !important;
+            width: 12px !important;
         }
 
-        /* Terminal panel */
+        /* ---------- TERMINAL - HACKER DREAMS ---------- */
         .terminal-panel {
-            background: var(--terminal-bg);
-            backdrop-filter: blur(8px);
-            border-radius: 20px;
-            border: var(--border-glow);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 2px rgba(0,255,255,0.1) inset;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            animation: terminalFlicker 5s infinite;
-        }
-        @keyframes terminalFlicker {
-            0%, 100% { opacity: 1; }
-            2% { opacity: 0.9; box-shadow: 0 0 20px var(--primary-neon); }
-            4% { opacity: 1; }
+            background: #03050c;
         }
         .terminal-header {
-            background: rgba(0,0,0,0.4);
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(0,255,255,0.2);
-        }
-        .terminal-title i {
-            color: var(--primary-neon);
+            background: rgba(0,20,30,0.7);
+            padding: 14px 20px;
+            border-bottom: 2px solid var(--primary-neon);
+            box-shadow: 0 0 30px rgba(0,255,255,0.3);
         }
         .terminal-content {
-            padding: 16px;
             font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            max-height: 200px;
-            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.7;
             color: #0f0;
-            text-shadow: 0 0 5px #0f0;
+            text-shadow: 0 0 10px #0f0, 0 0 20px #00ff00;
+            background: rgba(0,0,0,0.7);
+            padding: 16px;
         }
         .terminal-prompt {
             color: var(--primary-neon);
             font-weight: bold;
+            text-shadow: 0 0 10px currentColor;
         }
 
-        /* Floating action buttons with neon rings */
+        /* ---------- FLOATING BUTTONS - 3D NEON ---------- */
         .fab-container {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
+            bottom: 40px;
+            right: 40px;
+            gap: 24px;
         }
         .fab {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, var(--primary-neon), #0a1a2a);
-            border: 2px solid rgba(255,255,255,0.3);
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 30px var(--primary-neon), 0 10px 20px rgba(0,0,0,0.5);
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 30% 30%, #00ffff, #0a1a3a);
+            border: 3px solid rgba(255,255,255,0.5);
+            font-size: 32px;
+            box-shadow: 0 0 50px var(--primary-neon), 0 15px 30px black;
+            transition: 0.4s cubic-bezier(0.2, 1.2, 0.3, 1.5);
+            transform: rotate(0deg) scale(1);
         }
         .fab:hover {
-            transform: scale(1.15) rotate(10deg);
-            box-shadow: 0 0 50px var(--primary-neon), 0 0 0 4px rgba(255,255,255,0.3);
+            transform: scale(1.3) rotate(15deg) translateY(-10px);
+            box-shadow: 0 0 90px var(--primary-neon), 0 0 0 6px rgba(255,255,255,0.4);
         }
         .fab-label {
-            position: absolute;
-            right: 80px;
-            background: rgba(0,0,0,0.9);
-            padding: 8px 18px;
-            border-radius: 30px;
-            font-size: 14px;
-            white-space: nowrap;
-            opacity: 0;
-            transform: translateX(20px);
-            transition: all 0.3s;
-            border: 1px solid var(--primary-neon);
-            color: white;
-            pointer-events: none;
-            box-shadow: 0 0 20px var(--primary-neon);
-        }
-        .fab:hover .fab-label {
-            opacity: 1;
-            transform: translateX(0);
+            right: 100px;
+            padding: 12px 28px;
+            font-size: 18px;
+            background: rgba(0,0,0,0.95);
+            border: 2px solid var(--primary-neon);
+            box-shadow: 0 0 40px var(--primary-neon);
         }
 
-        /* Modal with glassmorphism */
+        /* ---------- MODAL - ULTRA GLASS ---------- */
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(20px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: all;
+            backdrop-filter: blur(30px);
         }
         .modal {
-            background: rgba(10, 15, 25, 0.9);
-            border-radius: 30px;
-            border: 2px solid var(--primary-neon);
-            width: 90%;
-            max-width: 800px;
-            max-height: 90vh;
-            overflow: hidden;
-            box-shadow: 0 0 100px var(--primary-neon);
+            background: rgba(5, 10, 25, 0.98);
+            border: 3px solid var(--primary-neon);
+            box-shadow: 0 0 200px var(--primary-neon), 0 0 100px var(--accent-neon);
+            border-radius: 50px;
+        }
+        .modal-header {
+            border-bottom: 2px solid var(--primary-neon);
         }
 
-        /* Responsive: stack columns on narrow screens */
-        @media (max-width: 1000px) {
-            .container {
-                grid-template-columns: 280px 1fr;
-                grid-template-rows: 1fr 280px;
-            }
-            .terminal-panel {
-                grid-column: span 2;
-            }
-        }
-        @media (max-width: 700px) {
-            .container {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto 1fr auto;
-            }
-            .sidebar, .editor-area, .terminal-panel {
-                grid-column: span 1;
-            }
-            .fab {
-                width: 56px;
-                height: 56px;
-                font-size: 20px;
-            }
-        }
-
-        /* ---------- Monaco custom theme (deeply enhanced) ---------- */
-        .monaco-editor {
-            --vscode-editor-background: #0d111c !important;
-            --vscode-editor-foreground: #e0e0e0 !important;
-        }
-        .monaco-editor .cursor {
-            background-color: var(--primary-neon) !important;
-            box-shadow: 0 0 15px var(--primary-neon) !important;
-            width: 3px !important;
-        }
-        .monaco-editor .line-numbers {
-            color: #4a6a8a !important;
-            text-shadow: 0 0 5px #00aaff !important;
-        }
-        .monaco-editor .current-line {
-            border: 1px solid rgba(0,255,255,0.2) !important;
-            background: rgba(0,255,255,0.03) !important;
-        }
-        .monaco-editor .view-overlays .current-line {
-            border: 1px solid rgba(0,255,255,0.2) !important;
-        }
-        .monaco-editor .mtk1 { color: #c0c0c0; } /* default */
-        .monaco-editor .mtk2 { color: #f0f0f0; }
-        .monaco-editor .mtk3 { color: #9cdcfe; } /* variables */
-        .monaco-editor .mtk4 { color: #569cd6; } /* keywords */
-        .monaco-editor .mtk5 { color: #ce9178; } /* strings */
-        .monaco-editor .mtk6 { color: #b5cea8; } /* numbers */
-        .monaco-editor .mtk7 { color: #4ec9b0; } /* types */
-        .monaco-editor .mtk8 { color: #c586c0; } /* functions */
-        .monaco-editor .mtk9 { color: #dcdcaa; } /* variables? */
-        .monaco-editor .mtk10 { color: #9cdcf2; }
-        .monaco-editor .mtk11 { color: #f2c811; }
-        .monaco-editor .mtk12 { color: #d16969; }
-        .monaco-editor .mtk13 { color: #6796e6; }
-        .monaco-editor .mtk14 { color: #b46695; }
-        .monaco-editor .mtk15 { color: #6a9955; } /* comments */
-        .monaco-editor .mtk16 { color: #808080; }
-        .monaco-editor .mtk17 { color: #569cd6; }
-        .monaco-editor .mtk18 { color: #f44747; }
-        .monaco-editor .mtk19 { color: #4a90e2; }
-        .monaco-editor .mtk20 { color: #4ec9b0; }
-
-        /* Additional glow on keywords */
-        .monaco-editor .mtk4 {
-            text-shadow: 0 0 5px #569cd6;
-        }
-        .monaco-editor .mtk8 {
-            text-shadow: 0 0 5px #c586c0;
-        }
-        .monaco-editor .mtk15 {
-            text-shadow: 0 0 3px #6a9955;
+        /* Mouse follower glow */
+        .glow-overlay {
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0,255,255,0.2) 0%, transparent 60%);
         }
     </style>
 </head>
 <body>
+    <!-- EXTREME BACKGROUND LAYERS -->
+    <div id="bg-grid"></div>
+    <div id="bg-radial"></div>
     <canvas id="particle-canvas"></canvas>
+    <canvas id="particle-canvas-2"></canvas>
+    <div class="scanlines"></div>
+    <div class="glow-overlay" id="glow-overlay"></div>
 
     <div id="preloader">
-        <div class="preloader-logo">
-            <i class="fas fa-cube"></i>
-        </div>
+        <div class="preloader-logo"><i class="fas fa-cube"></i></div>
         <div class="preloader-text">PACK STUDIO</div>
         <div class="preloader-bar"></div>
-        <div style="margin-top: 2rem; color: #4a6a8a; font-size: 0.9rem;">loading modules...</div>
+        <div style="margin-top: 3rem; color: #8aaaff; font-size: 1.2rem; letter-spacing: 4px;">initiating hyperion core...</div>
     </div>
 
     <div class="app">
@@ -646,14 +689,15 @@
                 <div class="logo-text">PACK STUDIO</div>
             </div>
             <div class="status-bar">
-                <div class="status-item"><i class="fas fa-code"></i><span>Editor Ready</span></div>
-                <div class="status-item"><i class="fas fa-bolt"></i><span>WASM Enabled</span></div>
-                <div class="status-item"><i class="fas fa-plug"></i><span>API Connected</span></div>
+                <div class="status-item"><i class="fas fa-code"></i><span>EDITOR</span></div>
+                <div class="status-item"><i class="fas fa-bolt"></i><span>WASM</span></div>
+                <div class="status-item"><i class="fas fa-plug"></i><span>API</span></div>
+                <div class="status-item"><i class="fas fa-brain"></i><span>AI</span></div>
             </div>
         </div>
 
         <div class="container">
-            <!-- Left Sidebar -->
+            <!-- Left Sidebar (unchanged structure) -->
             <div class="sidebar">
                 <div class="sidebar-section file-explorer">
                     <div class="section-header"><i class="fas fa-folder"></i><span>Explorer</span></div>
@@ -664,8 +708,8 @@
                     <div class="wasm-panel">
                         <div class="wasm-upload" id="wasm-upload">
                             <i class="fas fa-file-upload"></i>
-                            <div>Drag & Drop WASM Files</div>
-                            <small>.wasm binary files only</small>
+                            <div>Drag & Drop WASM</div>
+                            <small>.wasm only</small>
                         </div>
                         <div id="wasm-files"></div>
                     </div>
@@ -680,27 +724,27 @@
                         <div class="config-item">
                             <label class="config-label">Package Type</label>
                             <div class="type-info-cards">
-                                <div class="type-card basic active" data-type="basic"><div class="type-icon">📦</div><div class="type-name">Basic</div><div class="type-desc">Simple JS</div></div>
-                                <div class="type-card standard" data-type="standard"><div class="type-icon">🚀</div><div class="type-name">Standard</div><div class="type-desc">+ Node</div></div>
-                                <div class="type-card advanced" data-type="advanced"><div class="type-icon">⚡</div><div class="type-name">Advanced</div><div class="type-desc">Full Features</div></div>
+                                <div class="type-card basic active" data-type="basic"><div class="type-icon">📦</div><div class="type-name">Basic</div><div class="type-desc">Simple</div></div>
+                                <div class="type-card standard" data-type="standard"><div class="type-icon">🚀</div><div class="type-name">Standard</div><div class="type-desc">+Node</div></div>
+                                <div class="type-card advanced" data-type="advanced"><div class="type-icon">⚡</div><div class="type-name">Advanced</div><div class="type-desc">Full</div></div>
                                 <div class="type-card wasm" data-type="wasm"><div class="type-icon">🔬</div><div class="type-name">WASM</div><div class="type-desc">WebAssembly</div></div>
                             </div>
                         </div>
-                        <div class="config-row" style="display: flex; gap: 8px;">
-                            <div class="config-item" style="flex:1"><label class="config-label">Version</label><input type="text" class="config-input" id="package-version" value="1.0.0"></div>
-                            <div class="config-item" style="flex:1"><label class="config-label">Visibility</label><div class="checkbox-group"><input type="checkbox" id="is-public" checked><label for="is-public">Public</label></div></div>
+                        <div class="config-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div class="config-item" style="flex:1 1 120px"><label class="config-label">Version</label><input type="text" class="config-input" id="package-version" value="1.0.0"></div>
+                            <div class="config-item" style="flex:1 1 120px"><label class="config-label">Public</label><div class="checkbox-group"><input type="checkbox" id="is-public" checked><label for="is-public">Public</label></div></div>
                         </div>
                         <div class="advanced-options" id="advanced-options">
-                            <div class="advanced-header" id="advanced-toggle"><i class="fas fa-chevron-right"></i><span>Advanced Options</span></div>
-                            <div class="advanced-content">
-                                <div class="config-item"><div class="checkbox-group"><input type="checkbox" id="is-new-version"><label for="is-new-version">Create New Version</label></div></div>
+                            <div class="advanced-header" id="advanced-toggle"><i class="fas fa-chevron-right"></i><span>Advanced</span></div>
+                            <div class="advanced-content" style="display:none;">
+                                <div class="config-item"><div class="checkbox-group"><input type="checkbox" id="is-new-version"><label for="is-new-version">New Version</label></div></div>
                                 <div id="new-version-fields" style="display: none;">
                                     <div class="config-item"><label class="config-label">Base Pack ID</label><input type="text" class="config-input" id="base-pack-id"></div>
                                     <div class="config-item"><label class="config-label">Edit Token</label><input type="text" class="config-input" id="edit-token"></div>
                                 </div>
-                                <div class="config-item"><label class="config-label">User ID (Optional)</label><input type="text" class="config-input" id="user-id"></div>
+                                <div class="config-item"><label class="config-label">User ID</label><input type="text" class="config-input" id="user-id"></div>
                                 <div class="config-item"><div class="checkbox-group"><input type="checkbox" id="compile-wasm"><label for="compile-wasm">Compile to WASM</label></div></div>
-                                <div class="config-item"><label class="config-label">Collaborators (Optional)</label><input type="text" class="config-input" id="collaborators" placeholder="user1,user2,user3"></div>
+                                <div class="config-item"><label class="config-label">Collaborators</label><input type="text" class="config-input" id="collaborators" placeholder="user1,user2"></div>
                             </div>
                         </div>
                     </div>
@@ -718,12 +762,12 @@
             <!-- Terminal Panel -->
             <div class="terminal-panel">
                 <div class="terminal-header">
-                    <div class="terminal-title"><i class="fas fa-terminal"></i><span> Output</span></div>
-                    <button class="file-btn" id="clear-terminal"><i class="fas fa-trash"></i> Clear</button>
+                    <div class="terminal-title"><i class="fas fa-terminal"></i><span> OUTPUT</span></div>
+                    <button class="file-btn" id="clear-terminal"><i class="fas fa-trash"></i> CLEAR</button>
                 </div>
                 <div class="terminal-content" id="terminal-output">
-                    <div class="terminal-line"><span class="terminal-prompt">$</span><span class="terminal-output">Welcome to Pack Studio v2.0</span></div>
-                    <div class="terminal-line"><span class="terminal-prompt">$</span><span class="terminal-output">Ready to create amazing packages with WebAssembly!</span></div>
+                    <div class="terminal-line"><span class="terminal-prompt">$</span><span class="terminal-output">Welcome to Pack Studio HYPERION</span></div>
+                    <div class="terminal-line"><span class="terminal-prompt">$</span><span class="terminal-output">Neural interface active</span></div>
                 </div>
             </div>
         </div>
@@ -731,120 +775,146 @@
 
     <!-- Floating Action Buttons -->
     <div class="fab-container">
-        <button class="fab" id="fab-new-file"><i class="fas fa-file-plus"></i><span class="fab-label">New File</span></button>
-        <button class="fab" id="fab-save"><i class="fas fa-save"></i><span class="fab-label">Save All</span></button>
-        <button class="fab" id="fab-publish"><i class="fas fa-rocket"></i><span class="fab-label">Publish</span></button>
+        <button class="fab" id="fab-new-file"><i class="fas fa-file-plus"></i><span class="fab-label">NEW FILE</span></button>
+        <button class="fab" id="fab-save"><i class="fas fa-save"></i><span class="fab-label">SAVE ALL</span></button>
+        <button class="fab" id="fab-publish"><i class="fas fa-rocket"></i><span class="fab-label">PUBLISH</span></button>
     </div>
 
-    <!-- Publish Modal -->
+    <!-- Publish Modal (unchanged) -->
     <div class="modal-overlay" id="publish-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title"><i class="fas fa-rocket"></i><span>Publish Package</span></div>
-                <button class="modal-close" id="modal-close">&times;</button>
+                <button class="modal-close" id="modal-close" style="background:none; border:none; color:var(--primary-neon); font-size:28px; cursor:pointer;">&times;</button>
             </div>
             <div class="modal-content">
                 <div class="modal-section">
-                    <h3 class="modal-section-title"><i class="fas fa-check-circle"></i> Validation Summary</h3>
+                    <h3 class="modal-section-title"><i class="fas fa-check-circle"></i> Validation</h3>
                     <div id="validation-summary"></div>
                 </div>
-                <div class="loading" id="publish-loading"><div class="spinner"></div><p>Publishing your package...</p></div>
+                <div class="loading" id="publish-loading" style="display:none;"><div class="spinner"></div><p>Publishing...</p></div>
                 <div class="security-warning" id="security-warning" style="display: none;">
-                    <div class="warning-header"><i class="fas fa-exclamation-triangle"></i><span>IMPORTANT: Anonymous Publishing</span></div>
-                    <ul><li>You are publishing anonymously</li><li>Save your edit token below</li><li>This token cannot be recovered</li></ul>
+                    <div class="warning-header"><i class="fas fa-exclamation-triangle"></i><span>Anonymous publish – save token</span></div>
                     <div class="edit-token-display"><span id="edit-token-display"></span><button class="copy-token-btn" id="copy-token-btn"><i class="fas fa-copy"></i> Copy</button></div>
                 </div>
                 <div class="publish-results" id="publish-results"></div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="fab" id="confirm-publish" style="flex:1; border-radius:8px; height:48px;"><i class="fas fa-paper-plane"></i> Publish Now</button>
+                <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                    <button class="fab" id="confirm-publish" style="flex:1; border-radius:8px; height:48px;"><i class="fas fa-paper-plane"></i> Publish</button>
                     <button class="fab secondary" id="cancel-publish" style="background:var(--secondary-color); border-radius:8px; height:48px;"><i class="fas fa-times"></i> Cancel</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Monaco and scripts -->
+    <!-- Monaco and scripts (exactly the same as original, just with the real publish function) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
     <script>
-        // ========== IMMERSIVE PARTICLES ==========
+        // ========== PARTICLES & PRELOADER (enhanced) ==========
         (function() {
             const canvas = document.getElementById('particle-canvas');
             const ctx = canvas.getContext('2d');
-            let width, height, particles = [];
-            let mouse = { x: 0, y: 0, speed: 0 };
-            let lastMouse = { x: 0, y: 0 };
+            const canvas2 = document.getElementById('particle-canvas-2');
+            const ctx2 = canvas2.getContext('2d');
+            let width, height, particles = [], particles2 = [];
+            let mouse = { x: 0, y: 0 };
 
             function initParticles() {
                 width = window.innerWidth;
                 height = window.innerHeight;
                 canvas.width = width;
                 canvas.height = height;
+                canvas2.width = width;
+                canvas2.height = height;
+                
+                // Layer 1
                 particles = [];
-                const count = Math.min(150, Math.floor(width * height / 8000));
+                const count = Math.min(300, Math.floor(width * height / 4000));
                 for (let i = 0; i < count; i++) {
                     particles.push({
                         x: Math.random() * width,
                         y: Math.random() * height,
-                        vx: (Math.random() - 0.5) * 0.3,
-                        vy: (Math.random() - 0.5) * 0.3,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        size: Math.random() * 4 + 2,
+                        color: `rgba(0, 255, 255, ${Math.random() * 0.6 + 0.2})`
+                    });
+                }
+                // Layer 2 - smaller, faster, magenta
+                particles2 = [];
+                for (let i = 0; i < count/2; i++) {
+                    particles2.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        vx: (Math.random() - 0.5) * 0.8,
+                        vy: (Math.random() - 0.5) * 0.8,
                         size: Math.random() * 3 + 1,
-                        color: `rgba(0, 255, 255, ${Math.random() * 0.4 + 0.2})`
+                        color: `rgba(255, 68, 204, ${Math.random() * 0.5 + 0.3})`
                     });
                 }
             }
 
             function drawParticles() {
                 ctx.clearRect(0, 0, width, height);
+                ctx2.clearRect(0, 0, width, height);
+                
                 particles.forEach(p => {
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
                     ctx.fillStyle = p.color;
                     ctx.fill();
                     
-                    // Mouse influence
                     const dx = mouse.x - p.x;
                     const dy = mouse.y - p.y;
                     const dist = Math.hypot(dx, dy);
-                    if (dist < 100) {
-                        p.vx += dx * 0.0002;
-                        p.vy += dy * 0.0002;
+                    if (dist < 150) {
+                        p.vx += dx * 0.0003;
+                        p.vy += dy * 0.0003;
                     }
                     
                     p.x += p.vx;
                     p.y += p.vy;
-                    
-                    // Boundaries
                     if (p.x < 0 || p.x > width) p.vx *= -1;
                     if (p.y < 0 || p.y > height) p.vy *= -1;
-                    
-                    // Damping
                     p.vx *= 0.99;
                     p.vy *= 0.99;
                 });
+
+                particles2.forEach(p => {
+                    ctx2.beginPath();
+                    ctx2.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    ctx2.fillStyle = p.color;
+                    ctx2.fill();
+                    
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0 || p.x > width) p.vx *= -1;
+                    if (p.y < 0 || p.y > height) p.vy *= -1;
+                    p.vx *= 0.98;
+                    p.vy *= 0.98;
+                });
+
                 requestAnimationFrame(drawParticles);
             }
 
             window.addEventListener('mousemove', (e) => {
                 mouse.x = e.clientX;
                 mouse.y = e.clientY;
-                mouse.speed = Math.hypot(mouse.x - lastMouse.x, mouse.y - lastMouse.y);
-                lastMouse.x = mouse.x;
-                lastMouse.y = mouse.y;
+                document.documentElement.style.setProperty('--mouse-x', e.clientX + 'px');
+                document.documentElement.style.setProperty('--mouse-y', e.clientY + 'px');
             });
 
             window.addEventListener('resize', initParticles);
             initParticles();
             drawParticles();
 
-            // Preloader fade
             window.addEventListener('load', () => {
                 setTimeout(() => {
                     document.getElementById('preloader').classList.add('fade-out');
-                }, 2000);
+                }, 3000); // longer load for effect
             });
         })();
 
-        // ========== APP STATE (full original preserved) ==========
+        // ========== APP STATE (full original) ==========
         const appState = {
             files: {
                 'package.json': { name: 'package.json', content: JSON.stringify({ name: 'my-awesome-pack', version: '1.0.0', type: 'module', description: 'My awesome package with WASM support', main: 'index.js', author: '', license: 'MIT', pack: { type: 'basic', sandbox: { level: 'strict' } } }, null, 2), language: 'json' },
@@ -866,7 +936,7 @@
             'wasm': { icon: '🔬', color: '#d13438', maxFiles: 30, maxSize: 100*1024*1024, description: 'WASM-focused', allowNodeModules: false, wasmSupport: true, maxWasmSize: 100*1024*1024, canCompileToWasm: true, isWasmPackage: true }
         };
 
-        // DOM elements (same as original, just reassign)
+        // DOM elements (same as original)
         const fileTree = document.getElementById('file-tree');
         const editorTabs = document.getElementById('editor-tabs');
         const terminalOutput = document.getElementById('terminal-output');
@@ -905,7 +975,7 @@
         fileInput.style.display = 'none';
         document.body.appendChild(fileInput);
 
-        // Monaco initialization with custom theme
+        // Monaco initialization with custom theme (enhanced)
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
         require(['vs/editor/editor.main'], function() {
             monaco.editor.defineTheme('pack-studio-neon', {
@@ -939,10 +1009,10 @@
                 language: 'json',
                 theme: 'pack-studio-neon',
                 automaticLayout: true,
-                fontSize: 14,
+                fontSize: 15,
                 fontFamily: "'Cascadia Code', 'Consolas', monospace",
-                minimap: { enabled: true, size: 'fill' },
-                scrollbar: { vertical: 'visible', horizontal: 'visible', useShadows: false, verticalScrollbarSize: 12, horizontalScrollbarSize: 12 },
+                minimap: { enabled: window.innerWidth > 800, size: 'fill' },
+                scrollbar: { vertical: 'visible', horizontal: 'visible', useShadows: false, verticalScrollbarSize: 16, horizontalScrollbarSize: 16 },
                 smoothScrolling: true,
                 mouseWheelZoom: true,
                 wordWrap: 'on',
@@ -976,10 +1046,10 @@
             renderFileTree();
             renderEditorTabs();
             setupEventListeners();
-            logToTerminal('✓ Monaco Editor initialized with neon theme');
+            logToTerminal('✓ HYPERION core online');
         });
 
-        // All helper functions (exactly as original, with minor formatting)
+        // All helper functions (exactly as original)
         function renderFileTree() {
             fileTree.innerHTML = '';
             Object.keys(appState.files).forEach(fileName => {
@@ -1128,52 +1198,94 @@
 
         async function publishPackage() {
             const val = validatePackage();
-            if (val.errors.length>0) { showError('Cannot publish: '+val.errors[0]); return; }
+            if (val.errors.length > 0) {
+                showError('Cannot publish: ' + val.errors[0]);
+                return;
+            }
             const name = packageNameInput.value.trim();
-            if (!name) { showError('Package name required'); return; }
+            if (!name) {
+                showError('Package name required');
+                return;
+            }
             const isNewVer = isNewVersionCheckbox.checked;
             const baseId = basePackIdInput.value.trim();
-            if (isNewVer && !baseId) { showError('Base Pack ID required for version update'); return; }
+            if (isNewVer && !baseId) {
+                showError('Base Pack ID required for version update');
+                return;
+            }
             publishLoading.style.display = 'block';
             publishResults.classList.remove('active');
             securityWarning.style.display = 'none';
+
             try {
                 let pkgJson;
-                try { pkgJson = JSON.parse(appState.files['package.json'].content); } catch { throw new Error('Invalid package.json'); }
+                try {
+                    pkgJson = JSON.parse(appState.files['package.json'].content);
+                } catch {
+                    throw new Error('Invalid package.json');
+                }
+
                 pkgJson.name = name;
                 pkgJson.version = packageVersionInput.value;
-                if (!pkgJson.pack) pkgJson.pack = { type: appState.packageType, sandbox: { level: appState.packageType==='basic'?'strict':'moderate' } };
+                if (!pkgJson.pack) {
+                    pkgJson.pack = {
+                        type: appState.packageType,
+                        sandbox: { level: appState.packageType === 'basic' ? 'strict' : 'moderate' }
+                    };
+                }
+
                 const files = {};
-                Object.keys(appState.files).forEach(f => { files[f] = appState.files[f].content; });
+                Object.keys(appState.files).forEach(f => {
+                    files[f] = appState.files[f].content;
+                });
                 Object.keys(appState.wasmFiles).forEach(f => {
                     const wasm = appState.wasmFiles[f];
                     const bytes = new Uint8Array(wasm.data);
                     let bin = '';
-                    for (let i=0; i<bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+                    for (let i = 0; i < bytes.byteLength; i++) {
+                        bin += String.fromCharCode(bytes[i]);
+                    }
                     files[f] = btoa(bin);
                 });
-                const collab = collaboratorsInput.value ? collaboratorsInput.value.split(',').map(c=>c.trim()).filter(c=>c) : [];
+
+                const collab = collaboratorsInput.value
+                    ? collaboratorsInput.value.split(',').map(c => c.trim()).filter(c => c)
+                    : [];
+
                 const body = {
-                    name, packJson: JSON.stringify(pkgJson), files, isPublic: isPublicCheckbox.checked,
-                    packageType: appState.packageType, version: packageVersionInput.value,
-                    isNewVersion: isNewVer, basePackId: isNewVer ? baseId : null,
-                    userId: userIdInput.value.trim() || null, editToken: editTokenInput.value.trim() || null,
-                    collaborators: collab, compileToWasm: compileWasmCheckbox.checked,
+                    name,
+                    packJson: JSON.stringify(pkgJson),
+                    files,
+                    isPublic: isPublicCheckbox.checked,
+                    packageType: appState.packageType,
+                    version: packageVersionInput.value,
+                    isNewVersion: isNewVer,
+                    basePackId: isNewVer ? baseId : null,
+                    userId: userIdInput.value.trim() || null,
+                    editToken: editTokenInput.value.trim() || null,
+                    collaborators: collab,
+                    compileToWasm: compileWasmCheckbox.checked,
                     wasmConfig: { initialMemory: 1, maxMemory: 65536 }
                 };
+
                 logToTerminal(`🚀 Publishing ${body.name} v${body.version} (${appState.packageType})...`);
-                if (isNewVer) logToTerminal(`📝 New version of ${body.basePackId}`);
+
                 const resp = await fetch('/api/publish.mjs', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
                 });
+
                 const result = await resp.json();
                 if (!resp.ok) {
                     showError(`API Error: ${result.error || result.details || 'Unknown'}`);
                     publishLoading.style.display = 'none';
                     return;
                 }
+
                 publishLoading.style.display = 'none';
                 publishResults.classList.add('active');
+
                 if (!userIdInput.value.trim() && result.editToken) {
                     securityWarning.style.display = 'block';
                     editTokenDisplay.textContent = result.editToken;
@@ -1184,11 +1296,30 @@
                         });
                     };
                 }
-                publishResults.innerHTML = `<div class="result-item"><div class="result-label">${isNewVer?'✓ Updated':'✓ Published'} Successfully!</div><div class="result-value">${result.metadata?.name||body.name} v${result.version}</div></div>
-                    <div class="result-item"><div class="result-label">Package ID</div><div class="result-value">${result.packId}</div></div>
-                    <div class="result-item"><div class="result-label">CDN URL</div><div class="result-value"><a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a></div></div>
-                    <div class="result-item"><div class="result-label">Worker URL</div><div class="result-value"><a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a></div></div>
-                    <div class="result-item"><div class="result-label">Install Command</div><div class="result-value"><code>${result.installCommand}</code></div></div>`;
+
+                publishResults.innerHTML = `
+                    <div class="result-item">
+                        <div class="result-label">${isNewVer ? '✓ Updated' : '✓ Published'} Successfully!</div>
+                        <div class="result-value">${result.metadata?.name || body.name} v${result.version}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Package ID</div>
+                        <div class="result-value">${result.packId}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">CDN URL</div>
+                        <div class="result-value"><a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Worker URL</div>
+                        <div class="result-value"><a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Install Command</div>
+                        <div class="result-value"><code>${result.installCommand}</code></div>
+                    </div>
+                `;
+
                 logToTerminal(`✓ Package published! ID: ${result.packId}`);
             } catch (err) {
                 publishLoading.style.display = 'none';
@@ -1249,6 +1380,8 @@
             });
             advancedToggle.addEventListener('click', () => {
                 advancedOptions.classList.toggle('expanded');
+                const content = advancedOptions.querySelector('.advanced-content');
+                if (content.style.display === 'none') content.style.display = 'block'; else content.style.display = 'none';
                 const ic = advancedToggle.querySelector('i');
                 ic.classList.toggle('fa-chevron-right'); ic.classList.toggle('fa-chevron-down');
             });
@@ -1295,11 +1428,17 @@
                     if (appState.activeFile==='package.json') appState.editor.setValue(appState.files['package.json'].content);
                 } catch(e){}
             });
+
+            window.addEventListener('resize', () => {
+                if (appState.editor) {
+                    appState.editor.updateOptions({ minimap: { enabled: window.innerWidth > 800 } });
+                }
+            });
         }
 
         renderWasmFiles();
-        logToTerminal('🚀 Pack Studio v2.0 initialized');
-        logToTerminal('🔮 Immersive mode engaged');
+        logToTerminal('🚀 Pack Studio HYPERION initialized');
+        logToTerminal('🔮 Maximum immersion mode engaged');
     </script>
 </body>
 </html>
