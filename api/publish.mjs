@@ -5,7 +5,9 @@ import { WASI } from '@wasmer/wasi';
 import { lowerI64Imports } from '@wasmer/wasm-transformer';
 import { Command } from '@wasmer/sdk';
 
-// Helper to get only standard, safe Math functions
+// ============================================================================
+// SAFE MATH HELPERS
+// ============================================================================
 function getSafeMathFunctions() {
   const safeMathFunctions = {
     'Math_abs': Math.abs,
@@ -38,7 +40,6 @@ function getSafeMathFunctions() {
   return result;
 }
 
-// Helper to generate Math imports string for template literals
 function generateMathImportsString() {
   const mathImports = getSafeMathFunctions();
   return Object.entries(mathImports)
@@ -46,7 +47,9 @@ function generateMathImportsString() {
     .join(',\n          ');
 }
 
-// Initialize Supabase
+// ============================================================================
+// SUPABASE CLIENT
+// ============================================================================
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
@@ -56,7 +59,9 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Rate limiting
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
 const rateLimitStore = new Map();
 const RATE_LIMIT_CONFIG = {
   WINDOW_MS: 60 * 1000,
@@ -65,7 +70,9 @@ const RATE_LIMIT_CONFIG = {
   BAN_THRESHOLD: 20
 };
 
-// Allowed origins
+// ============================================================================
+// ALLOWED ORIGINS
+// ============================================================================
 const ALLOWED_ORIGINS = [
   'https://pack-cdn.vercel.app',
   'https://pack-dash.vercel.app',
@@ -73,14 +80,18 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173'
 ];
 
-// Reserved package names
+// ============================================================================
+// RESERVED PACK NAMES
+// ============================================================================
 const RESERVED_NAMES = [
   'pack', 'npm', 'node', 'js', 'python', 'wasm',
   'system', 'admin', 'root', 'config', 'setup',
   'install', 'update', 'remove', 'delete', 'create'
 ];
 
-// File extensions
+// ============================================================================
+// FILE EXTENSIONS
+// ============================================================================
 const ALLOWED_EXTENSIONS = {
   'js': ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx'],
   'python': ['py', 'pyc', 'pyo'],
@@ -98,10 +109,11 @@ const ALLOWED_EXTENSIONS = {
   'zig': ['zig']
 };
 
-// Essential files
+// ============================================================================
+// ESSENTIAL FILES – NOW PACK.JSON ONLY
+// ============================================================================
 const ESSENTIAL_FILES = [
-  'package.json',
-  'pack.json',
+  'pack.json',           // replaced package.json
   'index.js',
   'main.js',
   'app.js',
@@ -113,9 +125,8 @@ const ESSENTIAL_FILES = [
 ];
 
 // ============================================================================
-// ADVANCED PACK.JSON SCHEMA WITH EXECUTION CAPABILITIES
+// ADVANCED PACK.JSON SCHEMA WITH COMPLEXITY LEVELS
 // ============================================================================
-
 const PACK_JSON_SCHEMA = {
   required: ['name', 'version'],
   
@@ -124,6 +135,7 @@ const PACK_JSON_SCHEMA = {
     author: { type: 'string', maxLength: 100, default: '' },
     license: { type: 'string', default: 'MIT' },
     homepage: { type: 'string', format: 'url', default: '' },
+    complexity: { type: 'string', enum: ['low', 'medium', 'high'], default: 'low' },
     repository: { 
       type: 'object', 
       properties: {
@@ -142,19 +154,20 @@ const PACK_JSON_SCHEMA = {
   },
   
   advanced: {
-    packageType: {
-      basic: {
-        allowedFields: ['name', 'version', 'description', 'keywords', 'author', 'license'],
+    // Internal pack types (mapped from complexity)
+    packType: {
+      basic: {      // low complexity
+        allowedFields: ['name', 'version', 'description', 'keywords', 'author', 'license', 'complexity'],
         maxDependencies: 0,
         executionMethods: ['runScript']
       },
-      standard: {
+      standard: {   // medium complexity
         allowedFields: ['*'],
         maxDependencies: 25,
         allowedDependencyTypes: ['dependencies', 'peerDependencies', 'optionalDependencies'],
         executionMethods: ['runScript', 'execute', 'require']
       },
-      advanced: {
+      advanced: {   // high complexity
         allowedFields: ['*'],
         maxDependencies: 100,
         allowedDependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies', 'bundledDependencies'],
@@ -162,7 +175,7 @@ const PACK_JSON_SCHEMA = {
         requireLicense: true,
         executionMethods: ['runScript', 'execute', 'require', 'compile', 'initWasm', 'callWasm']
       },
-      wasm: {
+      wasm: {        // special wasm‑focused type
         allowedFields: ['*'],
         maxDependencies: 50,
         executionMethods: ['runScript', 'execute', 'require', 'compile', 'initWasm', 'callWasm'],
@@ -218,15 +231,15 @@ const PACK_JSON_SCHEMA = {
         devDependencies: { description: 'Development dependencies' },
         peerDependencies: { 
           description: 'Peer dependencies',
-          validation: (deps, packageType) => packageType !== 'basic'
+          validation: (deps, packType) => packType !== 'basic'
         },
         optionalDependencies: { 
           description: 'Optional dependencies',
-          validation: (deps, packageType) => packageType === 'advanced' || packageType === 'wasm'
+          validation: (deps, packType) => packType === 'advanced' || packType === 'wasm'
         },
         bundledDependencies: { 
           description: 'Bundled dependencies',
-          validation: (deps, packageType) => packageType === 'advanced'
+          validation: (deps, packType) => packType === 'advanced'
         }
       }
     },
@@ -270,7 +283,7 @@ const PACK_JSON_SCHEMA = {
           }
         },
         maxProperties: 5,
-        validation: (bin, packageType) => packageType === 'advanced' || packageType === 'standard'
+        validation: (bin, packType) => packType === 'advanced' || packType === 'standard'
       },
       exports: {
         type: 'object',
@@ -292,7 +305,7 @@ const PACK_JSON_SCHEMA = {
             ]
           }
         },
-        validation: (exports, packageType) => packageType === 'advanced'
+        validation: (exports, packType) => packType === 'advanced'
       }
     },
     
@@ -572,14 +585,14 @@ const PACK_JSON_SCHEMA = {
     },
     
     handlers: {
-      executeFunction: async function(packageName, functionName, args, packageType, packageFiles, packJson) {
+      executeFunction: async function(packName, functionName, args, packType, packFiles, packJson) {
         try {
-          console.log(`[EXECUTE] Running ${functionName} from ${packageName}`);
+          console.log(`[EXECUTE] Running ${functionName} from ${packName}`);
           
-          const context = this.createExecutionContext(packageType, packJson);
+          const context = this.createExecutionContext(packType, packJson);
           
-          if (packJson.main && packageFiles[packJson.main]) {
-            await this.loadModule(packJson.main, packageFiles[packJson.main], context);
+          if (packJson.main && packFiles[packJson.main]) {
+            await this.loadModule(packJson.main, packFiles[packJson.main], context);
           }
           
           const result = await this.callFunction(functionName, args, context);
@@ -588,7 +601,7 @@ const PACK_JSON_SCHEMA = {
             success: true,
             result: result,
             executionTime: Date.now() - Date.now(),
-            package: packageName
+            pack: packName
           };
           
         } catch (error) {
@@ -596,21 +609,21 @@ const PACK_JSON_SCHEMA = {
           return {
             success: false,
             error: error.message,
-            package: packageName
+            pack: packName
           };
         }
       },
       
-      runScript: async function(packageName, scriptName, args, packageType, packageFiles, packJson) {
+      runScript: async function(packName, scriptName, args, packType, packFiles, packJson) {
         try {
           if (!packJson.scripts || !packJson.scripts[scriptName]) {
             throw new Error(`Script ${scriptName} not found`);
           }
           
-          console.log(`[SCRIPT] Running ${scriptName} from ${packageName}`);
+          console.log(`[SCRIPT] Running ${scriptName} from ${packName}`);
           
           const script = packJson.scripts[scriptName];
-          const context = this.createExecutionContext(packageType, packJson);
+          const context = this.createExecutionContext(packType, packJson);
           
           const result = await this.evaluateScript(script, args, context);
           
@@ -619,7 +632,7 @@ const PACK_JSON_SCHEMA = {
             result: result,
             executionTime: Date.now() - Date.now(),
             script: scriptName,
-            package: packageName
+            pack: packName
           };
           
         } catch (error) {
@@ -627,14 +640,14 @@ const PACK_JSON_SCHEMA = {
           return {
             success: false,
             error: error.message,
-            package: packageName
+            pack: packName
           };
         }
       },
       
-      initializeWasm: async function(packageName, wasmConfig, wasmBinary) {
+      initializeWasm: async function(packName, wasmConfig, wasmBinary) {
         try {
-          console.log(`[WASM] Initializing WASM for ${packageName}`);
+          console.log(`[WASM] Initializing WASM for ${packName}`);
           
           const imports = {
             env: {
@@ -677,7 +690,7 @@ const PACK_JSON_SCHEMA = {
             instance: instance,
             exports: exports,
             memory: instance.exports.memory,
-            package: packageName
+            pack: packName
           };
           
         } catch (error) {
@@ -685,12 +698,12 @@ const PACK_JSON_SCHEMA = {
           return {
             success: false,
             error: error.message,
-            package: packageName
+            pack: packName
           };
         }
       },
       
-      createExecutionContext: function(packageType, packJson) {
+      createExecutionContext: function(packType, packJson) {
         const sandboxConfig = packJson.pack?.sandbox || {};
         const allowedAPIs = sandboxConfig.allowedAPIs || [];
         
@@ -736,10 +749,10 @@ const PACK_JSON_SCHEMA = {
           URLSearchParams,
           performance: { now: () => performance.now() },
           
-          __package: {
+          __pack: {
             name: packJson.name,
             version: packJson.version,
-            type: packageType,
+            type: packType,
             config: packJson.pack || {}
           }
         };
@@ -780,7 +793,7 @@ const PACK_JSON_SCHEMA = {
         return context;
       },
       
-      createSecureFetch: function(packageName) {
+      createSecureFetch: function(packName) {
         return async function secureFetch(url, options = {}) {
           try {
             const parsed = new URL(url);
@@ -820,7 +833,7 @@ const PACK_JSON_SCHEMA = {
               clearTimeout(timeout);
             }
           } catch (error) {
-            console.error(`[${packageName}] Fetch error:`, error);
+            console.error(`[${packName}] Fetch error:`, error);
             throw error;
           }
         };
@@ -1012,46 +1025,46 @@ const PACK_JSON_SCHEMA = {
   },
   
   validators: {
-    validateField: (field, value, packageType) => {
-      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+    validateField: (field, value, packType) => {
+      const config = PACK_JSON_SCHEMA.advanced.packType[packType];
       
       if (!config.allowedFields.includes('*') && !config.allowedFields.includes(field)) {
-        return { valid: false, reason: `Field "${field}" is not allowed for ${packageType} packages` };
+        return { valid: false, reason: `Field "${field}" is not allowed for ${packType} packs` };
       }
       
       switch (field) {
         case 'dependencies':
-          return validateDependencies(value, packageType);
+          return validateDependencies(value, packType);
         case 'scripts':
-          return validateScripts(value, packageType);
+          return validateScripts(value, packType);
         case 'wasmConfig':
-          return packageType === 'wasm' ? 
+          return packType === 'wasm' ? 
             { valid: true } : 
-            { valid: false, reason: 'wasmConfig is only allowed for wasm packages' };
+            { valid: false, reason: 'wasmConfig is only allowed for wasm packs' };
         default:
           return { valid: true };
       }
     },
     
-    validateDependencies: (deps, packageType) => {
+    validateDependencies: (deps, packType) => {
       if (!deps || typeof deps !== 'object') {
         return { valid: true };
       }
       
-      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      const config = PACK_JSON_SCHEMA.advanced.packType[packType];
       const depCount = Object.keys(deps).length;
       
       if (depCount > config.maxDependencies) {
         return { 
           valid: false, 
-          reason: `Too many dependencies. Maximum ${config.maxDependencies} allowed for ${packageType} packages` 
+          reason: `Too many dependencies. Maximum ${config.maxDependencies} allowed for ${packType} packs` 
         };
       }
       
       return { valid: true };
     },
     
-    validateScripts: (scripts, packageType) => {
+    validateScripts: (scripts, packType) => {
       if (!scripts || typeof scripts !== 'object') {
         return { valid: true };
       }
@@ -1074,7 +1087,7 @@ const PACK_JSON_SCHEMA = {
   },
   
   transformers: {
-    addDefaults: (packJson, packageType) => {
+    addDefaults: (packJson, packType) => {
       const result = { ...packJson };
       const optional = PACK_JSON_SCHEMA.optional;
       
@@ -1084,9 +1097,9 @@ const PACK_JSON_SCHEMA = {
         }
       }
       
-      const pkgConfig = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      const pkgConfig = PACK_JSON_SCHEMA.advanced.packType[packType];
       if (pkgConfig.requireDescription && !result.description) {
-        result.description = `A ${packageType} package for Pack ecosystem`;
+        result.description = `A ${packType} pack for Pack ecosystem`;
       }
       
       if (pkgConfig.requireLicense && !result.license) {
@@ -1096,9 +1109,9 @@ const PACK_JSON_SCHEMA = {
       return result;
     },
     
-    sanitize: (packJson, packageType) => {
+    sanitize: (packJson, packType) => {
       const result = {};
-      const config = PACK_JSON_SCHEMA.advanced.packageType[packageType];
+      const config = PACK_JSON_SCHEMA.advanced.packType[packType];
       
       for (const [field, value] of Object.entries(packJson)) {
         if (config.allowedFields.includes('*') || config.allowedFields.includes(field)) {
@@ -1111,28 +1124,30 @@ const PACK_JSON_SCHEMA = {
   },
   
   helpers: {
-    generateMinimal: (name, version, packageType = 'basic') => {
+    generateMinimal: (name, version, complexity = 'low') => {
+      const packType = complexity === 'low' ? 'basic' : complexity === 'medium' ? 'standard' : 'advanced';
       const base = {
         name,
         version,
-        description: `A ${packageType} package for Pack ecosystem`,
+        description: `A ${complexity} complexity pack for Pack ecosystem`,
         license: 'MIT',
+        complexity,
         pack: {
-          type: packageType,
+          type: packType,
           sandbox: {
-            level: packageType === 'basic' ? 'strict' : 
-                   packageType === 'wasm' ? 'wasm-sandbox' : 'moderate'
+            level: packType === 'basic' ? 'strict' : 
+                   packType === 'wasm' ? 'wasm-sandbox' : 'moderate'
           }
         }
       };
       
-      if (packageType === 'advanced' || packageType === 'wasm') {
-        base.keywords = [packageType, 'pack'];
+      if (packType === 'advanced' || packType === 'wasm') {
+        base.keywords = [packType, 'pack'];
         base.author = '';
         base.homepage = '';
       }
       
-      if (packageType === 'wasm') {
+      if (packType === 'wasm') {
         base.wasmConfig = {
           memory: { initial: 256, maximum: 16384 },
           exports: {
@@ -1152,6 +1167,7 @@ const PACK_JSON_SCHEMA = {
         'library': {
           name: options.name || 'my-library',
           version: '1.0.0',
+          complexity: 'medium',
           description: 'A reusable JavaScript library',
           main: './dist/index.js',
           module: './dist/index.esm.js',
@@ -1173,6 +1189,7 @@ const PACK_JSON_SCHEMA = {
         'wasm-module': {
           name: options.name || 'my-wasm-module',
           version: '1.0.0',
+          complexity: 'high',
           description: 'A WebAssembly module',
           main: './dist/index.js',
           wasm: './dist/module.wasm',
@@ -1201,6 +1218,7 @@ const PACK_JSON_SCHEMA = {
         'cli-tool': {
           name: options.name || 'my-cli-tool',
           version: '1.0.0',
+          complexity: 'high',
           description: 'A command-line tool',
           bin: {
             'my-tool': './bin/cli.js'
@@ -1233,12 +1251,11 @@ const PACK_JSON_SCHEMA = {
 // ============================================================================
 // FUNCTIONAL PACK.JSON EXECUTOR CLASS
 // ============================================================================
-
 class PackJsonExecutor {
-  constructor(packJson, files, packageType) {
+  constructor(packJson, files, packType) {
     this.packJson = packJson;
     this.files = files;
-    this.packageType = packageType;
+    this.packType = packType;
     this.executionContext = null;
     this.wasmInstance = null;
     this.executionHandlers = PACK_JSON_SCHEMA.execution.handlers;
@@ -1254,7 +1271,7 @@ class PackJsonExecutor {
         enhanced.name,
         funcName,
         args,
-        this.packageType,
+        this.packType,
         this.files,
         enhanced
       );
@@ -1265,7 +1282,7 @@ class PackJsonExecutor {
         enhanced.name,
         scriptName,
         args,
-        this.packageType,
+        this.packType,
         this.files,
         enhanced
       );
@@ -1275,7 +1292,7 @@ class PackJsonExecutor {
       return this.requireModule(modulePath);
     };
     
-    if (this.packageType === 'wasm' || enhanced.pack?.compile?.toWasm) {
+    if (this.packType === 'wasm' || enhanced.pack?.compile?.toWasm) {
       enhanced.compile = async (options = {}) => {
         return await this.compileToWasm(options);
       };
@@ -1324,7 +1341,7 @@ class PackJsonExecutor {
       const resolvedPath = modulePath.replace(/^\.\//, '').replace(/^\.\.\//, '');
       
       if (this.files[resolvedPath]) {
-        const context = this.executionHandlers.createExecutionContext(this.packageType, this.packJson);
+        const context = this.executionHandlers.createExecutionContext(this.packType, this.packJson);
         const result = this.executionHandlers.loadModule(resolvedPath, this.files[resolvedPath], context);
         return result;
       }
@@ -1334,8 +1351,8 @@ class PackJsonExecutor {
   }
 
   async compileToWasm(options = {}) {
-    if (this.packageType !== 'wasm' && !this.packJson.pack?.compile?.toWasm) {
-      throw new Error('Compilation to WASM is not enabled for this package');
+    if (this.packType !== 'wasm' && !this.packJson.pack?.compile?.toWasm) {
+      throw new Error('Compilation to WASM is not enabled for this pack');
     }
     
     const compiler = new PackWASMCompiler();
@@ -1480,7 +1497,7 @@ class PackJsonExecutor {
         }
       }
       
-      if (this.packageType === 'wasm' && this.packJson.initWasm) {
+      if (this.packType === 'wasm' && this.packJson.initWasm) {
         console.log('  Initializing WASM...');
         try {
           const wasm = await this.packJson.initWasm();
@@ -1501,9 +1518,8 @@ class PackJsonExecutor {
 }
 
 // ============================================================================
-// PACKAGE TYPES AND MODULES
+// PACK TYPES AND MODULES
 // ============================================================================
-
 const ADVANCED_NODE_MODULES = [
   'crypto', 'util', 'events', 'stream', 'buffer', 'path', 'url', 'querystring',
   'string_decoder', 'timers', 'console', 'assert',
@@ -1534,7 +1550,7 @@ const BANNED_NODE_MODULES = [
   'v8', 'async_hooks', 'domain', 'punycode'
 ];
 
-const PACKAGE_TYPES = {
+const PACK_TYPES = {
   'basic': {
     level: 1,
     maxFiles: 20,
@@ -1584,7 +1600,7 @@ const PACKAGE_TYPES = {
     canCompileToWasm: true,
     allowCustomWasm: true,
     sandboxLevel: 'wasm-sandbox',
-    isWasmPackage: true,
+    isWasmPack: true,
     executionMethods: ['runScript', 'execute', 'require', 'compile', 'initWasm', 'callWasm']
   }
 };
@@ -1592,7 +1608,6 @@ const PACKAGE_TYPES = {
 // ============================================================================
 // COMPLEX WEBASSEMBLY COMPILATION ENGINE
 // ============================================================================
-
 class PackWASMCompiler {
   constructor() {
     this.memory = new WebAssembly.Memory({ initial: 256, maximum: 65536 });
@@ -1676,9 +1691,9 @@ class PackWASMCompiler {
     }
   }
 
-  async createComplexWasmModule(files, packageName, config) {
+  async createComplexWasmModule(files, packName, config) {
     try {
-      console.log(`Creating complex WASM module for ${packageName}`);
+      console.log(`Creating complex WASM module for ${packName}`);
       
       const jsModules = [];
       for (const [filename, content] of Object.entries(files)) {
@@ -1695,14 +1710,14 @@ class PackWASMCompiler {
       }
       
       if (jsModules.length > 1) {
-        return this.createMultiModuleWasm(jsModules, packageName, config);
+        return this.createMultiModuleWasm(jsModules, packName, config);
       } else if (jsModules.length === 1) {
         return await this.compileJavaScriptToWasm(jsModules[0].content, {
           ...config,
-          name: packageName
+          name: packName
         });
       } else {
-        return this.createDefaultWasmModule(packageName);
+        return this.createDefaultWasmModule(packName);
       }
       
     } catch (error) {
@@ -1803,13 +1818,13 @@ class PackWASMCompiler {
 )`;
   }
 
-  createMultiModuleWasm(modules, packageName, config) {
+  createMultiModuleWasm(modules, packName, config) {
     const moduleCount = modules.length;
-    const dispatcherWat = this.generateDispatcherWat(modules, packageName);
-    return this.createCombinedWasm(modules, packageName);
+    const dispatcherWat = this.generateDispatcherWat(modules, packName);
+    return this.createCombinedWasm(modules, packName);
   }
 
-  generateDispatcherWat(modules, packageName) {
+  generateDispatcherWat(modules, packName) {
     const funcDefs = modules.map((mod, i) => 
       `(func $${mod.filename} (import "${mod.filename}" "main") (param i32) (result i32))`
     ).join('\n  ');
@@ -1836,19 +1851,19 @@ class PackWASMCompiler {
     i32.const -1
   )
   
-  ;; Package metadata
-  (data (i32.const 0) "${packageName}")
+  ;; Pack metadata
+  (data (i32.const 0) "${packName}")
   (data (i32.const 100) "Complex WASM Module")
   (data (i32.const 200) "Modules: ${modules.length}")
 )`;
   }
 
-  createCombinedWasm(modules, packageName) {
+  createCombinedWasm(modules, packName) {
     const allFunctions = modules.flatMap(mod => mod.functions);
-    return this.generateMultiFunctionWasm(allFunctions, packageName);
+    return this.generateMultiFunctionWasm(allFunctions, packName);
   }
 
-  generateMultiFunctionWasm(functions, packageName) {
+  generateMultiFunctionWasm(functions, packName) {
     const funcCount = functions.length;
     const typeSection = new Uint8Array([
       0x01, 0x09, 0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f
@@ -1889,7 +1904,7 @@ class PackWASMCompiler {
       0x0a, codeEntries.length + 1, funcCount, ...codeEntries
     ]);
     
-    const nameBytes = new TextEncoder().encode(packageName);
+    const nameBytes = new TextEncoder().encode(packName);
     const dataSection = new Uint8Array([
       0x0b, nameBytes.length + 5, 0x01,
       0x00, 0x41, 0x00, 0x0b,
@@ -2017,8 +2032,8 @@ class PackWASMCompiler {
     ]);
   }
 
-  createDefaultWasmModule(packageName) {
-    const nameBytes = new TextEncoder().encode(packageName);
+  createDefaultWasmModule(packName) {
+    const nameBytes = new TextEncoder().encode(packName);
     
     return new Uint8Array([
       0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
@@ -2063,40 +2078,39 @@ class PackWASMCompiler {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-function validatePackageName(name) {
+function validatePackName(name) {
   if (typeof name !== 'string') {
-    return { valid: false, reason: 'Package name must be a string' };
+    return { valid: false, reason: 'Pack name must be a string' };
   }
   
   if (name.length < 2) {
-    return { valid: false, reason: 'Package name must be at least 2 characters' };
+    return { valid: false, reason: 'Pack name must be at least 2 characters' };
   }
   
   if (name.length > 50) {
-    return { valid: false, reason: 'Package name cannot exceed 50 characters' };
+    return { valid: false, reason: 'Pack name cannot exceed 50 characters' };
   }
   
   if (!/^[a-z]/.test(name)) {
-    return { valid: false, reason: 'Package name must start with a lowercase letter' };
+    return { valid: false, reason: 'Pack name must start with a lowercase letter' };
   }
   
   if (!/^[a-z0-9-_]+$/.test(name)) {
-    return { valid: false, reason: 'Package name can only contain lowercase letters, numbers, hyphens, and underscores' };
+    return { valid: false, reason: 'Pack name can only contain lowercase letters, numbers, hyphens, and underscores' };
   }
   
   if (/[-_]$/.test(name)) {
-    return { valid: false, reason: 'Package name cannot end with a hyphen or underscore' };
+    return { valid: false, reason: 'Pack name cannot end with a hyphen or underscore' };
   }
   
   if (/[-_]{2,}/.test(name)) {
-    return { valid: false, reason: 'Package name cannot contain consecutive hyphens or underscores' };
+    return { valid: false, reason: 'Pack name cannot contain consecutive hyphens or underscores' };
   }
   
   return { valid: true };
 }
 
-function validateFilename(filename, packageType) {
+function validateFilename(filename, packType) {
   if (typeof filename !== 'string') {
     return { valid: false, reason: 'Filename must be a string' };
   }
@@ -2150,8 +2164,8 @@ function validateFilename(filename, packageType) {
     return { valid: false, reason: 'Files without extensions must follow common naming conventions' };
   }
   
-  if (packageType === 'basic' && ['ts', 'tsx', 'scss', 'sass'].includes(ext)) {
-    return { valid: false, reason: `File extension .${ext} requires standard or advanced package type` };
+  if (packType === 'basic' && ['ts', 'tsx', 'scss', 'sass'].includes(ext)) {
+    return { valid: false, reason: `File extension .${ext} requires standard or advanced pack type` };
   }
   
   return { valid: true };
@@ -2166,7 +2180,7 @@ function getFileType(extension) {
   return null;
 }
 
-function validateFileContent(filename, content, fileType, packageType) {
+function validateFileContent(filename, content, fileType, packType) {
   if (/\x00/.test(content)) {
     return { valid: false, reason: 'File contains null bytes' };
   }
@@ -2181,12 +2195,12 @@ function validateFileContent(filename, content, fileType, packageType) {
   const filenameLower = filename.toLowerCase();
   
   if (ESSENTIAL_FILES.some(essential => filenameLower === essential.toLowerCase())) {
-    if (filenameLower === 'package.json' || filename.endsWith('.json')) {
+    if (filenameLower === 'pack.json' || filename.endsWith('.json')) {
       try {
         JSON.parse(content);
         return { valid: true };
       } catch (e) {
-        return { valid: false, reason: 'Invalid JSON format in package.json' };
+        return { valid: false, reason: 'Invalid JSON format in pack.json' };
       }
     }
     return { valid: true };
@@ -2194,7 +2208,7 @@ function validateFileContent(filename, content, fileType, packageType) {
   
   switch (fileType) {
     case 'js':
-      return validateJavaScript(content, packageType);
+      return validateJavaScript(content, packType);
     case 'json':
       return validateJSON(content);
     default:
@@ -2202,7 +2216,7 @@ function validateFileContent(filename, content, fileType, packageType) {
   }
 }
 
-function validateJavaScript(content, packageType) {
+function validateJavaScript(content, packType) {
   const dangerousPatterns = [
     /\beval\s*\(/i,
     /\bFunction\s*\(/i,
@@ -2212,7 +2226,7 @@ function validateJavaScript(content, packageType) {
     /\bsetImmediate\s*\([^)]*\)/i
   ];
   
-  if (packageType === 'basic') {
+  if (packType === 'basic') {
     dangerousPatterns.push(
       /\brequire\s*\([^)]*\)/i,
       /\bprocess\s*\./i,
@@ -2224,8 +2238,8 @@ function validateJavaScript(content, packageType) {
   
   for (const pattern of dangerousPatterns) {
     if (pattern.test(content)) {
-      const reason = packageType === 'basic' 
-        ? 'Basic packages cannot use dynamic imports or I/O operations'
+      const reason = packType === 'basic' 
+        ? 'Basic packs cannot use dynamic imports or I/O operations'
         : 'JavaScript contains potentially dangerous patterns';
       return { valid: false, reason };
     }
@@ -2280,7 +2294,7 @@ function validateWebAssembly(content) {
   }
 }
 
-function validatePackJsonSchema(packJson, packageType) {
+function validatePackJsonSchema(packJson, packType) {
   if (!packJson.name) {
     return { valid: false, reason: 'pack.json must have a "name" field' };
   }
@@ -2289,7 +2303,7 @@ function validatePackJsonSchema(packJson, packageType) {
     return { valid: false, reason: 'pack.json must have a "version" field' };
   }
   
-  const nameValidation = validatePackageName(packJson.name);
+  const nameValidation = validatePackName(packJson.name);
   if (!nameValidation.valid) {
     return { valid: false, reason: `Invalid name in pack.json: ${nameValidation.reason}` };
   }
@@ -2303,9 +2317,13 @@ function validatePackJsonSchema(packJson, packageType) {
     return { valid: false, reason: 'Version must follow semver format (e.g., 1.0.0)' };
   }
   
-  if (packageType === 'advanced' || packageType === 'wasm') {
+  if (packJson.complexity && !['low', 'medium', 'high'].includes(packJson.complexity)) {
+    return { valid: false, reason: 'complexity must be "low", "medium", or "high"' };
+  }
+  
+  if (packType === 'advanced' || packType === 'wasm') {
     if (!packJson.description || typeof packJson.description !== 'string') {
-      return { valid: false, reason: 'Advanced packages must have a description' };
+      return { valid: false, reason: 'Advanced packs must have a description' };
     }
     
     if (packJson.description.length > 1000) {
@@ -2362,11 +2380,11 @@ function generateChecksum(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
-function generateWasmWrapper(packageName, wasmBinary, metadata) {
+function generateWasmWrapper(packName, wasmBinary, metadata) {
   const wasmBase64 = Buffer.from(wasmBinary).toString('base64');
-  const className = packageName.charAt(0).toUpperCase() + packageName.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+  const className = packName.charAt(0).toUpperCase() + packName.slice(1).replace(/[^a-zA-Z0-9]/g, '');
   
-  return `// WebAssembly wrapper for ${packageName}
+  return `// WebAssembly wrapper for ${packName}
 // Generated: ${metadata.timestamp}
 // Compiled from: ${metadata.compiledFrom}
 // Functions: ${metadata.functions.join(', ')}
@@ -2403,7 +2421,7 @@ export class ${className}WASM {
       this.memory = this.exports.memory;
       this.initialized = true;
       
-      console.log(\`${packageName} WASM initialized successfully\`);
+      console.log(\`${packName} WASM initialized successfully\`);
       return this;
       
     } catch (error) {
@@ -2461,16 +2479,16 @@ export default async function create${className}WASM() {
 
 // ES Module compatibility
 if (typeof window !== 'undefined') {
-  window.${packageName}WASM = create${className}WASM;
+  window.${packName}WASM = create${className}WASM;
 }
 `;
 }
 
-function generateComplexWasmWrapper(packageName, wasmBinary) {
+function generateComplexWasmWrapper(packName, wasmBinary) {
   const wasmBase64 = Buffer.from(wasmBinary).toString('base64');
-  const className = packageName.charAt(0).toUpperCase() + packageName.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+  const className = packName.charAt(0).toUpperCase() + packName.slice(1).replace(/[^a-zA-Z0-9]/g, '');
   
-  return `// Complex WebAssembly wrapper for ${packageName}
+  return `// Complex WebAssembly wrapper for ${packName}
 // Advanced WASM module with enhanced capabilities
 
 export class ${className}ComplexWASM {
@@ -2537,7 +2555,7 @@ export class ${className}ComplexWASM {
       this.memory = this.exports.memory;
       this.initialized = true;
       
-      console.log(\`${packageName} Complex WASM initialized with \${this.config.memoryPages} pages\`);
+      console.log(\`${packName} Complex WASM initialized with \${this.config.memoryPages} pages\`);
       return this;
       
     } catch (error) {
@@ -2651,8 +2669,8 @@ export default async function create${className}ComplexWASM(config = {}) {
 
 // Global registration for browser environments
 if (typeof window !== 'undefined') {
-  window.${packageName}ComplexWASM = create${className}ComplexWASM;
-  window.${packageName}ComplexWASMClass = ${className}ComplexWASM;
+  window.${packName}ComplexWASM = create${className}ComplexWASM;
+  window.${packName}ComplexWASMClass = ${className}ComplexWASM;
 }
 
 // Node.js/CommonJS compatibility
@@ -2666,19 +2684,19 @@ if (typeof module !== 'undefined' && module.exports) {
 `;
 }
 
-// 🆕 FIXED: Add req parameter
+// ============================================================================
+// EDIT PERMISSIONS (updated to use req parameter)
+// ============================================================================
 async function canUserEditPack(packId, userId, editToken, req = null) {
   console.log('Checking edit permissions for:', { packId, userId, editToken: editToken ? '***' + editToken.slice(-8) : 'none' });
   
-  // If we have an edit token, that's the primary method for anonymous users
   if (editToken) {
     try {
       console.log('Validating edit token...');
       
-      // 🆕 CRITICAL FIX: Select the id field so we can update use_count
       const { data: token, error: tokenError } = await supabase
         .from('edit_tokens')
-        .select('*') // 🆕 SELECT ALL FIELDS INCLUDING id
+        .select('*')
         .eq('token', editToken)
         .eq('pack_id', packId)
         .single();
@@ -2701,14 +2719,13 @@ async function canUserEditPack(packId, userId, editToken, req = null) {
         });
         
         if (expiresAt > now && (token.max_uses === 0 || token.use_count < token.max_uses)) {
-          // 🔥 CRITICAL: Increment use count when token is used
           await supabase
             .from('edit_tokens')
             .update({ 
               use_count: token.use_count + 1,
               updated_at: new Date().toISOString()
             })
-            .eq('id', token.id); // 🆕 NOW WE HAVE THE id FIELD!
+            .eq('id', token.id);
           
           console.log('Edit token validated successfully');
           return true;
@@ -2724,7 +2741,6 @@ async function canUserEditPack(packId, userId, editToken, req = null) {
     }
   }
   
-  // For logged-in users with userId
   if (userId) {
     try {
       console.log('Checking user permissions...');
@@ -2735,11 +2751,10 @@ async function canUserEditPack(packId, userId, editToken, req = null) {
         .single();
       
       if (pack && pack.publisher_id === userId) {
-        console.log('User is the package owner');
+        console.log('User is the pack owner');
         return true;
       }
       
-      // Also check collaborators table
       const { data: collaborator } = await supabase
         .from('pack_collaborators')
         .select('*')
@@ -2756,10 +2771,8 @@ async function canUserEditPack(packId, userId, editToken, req = null) {
     }
   }
   
-  // For anonymous users with IP matching (optional security)
   if (req) {
     try {
-      // 🆕 NOW req IS DEFINED!
       const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 
                       req.socket?.remoteAddress;
       
@@ -2784,6 +2797,7 @@ async function canUserEditPack(packId, userId, editToken, req = null) {
   console.log('All permission checks failed');
   return false;
 }
+
 async function getNextVersionNumber(packId) {
   try {
     const { data: versions } = await supabase
@@ -2803,7 +2817,6 @@ async function getNextVersionNumber(packId) {
 // ============================================================================
 // VERSIONING API HANDLER
 // ============================================================================
-
 async function handlePackVersions(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ 
@@ -2853,7 +2866,6 @@ async function handlePackVersions(req, res) {
 // ============================================================================
 // EDIT PACK API HANDLER
 // ============================================================================
-
 async function handleEditPack(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ 
@@ -2881,12 +2893,11 @@ async function handleEditPack(req, res) {
       });
     }
 
-   // In handleEditPack function, around line ~1880:
-const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 ADD req PARAMETER
+    const canEdit = await canUserEditPack(packId, userId, editToken, req);
     if (!canEdit) {
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to edit this package',
+        error: 'You do not have permission to edit this pack',
         code: 'EDIT_PERMISSION_DENIED'
       });
     }
@@ -2929,10 +2940,9 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
 
     const now = new Date().toISOString();
     const versionNumber = await getNextVersionNumber(packId);
-    const packageChecksum = generateChecksum(JSON.stringify(files));
+    const packChecksum = generateChecksum(JSON.stringify(files));
 
-    // Validate pack.json
-    const packJsonValidation = validatePackJsonSchema(packJsonObj, currentPack.package_type);
+    const packJsonValidation = validatePackJsonSchema(packJsonObj, currentPack.pack_type);
     if (!packJsonValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -2941,7 +2951,6 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
       });
     }
 
-    // Create new version
     const { data: newVersion, error: versionError } = await supabase
       .from('pack_versions')
       .insert([{
@@ -2950,7 +2959,7 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
         version_number: versionNumber,
         pack_json: packJson,
         files: files,
-        checksum: packageChecksum,
+        checksum: packChecksum,
         publisher_id: userId,
         created_at: now,
         updated_at: now
@@ -2962,7 +2971,6 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
       throw versionError;
     }
 
-    // Update main pack
     const { error: updateError } = await supabase
       .from('packs')
       .update({
@@ -2978,14 +2986,13 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
       throw updateError;
     }
 
-    // Log change
     await supabase
       .from('pack_changes')
       .insert([{
         pack_id: packId,
         user_id: userId,
         change_type: 'edit',
-        description: `Updated package to version ${version}`,
+        description: `Updated pack to version ${version}`,
         metadata: {
           version: version,
           versionNumber: versionNumber,
@@ -2994,9 +3001,8 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
         created_at: now
       }]);
 
-    // Test pack.json execution
     try {
-      const executor = new PackJsonExecutor(packJsonObj, files, currentPack.package_type);
+      const executor = new PackJsonExecutor(packJsonObj, files, currentPack.pack_type);
       await executor.testExecution();
     } catch (executionError) {
       console.warn('Pack.json execution test failed (non-critical):', executionError);
@@ -3004,7 +3010,7 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
 
     res.status(200).json({
       success: true,
-      message: 'Package updated successfully',
+      message: 'Pack updated successfully',
       version: version,
       versionNumber: versionNumber,
       packId: packId,
@@ -3015,7 +3021,7 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
     console.error('Edit pack error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update package',
+      error: 'Failed to update pack',
       code: 'INTERNAL_SERVER_ERROR'
     });
   }
@@ -3024,11 +3030,9 @@ const canEdit = await canUserEditPack(packId, userId, editToken, req); // 🆕 A
 // ============================================================================
 // MAIN PUBLISH API HANDLER
 // ============================================================================
-
 async function handler(req, res) {
   const startTime = Date.now();
   
-  // CORS headers
   const origin = req.headers.origin;
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -3042,12 +3046,10 @@ async function handler(req, res) {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Route handlers
   if (req.url?.includes('/api/pack-versions')) {
     return handlePackVersions(req, res);
   }
@@ -3057,7 +3059,6 @@ async function handler(req, res) {
   }
 
   if (req.method === 'GET' && req.url?.includes('/api/publish')) {
-    // Return API info for GET requests
     return res.status(200).json({
       success: true,
       api: 'Pack Publish API',
@@ -3078,7 +3079,6 @@ async function handler(req, res) {
     });
   }
 
-  // Rate limiting
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                    req.headers['x-real-ip'] || 
                    req.socket.remoteAddress;
@@ -3130,7 +3130,6 @@ async function handler(req, res) {
     rateLimitStore.set(clientIp, requestData);
   }
 
-  // Validate Content-Type
   const contentType = req.headers['content-type'];
   if (!contentType || !contentType.includes('application/json')) {
     return res.status(415).json({
@@ -3140,12 +3139,11 @@ async function handler(req, res) {
     });
   }
 
-  // Size limit check
   const contentLength = parseInt(req.headers['content-length'] || '0');
   if (contentLength > 100 * 1024 * 1024) {
     return res.status(413).json({
       success: false,
-      error: 'Request body too large. Maximum 100MB allowed for WASM packages.',
+      error: 'Request body too large. Maximum 100MB allowed for WASM packs.',
       code: 'PAYLOAD_TOO_LARGE'
     });
   }
@@ -3156,7 +3154,8 @@ async function handler(req, res) {
       packJson, 
       files, 
       isPublic = true,
-      packageType = 'basic',
+      packageType: providedPackageType = 'basic',  // from UI
+      complexity: providedComplexity,               // from UI (low/medium/high)
       version = '1.0.0',
       isNewVersion = false,
       basePackId = null,
@@ -3167,7 +3166,6 @@ async function handler(req, res) {
       wasmConfig = {}
     } = req.body;
 
-    // Validate required fields
     if (!name || !packJson || !files) {
       return res.status(400).json({ 
         success: false, 
@@ -3176,37 +3174,23 @@ async function handler(req, res) {
       });
     }
 
-    // Validate package name
-    const nameValidation = validatePackageName(name);
+    const nameValidation = validatePackName(name);
     if (!nameValidation.valid) {
       return res.status(400).json({ 
         success: false, 
-        error: `Invalid package name: ${nameValidation.reason}`,
-        code: 'INVALID_PACKAGE_NAME'
+        error: `Invalid pack name: ${nameValidation.reason}`,
+        code: 'INVALID_PACK_NAME'
       });
     }
 
-    // Check for reserved names
     if (RESERVED_NAMES.includes(name.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        error: `Package name "${name}" is reserved and cannot be used`,
+        error: `Pack name "${name}" is reserved and cannot be used`,
         code: 'RESERVED_NAME'
       });
     }
 
-    // Validate package type
-    if (!PACKAGE_TYPES[packageType]) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid package type. Must be one of: ${Object.keys(PACKAGE_TYPES).join(', ')}`,
-        code: 'INVALID_PACKAGE_TYPE'
-      });
-    }
-
-    const packageConfig = PACKAGE_TYPES[packageType];
-
-    // Validate packJson
     let packJsonObj;
     try {
       packJsonObj = JSON.parse(packJson);
@@ -3218,17 +3202,6 @@ async function handler(req, res) {
           code: 'INVALID_PACK_JSON'
         });
       }
-      
-      // Validate packJson schema
-      const packJsonValidation = validatePackJsonSchema(packJsonObj, packageType);
-      if (!packJsonValidation.valid) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid pack.json: ${packJsonValidation.reason}`,
-          code: 'INVALID_PACK_JSON_SCHEMA'
-        });
-      }
-      
     } catch (e) {
       return res.status(400).json({ 
         success: false, 
@@ -3237,7 +3210,50 @@ async function handler(req, res) {
       });
     }
 
-    // Validate files object structure
+    // Determine pack type based on complexity or provided type
+    let packType = providedPackageType;
+    if (providedComplexity) {
+      if (!['low', 'medium', 'high'].includes(providedComplexity)) {
+        return res.status(400).json({
+          success: false,
+          error: 'complexity must be "low", "medium", or "high"',
+          code: 'INVALID_COMPLEXITY'
+        });
+      }
+      const complexityMap = { low: 'basic', medium: 'standard', high: 'advanced' };
+      packType = complexityMap[providedComplexity];
+    } else if (packJsonObj.complexity) {
+      if (!['low', 'medium', 'high'].includes(packJsonObj.complexity)) {
+        return res.status(400).json({
+          success: false,
+          error: 'complexity in pack.json must be "low", "medium", or "high"',
+          code: 'INVALID_PACK_JSON_COMPLEXITY'
+        });
+      }
+      const complexityMap = { low: 'basic', medium: 'standard', high: 'advanced' };
+      packType = complexityMap[packJsonObj.complexity];
+    }
+
+    if (!PACK_TYPES[packType]) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid pack type. Must be one of: ${Object.keys(PACK_TYPES).join(', ')}`,
+        code: 'INVALID_PACK_TYPE'
+      });
+    }
+
+    const packConfig = PACK_TYPES[packType];
+
+    // Validate packJson schema
+    const packJsonValidation = validatePackJsonSchema(packJsonObj, packType);
+    if (!packJsonValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid pack.json: ${packJsonValidation.reason}`,
+        code: 'INVALID_PACK_JSON_SCHEMA'
+      });
+    }
+
     if (typeof files !== 'object' || files === null || Array.isArray(files)) {
       return res.status(400).json({ 
         success: false, 
@@ -3246,12 +3262,11 @@ async function handler(req, res) {
       });
     }
 
-    // File count limit
     const fileCount = Object.keys(files).length;
-    if (fileCount > packageConfig.maxFiles) {
+    if (fileCount > packConfig.maxFiles) {
       return res.status(400).json({ 
         success: false, 
-        error: `Too many files. Maximum ${packageConfig.maxFiles} files allowed for ${packageType} packages.`,
+        error: `Too many files. Maximum ${packConfig.maxFiles} files allowed for ${packType} packs.`,
         code: 'TOO_MANY_FILES'
       });
     }
@@ -3264,7 +3279,6 @@ async function handler(req, res) {
       });
     }
 
-    // Validate individual files
     let totalSize = 0;
     const processedFiles = {};
     const fileDependencies = new Set();
@@ -3272,8 +3286,7 @@ async function handler(req, res) {
     const hasSourceFiles = { rust: false, go: false, zig: false };
     
     for (const [filename, content] of Object.entries(files)) {
-      // Validate filename
-      const filenameValidation = validateFilename(filename, packageType);
+      const filenameValidation = validateFilename(filename, packType);
       if (!filenameValidation.valid) {
         return res.status(400).json({ 
           success: false, 
@@ -3282,7 +3295,6 @@ async function handler(req, res) {
         });
       }
 
-      // Validate content type and size
       if (typeof content !== 'string') {
         return res.status(400).json({ 
           success: false, 
@@ -3291,11 +3303,10 @@ async function handler(req, res) {
         });
       }
 
-      // Check content size
       const fileSize = content.length;
       totalSize += fileSize;
       
-      const maxFileSize = packageType === 'advanced' || packageType === 'wasm' ? 
+      const maxFileSize = packType === 'advanced' || packType === 'wasm' ? 
         10 * 1024 * 1024 : 2 * 1024 * 1024;
       
       if (fileSize > maxFileSize) {
@@ -3306,7 +3317,6 @@ async function handler(req, res) {
         });
       }
 
-      // File extension validation
       const ext = filename.split('.').pop().toLowerCase();
       const fileType = getFileType(ext);
       
@@ -3327,8 +3337,7 @@ async function handler(req, res) {
         });
       }
 
-      // Content validation
-      const contentValidation = validateFileContent(filename, content, fileType, packageType);
+      const contentValidation = validateFileContent(filename, content, fileType, packType);
       if (!contentValidation.valid) {
         return res.status(400).json({
           success: false,
@@ -3337,7 +3346,6 @@ async function handler(req, res) {
         });
       }
 
-      // Track WASM files
       if (fileType === 'wasm') {
         wasmFiles.push({ filename, content });
         
@@ -3351,46 +3359,66 @@ async function handler(req, res) {
         }
       }
 
-      // Track source files
       if (fileType === 'rust') hasSourceFiles.rust = true;
       if (fileType === 'go') hasSourceFiles.go = true;
       if (fileType === 'zig') hasSourceFiles.zig = true;
 
-      // Extract dependencies
-      if (filename.toLowerCase() === 'package.json') {
-        try {
-          const pkgJson = JSON.parse(content);
-          if (pkgJson.dependencies) {
-            Object.keys(pkgJson.dependencies).forEach(dep => {
-              if (dep.startsWith('@')) return;
-              fileDependencies.add(dep.toLowerCase());
-            });
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
-
       processedFiles[filename] = content;
     }
 
-    // Total package size limit
-    if (totalSize > packageConfig.maxSize) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Package too large. Total size: ${(totalSize / 1024 / 1024).toFixed(2)}MB. Maximum ${packageConfig.maxSize / 1024 / 1024}MB for ${packageType} packages.`,
-        code: 'PACKAGE_TOO_LARGE'
+    // Check if WASM is supported by the pack type
+    if (wasmFiles.length > 0 && !packConfig.wasmSupport) {
+      return res.status(400).json({
+        success: false,
+        error: `WASM files are not allowed for ${packType} packs. Please use higher complexity.`,
+        code: 'WASM_NOT_SUPPORTED',
+        suggestion: 'Set complexity to "medium" or "high" to enable WASM support.'
       });
     }
 
-    // Validate dependencies
-    if (packageType === 'advanced' || packageType === 'standard') {
+    if (compileToWasm && !packConfig.canCompileToWasm) {
+      return res.status(400).json({
+        success: false,
+        error: `Compilation to WASM is not allowed for ${packType} packs. Please use higher complexity.`,
+        code: 'WASM_COMPILE_NOT_SUPPORTED'
+      });
+    }
+
+    if (totalSize > packConfig.maxSize) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Pack too large. Total size: ${(totalSize / 1024 / 1024).toFixed(2)}MB. Maximum ${packConfig.maxSize / 1024 / 1024}MB for ${packType} packs.`,
+        code: 'PACK_TOO_LARGE'
+      });
+    }
+
+    // Extract dependencies from pack.json (not from a separate package.json)
+    if (packJsonObj.dependencies) {
+      Object.keys(packJsonObj.dependencies).forEach(dep => {
+        if (dep.startsWith('@')) return;
+        fileDependencies.add(dep.toLowerCase());
+      });
+    }
+    if (packJsonObj.devDependencies) {
+      Object.keys(packJsonObj.devDependencies).forEach(dep => {
+        if (dep.startsWith('@')) return;
+        fileDependencies.add(dep.toLowerCase());
+      });
+    }
+    if (packJsonObj.peerDependencies) {
+      Object.keys(packJsonObj.peerDependencies).forEach(dep => {
+        if (dep.startsWith('@')) return;
+        fileDependencies.add(dep.toLowerCase());
+      });
+    }
+
+    if (packType === 'advanced' || packType === 'standard') {
       for (const dep of fileDependencies) {
-        const allowed = packageConfig.allowedNodeModules || ADVANCED_NODE_MODULES;
+        const allowed = packConfig.allowedNodeModules || ADVANCED_NODE_MODULES;
         if (!allowed.includes(dep) && !allowed.some(a => dep.startsWith(a + '/'))) {
           return res.status(400).json({
             success: false,
-            error: `Dependency "${dep}" is not allowed for ${packageType} packages.`,
+            error: `Dependency "${dep}" is not allowed for ${packType} packs.`,
             code: 'DISALLOWED_DEPENDENCY',
             allowedModules: allowed
           });
@@ -3412,7 +3440,7 @@ async function handler(req, res) {
     let enhancedPackJson = packJsonObj;
     
     try {
-      const executor = new PackJsonExecutor(packJsonObj, processedFiles, packageType);
+      const executor = new PackJsonExecutor(packJsonObj, processedFiles, packType);
       enhancedPackJson = await executor.testExecution();
     } catch (executionError) {
       console.warn('Pack.json execution test failed (non-critical):', executionError);
@@ -3425,7 +3453,7 @@ async function handler(req, res) {
     let complexWasm = null;
     let wasmMetadata = null;
     
-    if (compileToWasm && packageConfig.canCompileToWasm) {
+    if (compileToWasm && packConfig.canCompileToWasm) {
       try {
         const wasmCompiler = new PackWASMCompiler();
         
@@ -3457,8 +3485,7 @@ async function handler(req, res) {
           }
         }
         
-        // Generate complex WASM for advanced packages
-        if (packageType === 'advanced' || packageType === 'wasm') {
+        if (packType === 'advanced' || packType === 'wasm') {
           console.log('Generating complex WASM module');
           
           const complexResult = await wasmCompiler.createComplexWasmModule(
@@ -3481,219 +3508,192 @@ async function handler(req, res) {
       }
     }
 
-   // ============================================================================
-// VERSIONING AND DATABASE LOGIC
-// ============================================================================
-let versionNumber = sanitizeVersion(version);
-let isVersionOfId = null; // Track if this is a version of another package
+    // ============================================================================
+    // VERSIONING AND DATABASE LOGIC
+    // ============================================================================
+    let versionNumber = sanitizeVersion(version);
+    let isVersionOfId = null;
 
-// 🆕 FIXED LOGIC: Handle different publishing scenarios
-if (isNewVersion && basePackId) {
-    // Scenario 1: User wants to create a new version of an existing package
-    console.log(`Creating new version for package ID: ${basePackId}`);
-    
-    // Verify the base pack exists
-    const { data: basePack } = await supabase
+    if (isNewVersion && basePackId) {
+      console.log(`Creating new version for pack ID: ${basePackId}`);
+      
+      const { data: basePack } = await supabase
         .from('packs')
-        .select('id, name, package_type')
+        .select('id, name, pack_type')
         .eq('id', basePackId)
         .single();
-    
-    if (!basePack) {
+      
+      if (!basePack) {
         return res.status(404).json({
-            success: false,
-            error: `Base package with ID "${basePackId}" not found`,
-            code: 'BASE_PACK_NOT_FOUND'
+          success: false,
+          error: `Base pack with ID "${basePackId}" not found`,
+          code: 'BASE_PACK_NOT_FOUND'
         });
-    }
-    
-    // Check permissions (edit token required for anonymous users)
-    const canEdit = await canUserEditPack(basePackId, userId, editToken);
-    if (!canEdit) {
+      }
+      
+      const canEdit = await canUserEditPack(basePackId, userId, editToken);
+      if (!canEdit) {
         return res.status(403).json({
-            success: false,
-            error: 'You do not have permission to edit this package',
-            code: 'EDIT_PERMISSION_DENIED',
-            details: userId ? 
-                'Your user ID does not match the package owner' : 
-                'Valid edit token is required for anonymous users'
+          success: false,
+          error: 'You do not have permission to edit this pack',
+          code: 'EDIT_PERMISSION_DENIED',
+          details: userId ? 
+            'Your user ID does not match the pack owner' : 
+            'Valid edit token is required for anonymous users'
         });
-    }
-    
-    // Set this as a version of the base package
-    isVersionOfId = basePackId;
-    console.log(`Creating version ${versionNumber} of "${basePack.name}" (ID: ${basePackId})`);
-    
-} else if (isNewVersion && !basePackId) {
-    // Scenario 2: User checked "Create New Version" but didn't provide basePackId
-    console.log(`Looking for original package with name: "${name}"`);
-    
-    try {
+      }
+      
+      isVersionOfId = basePackId;
+      console.log(`Creating version ${versionNumber} of "${basePack.name}" (ID: ${basePackId})`);
+      
+    } else if (isNewVersion && !basePackId) {
+      console.log(`Looking for original pack with name: "${name}"`);
+      
+      try {
         const { data: originalPack } = await supabase
-            .from('packs')
-            .select('id, name, created_at')
-            .eq('name', name)
-            .order('created_at', { ascending: true })
-            .limit(1);
+          .from('packs')
+          .select('id, name, created_at')
+          .eq('name', name)
+          .order('created_at', { ascending: true })
+          .limit(1);
         
         if (originalPack && originalPack[0]) {
-            isVersionOfId = originalPack[0].id;
-            console.log(`Found original package ID: ${isVersionOfId} for name: "${name}"`);
-            
-            // Check permissions
-            const canEdit = await canUserEditPack(isVersionOfId, userId, editToken);
-            if (!canEdit) {
-                return res.status(403).json({
-                    success: false,
-                    error: 'You do not have permission to create a version of this package',
-                    code: 'EDIT_PERMISSION_DENIED',
-                    details: userId ? 
-                        'Your user ID does not match the package owner' : 
-                        'Valid edit token is required for anonymous users'
-                });
-            }
-            
-            console.log(`Creating new version ${versionNumber} of existing package "${name}"`);
-        } else {
-            // No existing package found with this name
-            return res.status(400).json({
-                success: false,
-                error: `Cannot create new version - no existing package found with name "${name}"`,
-                code: 'NO_EXISTING_PACKAGE',
-                suggestion: 'Create a new package instead or provide the correct basePackId'
+          isVersionOfId = originalPack[0].id;
+          console.log(`Found original pack ID: ${isVersionOfId} for name: "${name}"`);
+          
+          const canEdit = await canUserEditPack(isVersionOfId, userId, editToken);
+          if (!canEdit) {
+            return res.status(403).json({
+              success: false,
+              error: 'You do not have permission to create a version of this pack',
+              code: 'EDIT_PERMISSION_DENIED',
+              details: userId ? 
+                'Your user ID does not match the pack owner' : 
+                'Valid edit token is required for anonymous users'
             });
-        }
-    } catch (lookupError) {
-        console.error('Package lookup error:', lookupError);
-        return res.status(500).json({
+          }
+          
+          console.log(`Creating new version ${versionNumber} of existing pack "${name}"`);
+        } else {
+          return res.status(400).json({
             success: false,
-            error: 'Failed to check for existing packages',
-            code: 'LOOKUP_ERROR'
+            error: `Cannot create new version - no existing pack found with name "${name}"`,
+            code: 'NO_EXISTING_PACK',
+            suggestion: 'Create a new pack instead or provide the correct basePackId'
+          });
+        }
+      } catch (lookupError) {
+        console.error('Pack lookup error:', lookupError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to check for existing packs',
+          code: 'LOOKUP_ERROR'
         });
-    }
-    
-} else {
-    // Scenario 3: Creating a BRAND NEW package (not a new version)
-    console.log(`Creating new package: "${name}"`);
-    isVersionOfId = null; // This is an original, not a version
-    
-    // Check if package name already exists (only for brand new packages)
-    // But we need to check differently because of our new schema
-    const { data: existingPack } = await supabase
+      }
+      
+    } else {
+      console.log(`Creating new pack: "${name}"`);
+      isVersionOfId = null;
+      
+      const { data: existingPack } = await supabase
         .from('packs')
         .select('id, name, created_at, is_version_of')
         .eq('name', name)
         .limit(5);
-    
-    if (existingPack && existingPack.length > 0) {
-        // Check if any existing package is an original (not a version)
+      
+      if (existingPack && existingPack.length > 0) {
         const originalPacks = existingPack.filter(p => p.is_version_of === null);
         
         if (originalPacks.length > 0) {
-            // Found an original package with this name
-            const originalPack = originalPacks[0];
-            return res.status(409).json({
-                success: false,
-                error: `Package name "${name}" is already taken. Package names must be unique for new packages.`,
-                code: 'PACKAGE_NAME_EXISTS',
-                existingPackageId: originalPack.id,
-                suggestion: `Use "isNewVersion: true" and "basePackId: "${originalPack.id}" to create a new version`,
-                existingVersions: existingPack.length,
-                originalCreated: originalPack.created_at
-            });
-        }
-        // If all existing packages are versions (is_version_of is not null), 
-        // then this name is available for a new original package
-        console.log(`Name "${name}" has ${existingPack.length} versions but no original package. Creating new original.`);
-    }
-}
-
-// Generate secure URLs
-const urlId = generateSecureUrlId();
-const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
-const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
-const wasmUrl = compiledWasm ? `${cdnUrl}/compiled.wasm` : null;
-const complexWasmUrl = complexWasm ? `${cdnUrl}/complex.wasm` : null;
-
-// Generate encryption key for private packages
-const encryptedKey = !isPublic ? generateSecureEncryptionKey() : null;
-
-// Generate checksum
-const packageChecksum = generateChecksum(JSON.stringify(processedFiles));
-
-// Prepare package data
-const now = new Date().toISOString();
-const packData = {
-    url_id: urlId,
-    name,
-    pack_json: JSON.stringify(enhancedPackJson),
-    files: processedFiles,
-    cdn_url: cdnUrl,
-    worker_url: workerUrl,
-    encrypted_key: encryptedKey,
-    is_public: isPublic,
-    version: versionNumber,
-    package_type: packageType,
-    created_at: now,
-    updated_at: now,
-    views: 0,
-    downloads: 0,
-    publish_ip: clientIp,
-    last_accessed: now,
-    publisher_id: userId,
-    wasm_url: wasmUrl,
-    complex_wasm_url: complexWasmUrl,
-    wasm_metadata: wasmMetadata,
-    compile_to_wasm: compileToWasm,
-    
-    // 🔥 CRITICAL FIX: Add the is_version_of field that matches your PostgreSQL schema
-    is_version_of: isVersionOfId // This tells the database if it's a new version
-};
-
-// Save to main packs table
-console.log('Inserting pack data with is_version_of:', isVersionOfId);
-const { data: pack, error: packError } = await supabase
-    .from('packs')
-    .insert([packData])
-    .select()
-    .single();
-
-if (packError) {
-    console.error('Supabase insert error:', packError);
-    
-    // Check for specific database errors
-    if (packError.code === '23505') {
-        // Unique constraint violation - name already exists
-        return res.status(409).json({ 
-            success: false, 
-            error: 'Package name already exists. Use isNewVersion: true to create a new version.',
-            code: 'DUPLICATE_PACKAGE_NAME',
-            details: packError.message,
-            suggestion: 'Set isNewVersion: true and provide basePackId or leave blank to find original'
-        });
-    } else if (packError.code === 'P0001') {
-        // PostgreSQL function exception (our trigger function)
-        return res.status(409).json({
+          const originalPack = originalPacks[0];
+          return res.status(409).json({
             success: false,
-            error: packError.message,
-            code: 'DATABASE_VALIDATION_ERROR',
-            suggestion: 'This is likely a duplicate name error. Use versioning instead.'
-        });
+            error: `Pack name "${name}" is already taken. Pack names must be unique for new packs.`,
+            code: 'PACK_NAME_EXISTS',
+            existingPackId: originalPack.id,
+            suggestion: `Use "isNewVersion: true" and "basePackId: "${originalPack.id}" to create a new version`,
+            existingVersions: existingPack.length,
+            originalCreated: originalPack.created_at
+          });
+        }
+        console.log(`Name "${name}" has ${existingPack.length} versions but no original pack. Creating new original.`);
+      }
     }
-    
-    return res.status(500).json({ 
+
+    const urlId = generateSecureUrlId();
+    const cdnUrl = `https://packcdn.firefly-worker.workers.dev/cdn/${urlId}`;
+    const workerUrl = `https://packcdn.firefly-worker.workers.dev/pack/${urlId}`;
+    const wasmUrl = compiledWasm ? `${cdnUrl}/compiled.wasm` : null;
+    const complexWasmUrl = complexWasm ? `${cdnUrl}/complex.wasm` : null;
+
+    const encryptedKey = !isPublic ? generateSecureEncryptionKey() : null;
+    const packChecksum = generateChecksum(JSON.stringify(processedFiles));
+
+    const now = new Date().toISOString();
+    const packData = {
+      url_id: urlId,
+      name,
+      pack_json: JSON.stringify(enhancedPackJson),
+      files: processedFiles,
+      cdn_url: cdnUrl,
+      worker_url: workerUrl,
+      encrypted_key: encryptedKey,
+      is_public: isPublic,
+      version: versionNumber,
+      pack_type: packType,
+      created_at: now,
+      updated_at: now,
+      views: 0,
+      downloads: 0,
+      publish_ip: clientIp,
+      last_accessed: now,
+      publisher_id: userId,
+      wasm_url: wasmUrl,
+      complex_wasm_url: complexWasmUrl,
+      wasm_metadata: wasmMetadata,
+      compile_to_wasm: compileToWasm,
+      is_version_of: isVersionOfId
+    };
+
+    console.log('Inserting pack data with is_version_of:', isVersionOfId);
+    const { data: pack, error: packError } = await supabase
+      .from('packs')
+      .insert([packData])
+      .select()
+      .single();
+
+    if (packError) {
+      console.error('Supabase insert error:', packError);
+      
+      if (packError.code === '23505') {
+        return res.status(409).json({ 
+          success: false, 
+          error: 'Pack name already exists. Use isNewVersion: true to create a new version.',
+          code: 'DUPLICATE_PACK_NAME',
+          details: packError.message,
+          suggestion: 'Set isNewVersion: true and provide basePackId or leave blank to find original'
+        });
+      } else if (packError.code === 'P0001') {
+        return res.status(409).json({
+          success: false,
+          error: packError.message,
+          code: 'DATABASE_VALIDATION_ERROR',
+          suggestion: 'This is likely a duplicate name error. Use versioning instead.'
+        });
+      }
+      
+      return res.status(500).json({ 
         success: false, 
-        error: 'Failed to save package to database',
+        error: 'Failed to save pack to database',
         code: 'DATABASE_ERROR',
         details: packError.message,
         databaseError: packError.code
-    });
-}
+      });
+    }
 
-console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_version_of}`);
-    // Save advanced features
+    console.log(`Pack ${pack.id} saved successfully! is_version_of: ${pack.is_version_of}`);
+
     try {
-      // Save to pack_versions table
       await supabase
         .from('pack_versions')
         .insert([{
@@ -3702,21 +3702,20 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
           version_number: isNewVersion ? await getNextVersionNumber(basePackId) : 1,
           pack_json: JSON.stringify(enhancedPackJson),
           files: processedFiles,
-          checksum: packageChecksum,
+          checksum: packChecksum,
           publisher_id: userId,
           created_at: now,
           updated_at: now
         }]);
 
-      // Save to pack_metadata table
       await supabase
         .from('pack_metadata')
         .insert([{
           pack_id: pack.id,
-          package_type: packageType,
-          sandbox_level: packageConfig.sandboxLevel || 'basic',
-          requires_verification: packageConfig.requiresVerification || false,
-          verification_status: packageConfig.requiresVerification ? 'pending' : 'approved',
+          pack_type: packType,
+          sandbox_level: packConfig.sandboxLevel || 'basic',
+          requires_verification: packConfig.requiresVerification || false,
+          verification_status: packConfig.requiresVerification ? 'pending' : 'approved',
           file_count: fileCount,
           total_size: totalSize,
           wasm_size: compiledWasm ? compiledWasm.length : 0,
@@ -3725,7 +3724,6 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
           updated_at: now
         }]);
 
-      // Save dependencies
       if (fileDependencies.size > 0) {
         const dependencyInserts = Array.from(fileDependencies).map(dep => ({
           pack_id: pack.id,
@@ -3738,7 +3736,6 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
           .insert(dependencyInserts);
       }
 
-      // Save collaborators
       if (collaborators && Array.isArray(collaborators)) {
         const validCollaborators = collaborators.filter(c => 
           c && typeof c === 'string' && c.length > 0
@@ -3764,7 +3761,6 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
         }
       }
 
-      // Log change
       await supabase
         .from('pack_changes')
         .insert([{
@@ -3773,9 +3769,9 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
           change_type: isNewVersion ? 'version' : 'create',
           description: isNewVersion 
             ? `Created new version ${versionNumber} from base pack ${basePackId}`
-            : `Created new package ${name} v${versionNumber}`,
+            : `Created new pack ${name} v${versionNumber}`,
           metadata: {
-            packageType,
+            packType,
             fileCount,
             totalSize,
             isPublic,
@@ -3792,206 +3788,192 @@ console.log(`Package ${pack.id} saved successfully! is_version_of: ${pack.is_ver
       console.warn('Advanced features save failed (non-critical):', advancedError);
     }
 
-// ============================================================================
-// SUCCESS RESPONSE
-// ============================================================================
-const processingTime = Date.now() - startTime;
+    // ============================================================================
+    // SUCCESS RESPONSE
+    // ============================================================================
+    const processingTime = Date.now() - startTime;
 
-console.log(`Package published successfully: ${name} v${versionNumber}`, {
-  packageType,
-  fileCount,
-  totalSize: `${(totalSize / 1024).toFixed(2)}KB`,
-  processingTime: `${processingTime}ms`,
-  wasmGenerated: !!compiledWasm,
-  complexWasmGenerated: !!complexWasm,
-  hasExecutionMethods: true
-});
+    console.log(`Pack published successfully: ${name} v${versionNumber}`, {
+      packType,
+      fileCount,
+      totalSize: `${(totalSize / 1024).toFixed(2)}KB`,
+      processingTime: `${processingTime}ms`,
+      wasmGenerated: !!compiledWasm,
+      complexWasmGenerated: !!complexWasm,
+      hasExecutionMethods: true
+    });
 
-// 🆕 GENERATE EDIT TOKEN FOR ANONYMOUS USER
-let editTokenData = null;
-let generatedToken = null; // ADD THIS LINE
+    let editTokenData = null;
+    let generatedToken = null;
 
-try {
-  // Generate a secure edit token
-  const token = crypto.randomBytes(32).toString('hex');
-  generatedToken = token; // 🔥 CRITICAL: SAVE THE GENERATED TOKEN HERE
-  
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year
-  
-  // Insert into edit_tokens table
-  const { data: tokenResult, error: tokenError } = await supabase
-    .from('edit_tokens')
-    .insert([{
-      pack_id: pack.id,
-      token: token,
-      created_by: userId || 'anonymous',
-      creator_ip: clientIp,
-      expires_at: expiresAt,
-      max_uses: 50, // Generous number of edits
-      use_count: 0,
-      created_at: now,
-      updated_at: now
-    }])
-    .select()
-    .single();
-    
-  if (!tokenError && tokenResult) {
-    editTokenData = tokenResult;
-    console.log(`Generated edit token for pack ${pack.id}`);
-  } else {
-    console.warn('Failed to generate edit token (non-critical):', tokenError);
-  }
-} catch (tokenError) {
-  console.warn('Edit token generation failed (non-critical):', tokenError);
-}
-
-// 🆕 Generate secure URLs with token
-const editUrl = `/api/edit-pack?id=${pack.id}${editToken ? `&token=${editToken}` : ''}`;
-const manageUrl = editToken ? `/manage/${pack.id}?token=${editToken}` : `/manage/${pack.id}`;
-
-// Return success response
-res.status(201).json({
-  success: true,
-  packId: pack.id,
-  urlId,
-  cdnUrl,
-  workerUrl,
-  wasmUrl,
-  complexWasmUrl,
-  
-  // 🆕 EDIT TOKEN INFORMATION (CRITICAL FOR ANONYMOUS USERS)
-  // 🔥 FIXED: Return the ACTUALLY GENERATED token (generatedToken), not the request token
-  editToken: generatedToken || editToken, // ✅ This returns the newly generated token!
-  
-  editTokenInfo: editTokenData ? {
-    token: editTokenData.token,
-    expiresAt: editTokenData.expires_at,
-    maxUses: editTokenData.max_uses,
-    remainingUses: editTokenData.max_uses - editTokenData.use_count,
-    createdAt: editTokenData.created_at
-  } : null,
-  
-  // 🆕 WARNING FOR ANONYMOUS USERS
-  // 🔥 FIXED: Use generatedToken in the warning message too
-  securityWarning: !userId ? [
-    '⚠️ IMPORTANT: You have published anonymously',
-    '🔑 Save this edit token: ' + (generatedToken || editToken || 'NOT GENERATED'),
-    '📝 You will need this token to update or delete this package',
-    '💾 Store it securely - it cannot be recovered if lost',
-    '🔗 Bookmark this page or save the token in a safe place'
-  ] : null,
-  
-  // ... rest of the response ...
-  
-  installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
-  npmInstallCommand: `npm install ${name}`,
-  encryptedKey,
-  isNewVersion,
-  basePackId,
-  version: versionNumber,
-  metadata: {
-    name,
-    version: versionNumber,
-    packageType,
-    fileCount,
-    totalSize,
-    isPublic,
-    dependencies: Array.from(fileDependencies),
-    wasmGenerated: !!compiledWasm,
-    complexWasmGenerated: !!complexWasm,
-    wasmFunctions: wasmMetadata?.functions || [],
-    createdAt: now,
-    checksum: packageChecksum,
-    hasExecutionMethods: true,
-    publisherType: userId ? 'authenticated' : 'anonymous',
-    publisherIpHash: clientIp ? crypto.createHash('sha256').update(clientIp).digest('hex').substring(0, 16) : null
-  },
-  links: {
-    cdn: cdnUrl,
-    info: workerUrl,
-    download: `${cdnUrl}/index.js`,
-    wasm: wasmUrl,
-    complexWasm: complexWasmUrl,
-    api: `/api/get-pack?id=${urlId}`,
-    versions: `/api/pack-versions?id=${pack.id}`,
-    edit: editUrl, // 🆕 Includes token if available
-    manage: manageUrl, // 🆕 User-friendly management URL
-    embed: `${workerUrl}/embed`,
-    raw: `${cdnUrl}/raw/${name}.js`
-  },
-  advancedFeatures: {
-    versioning: true,
-    collaboration: true,
-    dependencies: fileDependencies.size > 0,
-    wasmSupport: true,
-    complexWasmSupport: !!complexWasm,
-    compileToWasm: compileToWasm,
-    webAccessible: true,
-    sandboxed: true,
-    packJsonExecution: true,
-    anonymousPublishing: !userId, // 🆕 Indicate this was anonymous
-    editTokenProvided: !!editToken // 🆕 Indicate if edit token was generated
-  },
-  quickActions: {
-    testPackage: `curl "${workerUrl}/test"`,
-    runPackage: `pack run ${name}`,
-    updatePackage: `curl -X POST "${editUrl}" -H "Content-Type: application/json" -d '{"files": {...}}'`,
-    deletePackage: editToken ? `curl -X DELETE "${workerUrl}/delete?token=${editToken}"` : 'Requires edit token'
-  },
-  processingTime: `${processingTime}ms`,
-  
-  // 🆕 RECOMMENDED NEXT STEPS
-  nextSteps: [
-    'Test your package: ' + `${workerUrl}/test`,
-    'Share your package: ' + cdnUrl,
-    'Embed in website: ' + `<script src="${cdnUrl}/embed.js"></script>`,
-    editToken ? 'Save your edit token for future updates' : 'No edit token generated - contact support if needed'
-  ]
-});
-
-} catch (error) {
-  console.error('Publish error:', {
-    message: error.message,
-    stack: error.stack,
-    clientIp,
-    timestamp: new Date().toISOString()
-  });
-  
-  res.status(500).json({ 
-    success: false, 
-    error: 'An unexpected error occurred. Please try again later.',
-    code: 'INTERNAL_SERVER_ERROR',
-    details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    
-    // 🆕 Helpful recovery information
-    recoveryTips: [
-      'Check your package.json for syntax errors',
-      'Ensure all file sizes are under 10MB',
-      'Verify package name follows naming conventions',
-      'Try reducing the number of files if over limit'
-    ]
-  });
-}
-
-// Cleanup rate limiting store
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, data] of rateLimitStore.entries()) {
-    if (now > data.resetTime + 60 * 60 * 1000 && data.bannedUntil < now) {
-      rateLimitStore.delete(ip);
+    try {
+      const token = crypto.randomBytes(32).toString('hex');
+      generatedToken = token;
+      
+      const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      
+      const { data: tokenResult, error: tokenError } = await supabase
+        .from('edit_tokens')
+        .insert([{
+          pack_id: pack.id,
+          token: token,
+          created_by: userId || 'anonymous',
+          creator_ip: clientIp,
+          expires_at: expiresAt,
+          max_uses: 50,
+          use_count: 0,
+          created_at: now,
+          updated_at: now
+        }])
+        .select()
+        .single();
+        
+      if (!tokenError && tokenResult) {
+        editTokenData = tokenResult;
+        console.log(`Generated edit token for pack ${pack.id}`);
+      } else {
+        console.warn('Failed to generate edit token (non-critical):', tokenError);
+      }
+    } catch (tokenError) {
+      console.warn('Edit token generation failed (non-critical):', tokenError);
     }
+
+    const editUrl = `/api/edit-pack?id=${pack.id}${editToken ? `&token=${editToken}` : ''}`;
+    const manageUrl = editToken ? `/manage/${pack.id}?token=${editToken}` : `/manage/${pack.id}`;
+
+    res.status(201).json({
+      success: true,
+      packId: pack.id,
+      urlId,
+      cdnUrl,
+      workerUrl,
+      wasmUrl,
+      complexWasmUrl,
+      
+      editToken: generatedToken || editToken,
+      
+      editTokenInfo: editTokenData ? {
+        token: editTokenData.token,
+        expiresAt: editTokenData.expires_at,
+        maxUses: editTokenData.max_uses,
+        remainingUses: editTokenData.max_uses - editTokenData.use_count,
+        createdAt: editTokenData.created_at
+      } : null,
+      
+      securityWarning: !userId ? [
+        '⚠️ IMPORTANT: You have published anonymously',
+        '🔑 Save this edit token: ' + (generatedToken || editToken || 'NOT GENERATED'),
+        '📝 You will need this token to update or delete this pack',
+        '💾 Store it securely - it cannot be recovered if lost',
+        '🔗 Bookmark this page or save the token in a safe place'
+      ] : null,
+      
+      installCommand: `pack install ${name}@${versionNumber} ${cdnUrl}`,
+      npmInstallCommand: `npm install ${name}`,
+      encryptedKey,
+      isNewVersion,
+      basePackId,
+      version: versionNumber,
+      metadata: {
+        name,
+        version: versionNumber,
+        packType,
+        complexity: packJsonObj.complexity || (packType === 'basic' ? 'low' : packType === 'standard' ? 'medium' : 'high'),
+        fileCount,
+        totalSize,
+        isPublic,
+        dependencies: Array.from(fileDependencies),
+        wasmGenerated: !!compiledWasm,
+        complexWasmGenerated: !!complexWasm,
+        wasmFunctions: wasmMetadata?.functions || [],
+        createdAt: now,
+        checksum: packChecksum,
+        hasExecutionMethods: true,
+        publisherType: userId ? 'authenticated' : 'anonymous',
+        publisherIpHash: clientIp ? crypto.createHash('sha256').update(clientIp).digest('hex').substring(0, 16) : null
+      },
+      links: {
+        cdn: cdnUrl,
+        info: workerUrl,
+        download: `${cdnUrl}/index.js`,
+        wasm: wasmUrl,
+        complexWasm: complexWasmUrl,
+        api: `/api/get-pack?id=${urlId}`,
+        versions: `/api/pack-versions?id=${pack.id}`,
+        edit: editUrl,
+        manage: manageUrl,
+        embed: `${workerUrl}/embed`,
+        raw: `${cdnUrl}/raw/${name}.js`
+      },
+      advancedFeatures: {
+        versioning: true,
+        collaboration: true,
+        dependencies: fileDependencies.size > 0,
+        wasmSupport: true,
+        complexWasmSupport: !!complexWasm,
+        compileToWasm: compileToWasm,
+        webAccessible: true,
+        sandboxed: true,
+        packJsonExecution: true,
+        anonymousPublishing: !userId,
+        editTokenProvided: !!editToken
+      },
+      quickActions: {
+        testPack: `curl "${workerUrl}/test"`,
+        runPack: `pack run ${name}`,
+        updatePack: `curl -X POST "${editUrl}" -H "Content-Type: application/json" -d '{"files": {...}}'`,
+        deletePack: editToken ? `curl -X DELETE "${workerUrl}/delete?token=${editToken}"` : 'Requires edit token'
+      },
+      processingTime: `${processingTime}ms`,
+      
+      nextSteps: [
+        'Test your pack: ' + `${workerUrl}/test`,
+        'Share your pack: ' + cdnUrl,
+        'Embed in website: ' + `<script src="${cdnUrl}/embed.js"></script>`,
+        editToken ? 'Save your edit token for future updates' : 'No edit token generated - contact support if needed'
+      ]
+    });
+
+  } catch (error) {
+    console.error('Publish error:', {
+      message: error.message,
+      stack: error.stack,
+      clientIp,
+      timestamp: new Date().toISOString()
+    });
+    
+    res.status(500).json({ 
+      success: false, 
+      error: 'An unexpected error occurred. Please try again later.',
+      code: 'INTERNAL_SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      
+      recoveryTips: [
+        'Check your pack.json for syntax errors',
+        'Ensure all file sizes are under 10MB',
+        'Verify pack name follows naming conventions',
+        'Try reducing the number of files if over limit'
+      ]
+    });
   }
-}, 5 * 60 * 1000);
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of rateLimitStore.entries()) {
+      if (now > data.resetTime + 60 * 60 * 1000 && data.bannedUntil < now) {
+        rateLimitStore.delete(ip);
+      }
+    }
+  }, 5 * 60 * 1000);
 }
 
 // ============================================================================
 // EXPORTS
 // ============================================================================
-
 export default handler;
 
 export {
-  validatePackageName,
+  validatePackName,
   validateFilename,
   validateFileContent,
   validatePackJsonSchema,
@@ -4001,7 +3983,7 @@ export {
   generateSecureEncryptionKey,
   generateChecksum,
   PackWASMCompiler,
-  PACKAGE_TYPES,
+  PACK_TYPES,
   ADVANCED_NODE_MODULES,
   BANNED_NODE_MODULES,
   PackJsonExecutor,
