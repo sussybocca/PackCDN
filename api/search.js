@@ -1,4 +1,4 @@
-// /api/search.js - Enhanced for full compatibility
+// /api/search.js - Enhanced for full compatibility with pack.json and new database schema
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
 
     console.log(`Search query: ${q || '(none)'}, Page: ${pageNum}, Limit: ${limitNum}, Advanced: ${useAdvancedSearch}`);
 
-    // Build base query - FULLY COMPATIBLE with publish.mjs structure
+    // Build base query - only original packages (is_version_of IS NULL)
     let query = supabase
       .from('packs')
       .select(`
@@ -134,7 +134,8 @@ export default async function handler(req, res) {
           last_accessed
         )
       `, { count: 'exact' })
-      .eq('is_public', true);
+      .eq('is_public', true)
+      .is('is_version_of', null);  // Only original packages, not versions
 
     // Apply search query
     if (q) {
@@ -159,9 +160,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Apply package type filter - FULLY COMPATIBLE
+    // Apply package type filter - using new pack_type column
     if (type && ['basic', 'standard', 'advanced', 'wasm'].includes(type)) {
-      query = query.eq('package_type', type);
+      query = query.eq('pack_type', type);
     }
 
     // Apply version filters
@@ -196,7 +197,7 @@ export default async function handler(req, res) {
       `);
     }
 
-    // Apply WASM-related filters
+    // Apply WASM-related filters using new columns
     if (compileToWasm === 'true') {
       query = query.eq('compile_to_wasm', true);
     } else if (compileToWasm === 'false') {
@@ -453,7 +454,7 @@ export default async function handler(req, res) {
             urlId: pack.url_id,
             name: pack.name,
             version: pack.version,
-            packageType: pack.package_type || 'basic',
+            packageType: pack.pack_type || 'basic',   // using pack_type column
             isPublic: pack.is_public,
             
             // URLs
