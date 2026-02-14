@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>⚡ Pack Studio - Immersive WebAssembly Editor</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -52,6 +52,8 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             position: relative;
             z-index: 100;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .logo {
@@ -81,6 +83,7 @@
             align-items: center;
             gap: 20px;
             font-size: 14px;
+            flex-wrap: wrap;
         }
 
         .status-item {
@@ -103,6 +106,7 @@
             height: calc(100vh - 60px);
             padding: 16px;
             gap: 16px;
+            flex-wrap: wrap;
         }
 
         /* Left Sidebar */
@@ -116,6 +120,7 @@
             flex-direction: column;
             overflow: hidden;
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
+            transition: width 0.3s ease;
         }
 
         .sidebar-section {
@@ -177,6 +182,7 @@
 
         .file-name {
             flex: 1;
+            word-break: break-word;
         }
 
         .file-actions {
@@ -208,6 +214,7 @@
         /* Editor Area */
         .editor-area {
             flex: 1;
+            min-width: 300px;
             display: flex;
             flex-direction: column;
             background: rgba(30, 30, 30, 0.95);
@@ -224,6 +231,7 @@
             border-bottom: 2px solid var(--border-color);
             padding: 0 12px;
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .tab {
@@ -329,6 +337,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
 
         .wasm-file-size {
@@ -437,6 +446,8 @@
             transition: border-color 0.3s;
             position: relative;
             z-index: 2;
+            -webkit-appearance: none;
+            font-size: 16px; /* Prevents zoom on mobile */
         }
 
         .config-input:focus {
@@ -448,10 +459,11 @@
         .config-row {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .config-row .config-item {
-            flex: 1;
+            flex: 1 1 200px;
             margin-bottom: 0;
         }
 
@@ -460,11 +472,12 @@
             align-items: center;
             gap: 8px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         .checkbox-group input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             accent-color: var(--primary-color);
         }
@@ -472,7 +485,7 @@
         .checkbox-group label {
             cursor: pointer;
             color: var(--text-primary);
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .type-info-cards {
@@ -490,6 +503,7 @@
             transition: all 0.3s;
             text-align: center;
             background: rgba(0, 0, 0, 0.3);
+            -webkit-tap-highlight-color: transparent;
         }
 
         .type-card:hover {
@@ -573,6 +587,7 @@
             overflow: hidden;
             flex-shrink: 0;
             border: 2px solid var(--border-color);
+            width: 100%;
         }
 
         .terminal-header {
@@ -598,6 +613,7 @@
             line-height: 1.5;
             max-height: 200px;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .terminal-line {
@@ -605,6 +621,7 @@
             display: flex;
             align-items: flex-start;
             gap: 8px;
+            word-break: break-word;
         }
 
         .terminal-prompt {
@@ -649,11 +666,16 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .fab:hover {
             transform: scale(1.1) rotate(5deg);
             box-shadow: 0 6px 25px rgba(0, 122, 204, 0.6);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
         }
 
         .fab-label {
@@ -709,6 +731,7 @@
             transform: translateY(20px);
             transition: transform 0.3s;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            margin: 20px;
         }
 
         .modal-overlay.active .modal {
@@ -752,6 +775,7 @@
             padding: 20px;
             overflow-y: auto;
             max-height: calc(90vh - 80px);
+            -webkit-overflow-scrolling: touch;
         }
 
         .modal-section {
@@ -776,6 +800,7 @@
             margin-top: 20px;
             border-left: 4px solid var(--success-color);
             display: none;
+            word-break: break-word;
         }
 
         .publish-results.active {
@@ -866,6 +891,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .copy-token-btn {
@@ -875,9 +902,10 @@
             padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 600;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .copy-token-btn:hover {
@@ -922,14 +950,110 @@
         }
 
         /* Responsive Design */
-        @media (max-width: 1200px) {
-            .container {
-                flex-direction: column;
+        @media (max-width: 900px) {
+            .header {
+                padding: 10px;
             }
-            
+            .logo-text {
+                font-size: 18px;
+            }
+            .status-item span {
+                display: none;
+            }
+            .status-item i {
+                font-size: 18px;
+            }
+            .container {
+                padding: 8px;
+                gap: 8px;
+            }
             .sidebar {
                 width: 100%;
-                max-height: 300px;
+                max-height: 400px;
+            }
+            .fab-container {
+                bottom: 16px;
+                right: 16px;
+                gap: 8px;
+            }
+            .fab {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
+            }
+            .fab-label {
+                display: none;
+            }
+            .config-row .config-item {
+                flex: 1 1 100%;
+            }
+            .type-card {
+                padding: 8px;
+            }
+            .type-name {
+                font-size: 12px;
+            }
+            .type-desc {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .status-bar {
+                width: 100%;
+                justify-content: space-around;
+            }
+            .modal {
+                width: 95%;
+                margin: 10px;
+            }
+            .modal-title {
+                font-size: 18px;
+            }
+            .modal-content {
+                padding: 15px;
+            }
+            .result-value {
+                font-size: 12px;
+            }
+            .edit-token-display {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .copy-token-btn {
+                align-self: center;
+                width: 100%;
+            }
+        }
+
+        /* Touch-friendly adjustments */
+        @media (hover: none) and (pointer: coarse) {
+            .file-item:hover {
+                background: none;
+            }
+            .file-item.active {
+                background: rgba(86, 156, 214, 0.2);
+            }
+            .file-actions {
+                opacity: 1;
+            }
+            .file-btn {
+                padding: 6px 8px;
+            }
+            .tab {
+                padding: 16px 20px;
+            }
+            .type-card {
+                padding: 16px;
+            }
+            .fab {
+                width: 64px;
+                height: 64px;
+                font-size: 24px;
             }
         }
 
@@ -1019,12 +1143,12 @@
                 </div>
                 <div class="config-panel">
                     <div class="config-item">
-                        <label class="config-label">Package Name</label>
-                        <input type="text" class="config-input" id="package-name" value="my-awesome-pack">
+                        <label class="config-label">Pack Name</label>
+                        <input type="text" class="config-input" id="pack-name" value="my-awesome-pack">
                     </div>
                     
                     <div class="config-item">
-                        <label class="config-label">Package Type</label>
+                        <label class="config-label">Pack Type</label>
                         <div class="type-info-cards">
                             <div class="type-card basic active" data-type="basic">
                                 <div class="type-icon">📦</div>
@@ -1052,7 +1176,7 @@
                     <div class="config-row">
                         <div class="config-item">
                             <label class="config-label">Version</label>
-                            <input type="text" class="config-input" id="package-version" value="1.0.0">
+                            <input type="text" class="config-input" id="pack-version" value="1.0.0">
                         </div>
                         <div class="config-item">
                             <label class="config-label">Visibility</label>
@@ -1100,7 +1224,7 @@
                                 </div>
                             </div>
 
-                            <!-- 🆕 NEW: Collaborators Field -->
+                            <!-- Collaborators Field -->
                             <div class="config-item">
                                 <label class="config-label">Collaborators (Optional)</label>
                                 <input type="text" class="config-input" id="collaborators" placeholder="user1,user2,user3">
@@ -1188,7 +1312,7 @@
                     <p>Publishing your package...</p>
                 </div>
                 
-                <!-- 🆕 NEW: Edit Token Security Warning -->
+                <!-- Security Warning for Anonymous Publishing -->
                 <div class="security-warning" id="security-warning" style="display: none;">
                     <div class="warning-header">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -1215,11 +1339,11 @@
                     <!-- Publish results will appear here -->
                 </div>
                 
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="fab" id="confirm-publish" style="flex: 1; border-radius: 8px; height: 48px;">
+                <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                    <button class="fab" id="confirm-publish" style="flex: 1; border-radius: 8px; height: 48px; min-width: 150px;">
                         <i class="fas fa-paper-plane"></i> Publish Now
                     </button>
-                    <button class="fab secondary" id="cancel-publish" style="background: var(--secondary-color); border-radius: 8px; height: 48px;">
+                    <button class="fab secondary" id="cancel-publish" style="background: var(--secondary-color); border-radius: 8px; height: 48px; min-width: 150px;">
                         <i class="fas fa-times"></i> Cancel
                     </button>
                 </div>
@@ -1233,13 +1357,13 @@
         // Application State
         const appState = {
             files: {
-                'package.json': {
-                    name: 'package.json',
+                'pack.json': {
+                    name: 'pack.json',
                     content: JSON.stringify({
                         name: 'my-awesome-pack',
                         version: '1.0.0',
-                        type: 'module',
-                        description: 'My awesome package with WASM support',
+                        complexity: 'low',
+                        description: 'My awesome pack with WASM support',
                         main: 'index.js',
                         author: '',
                         license: 'MIT',
@@ -1254,7 +1378,7 @@
                 },
                 'index.js': {
                     name: 'index.js',
-                    content: `// Main entry point for your package
+                    content: `// Main entry point for your pack
 
 export function helloWorld() {
     console.log('Hello from my awesome pack!');
@@ -1274,7 +1398,7 @@ export function sum(a, b) {
                     name: 'README.md',
                     content: `# My Awesome Pack
 
-This is a sample package created with Pack Studio.
+This is a sample pack created with Pack Studio.
 
 ## Features
 - Fast and efficient
@@ -1303,9 +1427,9 @@ MIT
                 }
             },
             wasmFiles: {},
-            activeFile: 'package.json',
+            activeFile: 'pack.json',
             editor: null,
-            packageType: 'basic',
+            packType: 'basic',
             compileToWasm: false,
             wasmConfig: {}
         };
@@ -1317,26 +1441,28 @@ MIT
                 color: '#107c10',
                 maxFiles: 20,
                 maxSize: 5 * 1024 * 1024,
-                description: 'Simple packages with basic JavaScript',
+                description: 'Simple packs with basic JavaScript',
                 allowNodeModules: false,
-                wasmSupport: false
+                wasmSupport: false,
+                canCompileToWasm: false
             },
             'standard': {
                 icon: '🚀',
                 color: '#f2c811',
                 maxFiles: 50,
                 maxSize: 10 * 1024 * 1024,
-                description: 'Standard packages with limited Node.js modules',
+                description: 'Standard packs with limited Node.js modules',
                 allowNodeModules: true,
                 wasmSupport: true,
-                maxWasmSize: 5 * 1024 * 1024
+                maxWasmSize: 5 * 1024 * 1024,
+                canCompileToWasm: true
             },
             'advanced': {
                 icon: '⚡',
                 color: '#68217a',
                 maxFiles: 100,
                 maxSize: 50 * 1024 * 1024,
-                description: 'Advanced packages with full Node.js module support',
+                description: 'Advanced packs with full Node.js module support',
                 allowNodeModules: true,
                 wasmSupport: true,
                 maxWasmSize: 25 * 1024 * 1024,
@@ -1347,12 +1473,12 @@ MIT
                 color: '#d13438',
                 maxFiles: 30,
                 maxSize: 100 * 1024 * 1024,
-                description: 'WebAssembly-focused packages',
+                description: 'WebAssembly-focused packs',
                 allowNodeModules: false,
                 wasmSupport: true,
                 maxWasmSize: 100 * 1024 * 1024,
                 canCompileToWasm: true,
-                isWasmPackage: true
+                isWasmPack: true
             }
         };
 
@@ -1362,8 +1488,8 @@ MIT
         const terminalOutput = document.getElementById('terminal-output');
         const wasmUpload = document.getElementById('wasm-upload');
         const wasmFilesContainer = document.getElementById('wasm-files');
-        const packageNameInput = document.getElementById('package-name');
-        const packageVersionInput = document.getElementById('package-version');
+        const packNameInput = document.getElementById('pack-name');
+        const packVersionInput = document.getElementById('pack-version');
         const isPublicCheckbox = document.getElementById('is-public');
         const isNewVersionCheckbox = document.getElementById('is-new-version');
         const newVersionFields = document.getElementById('new-version-fields');
@@ -1383,7 +1509,7 @@ MIT
         const clearTerminalBtn = document.getElementById('clear-terminal');
         const collaboratorsInput = document.getElementById('collaborators');
 
-        // 🆕 NEW: Security warning elements
+        // Security warning elements
         const securityWarning = document.getElementById('security-warning');
         const editTokenDisplay = document.getElementById('edit-token-display');
         const copyTokenBtn = document.getElementById('copy-token-btn');
@@ -1434,7 +1560,7 @@ MIT
 
             // Create editor instance
             appState.editor = monaco.editor.create(document.getElementById('monaco-editor'), {
-                value: appState.files['package.json'].content,
+                value: appState.files['pack.json'].content,
                 language: 'json',
                 theme: 'pack-studio',
                 automaticLayout: true,
@@ -1476,15 +1602,27 @@ MIT
                 if (activeFile && appState.files[activeFile]) {
                     appState.files[activeFile].content = appState.editor.getValue();
                     
-                    // Update package.json fields if changed
-                    if (activeFile === 'package.json') {
+                    // Update pack.json fields if changed
+                    if (activeFile === 'pack.json') {
                         try {
-                            const packageJson = JSON.parse(appState.editor.getValue());
-                            if (packageJson.name && packageJson.name !== packageNameInput.value) {
-                                packageNameInput.value = packageJson.name;
+                            const packJson = JSON.parse(appState.editor.getValue());
+                            if (packJson.name && packJson.name !== packNameInput.value) {
+                                packNameInput.value = packJson.name;
                             }
-                            if (packageJson.version && packageJson.version !== packageVersionInput.value) {
-                                packageVersionInput.value = packageJson.version;
+                            if (packJson.version && packJson.version !== packVersionInput.value) {
+                                packVersionInput.value = packJson.version;
+                            }
+                            // Update pack type based on complexity/pack.type
+                            if (packJson.complexity) {
+                                const complexityMap = { low: 'basic', medium: 'standard', high: 'advanced' };
+                                const mappedType = complexityMap[packJson.complexity] || packJson.pack?.type || 'basic';
+                                appState.packType = mappedType;
+                                document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+                                document.querySelector(`.type-card[data-type="${mappedType}"]`)?.classList.add('active');
+                            } else if (packJson.pack?.type) {
+                                appState.packType = packJson.pack.type;
+                                document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+                                document.querySelector(`.type-card[data-type="${packJson.pack.type}"]`)?.classList.add('active');
                             }
                         } catch (e) {
                             // Invalid JSON
@@ -1519,7 +1657,7 @@ MIT
                         <button class="file-btn" data-action="rename" data-file="${fileName}" title="Rename">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${fileName !== 'package.json' && fileName !== 'index.js' ? `
+                        ${fileName !== 'pack.json' && fileName !== 'index.js' ? `
                         <button class="file-btn" data-action="delete" data-file="${fileName}" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1578,7 +1716,7 @@ MIT
                 tab.innerHTML = `
                     <div class="file-icon">${icon}</div>
                     <span>${fileName}</span>
-                    ${fileName !== 'package.json' && fileName !== 'index.js' ? `
+                    ${fileName !== 'pack.json' && fileName !== 'index.js' ? `
                     <div class="tab-close" data-file="${fileName}">
                         <i class="fas fa-times"></i>
                     </div>
@@ -1657,7 +1795,7 @@ MIT
 
         // Delete file
         function deleteFile(fileName) {
-            if (fileName === 'package.json' || fileName === 'index.js') {
+            if (fileName === 'pack.json' || fileName === 'index.js') {
                 showError('Cannot delete required files!');
                 return;
             }
@@ -1733,386 +1871,357 @@ MIT
             }
         }
 
-        // Validate package before publishing
+        // Validate pack before publishing
         function validatePackage() {
             const errors = [];
             const warnings = [];
             const info = [];
             
-            const packageType = appState.packageType;
-            const typeConfig = PACKAGE_TYPES[packageType];
+            const packType = appState.packType;
+            const typeConfig = PACKAGE_TYPES[packType];
             
-            // Check package.json
+            // Check pack.json
             try {
-                const packageJson = JSON.parse(appState.files['package.json'].content);
+                const packJson = JSON.parse(appState.files['pack.json'].content);
                 
-                if (!packageJson.name || packageJson.name.trim() === '') {
-                    errors.push('Package name is required in package.json');
+                if (!packJson.name || packJson.name.trim() === '') {
+                    errors.push('Pack name is required in pack.json');
                 }
                 
-                if (!packageJson.version) {
-                    warnings.push('Consider adding a version field to package.json');
+                if (!packJson.version) {
+                    warnings.push('Consider adding a version field to pack.json');
                 }
                 
-                // 🆕 NEW: Check pack.json structure
-                if (!packageJson.pack) {
-                    packageJson.pack = {
-                        type: packageType,
-                        sandbox: {
-                            level: packageType === 'basic' ? 'strict' : 'moderate'
-                        }
-                    };
-                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
+                // Check pack.json structure
+                if (!packJson.pack) {
+                    warnings.push('Consider adding a "pack" object for advanced features');
                 }
             } catch (e) {
-                errors.push('Invalid JSON in package.json');
+                errors.push('Invalid JSON in pack.json');
             }
             
             // Check file limits
             const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
             if (totalFiles > typeConfig.maxFiles) {
-                errors.push(`Package type "${packageType}" allows maximum ${typeConfig.maxFiles} files, but you have ${totalFiles}`);
+                errors.push(`Pack type "${packType}" allows maximum ${typeConfig.maxFiles} files, but you have ${totalFiles}`);
             }
             
-            // Check WASM files for basic package
-            if (packageType === 'basic' && Object.keys(appState.wasmFiles).length > 0) {
-                errors.push('Basic packages cannot include WASM files');
+            // Check WASM files for basic pack
+            if (packType === 'basic' && Object.keys(appState.wasmFiles).length > 0) {
+                errors.push('Basic packs cannot include WASM files');
             }
             
-            // Check compilation for basic package
-            if (packageType === 'basic' && compileWasmCheckbox.checked) {
-                errors.push('Basic packages cannot compile to WASM');
+            // Check compilation for basic pack
+            if (packType === 'basic' && compileWasmCheckbox.checked) {
+                errors.push('Basic packs cannot compile to WASM');
             }
             
-            // Add info about package type
+            // Add info about pack type
             info.push(`${typeConfig.description}`);
             info.push(`Max files: ${typeConfig.maxFiles}, Max size: ${typeConfig.maxSize / 1024 / 1024}MB`);
             
             return { errors, warnings, info };
         }
-// 🆕 UPDATED: Publish package using the new API with all features
-async function publishPackage() {
-    // Validate first
-    const validation = validatePackage();
-    if (validation.errors.length > 0) {
-        showError('Cannot publish: ' + validation.errors[0]);
-        return;
-    }
-    
-    // 🆕 REMOVED: Frontend duplicate name check - API handles this now
-    const packageName = packageNameInput.value.trim();
-    if (!packageName) {
-        showError('Package name is required');
-        return;
-    }
-    
-    // 🆕 FIXED: Validate version update scenario
-    const isNewVersion = isNewVersionCheckbox.checked;
-    const basePackId = basePackIdInput.value.trim();
-    
-    if (isNewVersion && !basePackId) {
-        showError('For version updates, you must provide the Base Pack ID');
-        return;
-    }
-    
-    // Show loading
-    publishLoading.style.display = 'block';
-    publishResults.classList.remove('active');
-    securityWarning.style.display = 'none';
-    
-    try {
-        // Prepare package.json
-        let packageJson;
-        try {
-            packageJson = JSON.parse(appState.files['package.json'].content);
-        } catch (e) {
-            throw new Error('Invalid JSON in package.json');
-        }
-        
-        packageJson.name = packageName;
-        packageJson.version = packageVersionInput.value;
-        
-        // Ensure pack.json structure exists
-        if (!packageJson.pack) {
-            packageJson.pack = {
-                type: appState.packageType,
-                sandbox: {
-                    level: appState.packageType === 'basic' ? 'strict' : 'moderate'
+
+        // Publish package using the new API with all features
+        async function publishPackage() {
+            // Validate first
+            const validation = validatePackage();
+            if (validation.errors.length > 0) {
+                showError('Cannot publish: ' + validation.errors[0]);
+                return;
+            }
+            
+            const packName = packNameInput.value.trim();
+            if (!packName) {
+                showError('Pack name is required');
+                return;
+            }
+            
+            const isNewVersion = isNewVersionCheckbox.checked;
+            const basePackId = basePackIdInput.value.trim();
+            
+            if (isNewVersion && !basePackId) {
+                showError('For version updates, you must provide the Base Pack ID');
+                return;
+            }
+            
+            // Show loading
+            publishLoading.style.display = 'block';
+            publishResults.classList.remove('active');
+            securityWarning.style.display = 'none';
+            
+            try {
+                // Prepare pack.json
+                let packJson;
+                try {
+                    packJson = JSON.parse(appState.files['pack.json'].content);
+                } catch (e) {
+                    throw new Error('Invalid JSON in pack.json');
                 }
-            };
-        }
-        
-        // Prepare files for upload
-        const files = {};
-        
-        // Add regular files
-        Object.keys(appState.files).forEach(fileName => {
-            files[fileName] = appState.files[fileName].content;
-        });
-        
-        // Add WASM files as base64
-        Object.keys(appState.wasmFiles).forEach(fileName => {
-            const wasmFile = appState.wasmFiles[fileName];
-            const bytes = new Uint8Array(wasmFile.data);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            files[fileName] = btoa(binary);
-        });
-        
-        // Parse collaborators
-        const collaborators = collaboratorsInput.value
-            ? collaboratorsInput.value.split(',')
-                  .map(c => c.trim())
-                  .filter(c => c.length > 0)
-            : [];
-        
-        // 🆕 FIXED: Prepare request body with proper version update logic
-        const requestBody = {
-            name: packageName,
-            packJson: JSON.stringify(packageJson),
-            files: files,
-            isPublic: isPublicCheckbox.checked,
-            packageType: appState.packageType,
-            version: packageVersionInput.value,
-            isNewVersion: isNewVersion,
-            basePackId: isNewVersion ? basePackId : null,
-            userId: userIdInput.value.trim() || null,
-            editToken: editTokenInput.value.trim() || null,
-            collaborators: collaborators,
-            compileToWasm: compileWasmCheckbox.checked,
-            wasmConfig: {
-                initialMemory: 1,
-                maxMemory: 65536
-            }
-        };
-        
-        logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
-        if (isNewVersion) {
-            logToTerminal(`📝 Creating new version of package ID: ${requestBody.basePackId}`);
-        }
-        
-        // Call the publish API
-        const response = await fetch('/api/publish.mjs', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const result = await response.json();
-        
-     if (!response.ok) {
-    // FIXED: Just show error and let user decide what to do next
-    showError(`API Error: ${result.error || result.details || 'Unknown error'}`);
-    console.log('API Response:', result);
-    
-    // Keep modal open so user can adjust settings
-    publishLoading.style.display = 'none';
-    return; // Don't throw, just return
-}
-        
-        // Hide loading, show results
-        publishLoading.style.display = 'none';
-        publishResults.classList.add('active');
-        
-        // 🆕 NEW: Show security warning for anonymous publishing
-        if (!userIdInput.value.trim() && result.editToken) {
-            securityWarning.style.display = 'block';
-            editTokenDisplay.textContent = result.editToken;
-            
-            // Setup copy token button
-            copyTokenBtn.onclick = () => {
-                navigator.clipboard.writeText(result.editToken).then(() => {
-                    copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                    setTimeout(() => {
-                        copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy:', err);
-                    copyTokenBtn.innerHTML = '<i class="fas fa-times"></i> Failed';
-                    setTimeout(() => {
-                        copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-                    }, 2000);
+                
+                packJson.name = packName;
+                packJson.version = packVersionInput.value;
+                
+                // Set complexity based on selected pack type
+                const complexityMap = { basic: 'low', standard: 'medium', advanced: 'high', wasm: 'high' };
+                packJson.complexity = complexityMap[appState.packType] || 'low';
+                
+                // Ensure pack object exists
+                if (!packJson.pack) packJson.pack = {};
+                packJson.pack.type = appState.packType;
+                
+                // Prepare files for upload
+                const files = {};
+                
+                // Add regular files
+                Object.keys(appState.files).forEach(fileName => {
+                    files[fileName] = appState.files[fileName].content;
                 });
-            };
+                
+                // Add WASM files as base64
+                Object.keys(appState.wasmFiles).forEach(fileName => {
+                    const wasmFile = appState.wasmFiles[fileName];
+                    const bytes = new Uint8Array(wasmFile.data);
+                    let binary = '';
+                    for (let i = 0; i < bytes.byteLength; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    files[fileName] = btoa(binary);
+                });
+                
+                // Parse collaborators
+                const collaborators = collaboratorsInput.value
+                    ? collaboratorsInput.value.split(',')
+                          .map(c => c.trim())
+                          .filter(c => c.length > 0)
+                    : [];
+                
+                // Prepare request body
+                const requestBody = {
+                    name: packName,
+                    packJson: JSON.stringify(packJson),
+                    files: files,
+                    isPublic: isPublicCheckbox.checked,
+                    packageType: appState.packType,
+                    version: packVersionInput.value,
+                    isNewVersion: isNewVersion,
+                    basePackId: isNewVersion ? basePackId : null,
+                    userId: userIdInput.value.trim() || null,
+                    editToken: editTokenInput.value.trim() || null,
+                    collaborators: collaborators,
+                    compileToWasm: compileWasmCheckbox.checked,
+                    wasmConfig: {
+                        initialMemory: 1,
+                        maxMemory: 65536
+                    }
+                };
+                
+                logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packType})...`);
+                if (isNewVersion) {
+                    logToTerminal(`📝 Creating new version of pack ID: ${requestBody.basePackId}`);
+                }
+                
+                // Call the publish API
+                const response = await fetch('/api/publish.mjs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    showError(`API Error: ${result.error || result.details || 'Unknown error'}`);
+                    console.log('API Response:', result);
+                    publishLoading.style.display = 'none';
+                    return;
+                }
+                
+                // Hide loading, show results
+                publishLoading.style.display = 'none';
+                publishResults.classList.add('active');
+                
+                // Show security warning for anonymous publishing
+                if (!userIdInput.value.trim() && result.editToken) {
+                    securityWarning.style.display = 'block';
+                    editTokenDisplay.textContent = result.editToken;
+                    
+                    copyTokenBtn.onclick = () => {
+                        navigator.clipboard.writeText(result.editToken).then(() => {
+                            copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                            setTimeout(() => {
+                                copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('Failed to copy:', err);
+                            copyTokenBtn.innerHTML = '<i class="fas fa-times"></i> Failed';
+                            setTimeout(() => {
+                                copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                            }, 2000);
+                        });
+                    };
+                }
+                
+                // Display results
+                publishResults.innerHTML = `
+                    <div class="result-item">
+                        <div class="result-label">${isNewVersion ? '✓ Version Updated Successfully!' : '✓ Published Successfully!'}</div>
+                        <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
+                    </div>
+                    
+                    ${isNewVersion ? `
+                    <div class="result-item">
+                        <div class="result-label">Version Type</div>
+                        <div class="result-value">📝 New version of existing pack</div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="result-item">
+                        <div class="result-label">Pack ID</div>
+                        <div class="result-value">${result.packId}</div>
+                    </div>
+                    
+                    <div class="result-item">
+                        <div class="result-label">URL ID</div>
+                        <div class="result-value">${result.urlId}</div>
+                    </div>
+                    
+                    <div class="result-item">
+                        <div class="result-label">CDN URL</div>
+                        <div class="result-value">
+                            <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
+                        </div>
+                    </div>
+                    
+                    <div class="result-item">
+                        <div class="result-label">Install Command</div>
+                        <div class="result-value">
+                            <code>${result.installCommand}</code>
+                        </div>
+                    </div>
+                    
+                    ${result.wasmUrl ? `
+                    <div class="result-item">
+                        <div class="result-label">WASM URL</div>
+                        <div class="result-value">
+                            <a href="${result.wasmUrl}" target="_blank">${result.wasmUrl}</a>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${result.complexWasmUrl ? `
+                    <div class="result-item">
+                        <div class="result-label">Complex WASM URL</div>
+                        <div class="result-value">
+                            <a href="${result.complexWasmUrl}" target="_blank">${result.complexWasmUrl}</a>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${result.encryptedKey ? `
+                    <div class="result-item">
+                        <div class="result-label">🔐 Encryption Key</div>
+                        <div class="result-value" style="color: #f2c811;">
+                            ${result.encryptedKey}
+                        </div>
+                        <div style="font-size: 12px; color: #f2c811; margin-top: 4px;">
+                            Save this key! It won't be shown again.
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="result-item">
+                        <div class="result-label">Advanced Features</div>
+                        <div class="result-value">
+                            <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
+                                ✓ Versioning
+                            </span> | 
+                            <span style="color: ${result.advancedFeatures?.collaboration ? '#4ec9b0' : '#858585'}">
+                                ✓ Collaboration
+                            </span> | 
+                            <span style="color: ${result.advancedFeatures?.wasmSupport ? '#4ec9b0' : '#858585'}">
+                                ✓ WASM Support
+                            </span> |
+                            <span style="color: ${result.advancedFeatures?.packJsonExecution ? '#4ec9b0' : '#858585'}">
+                                ✓ Pack.json Execution
+                            </span>
+                        </div>
+                    </div>
+                    
+                    ${result.nextSteps ? `
+                    <div class="result-item">
+                        <div class="result-label">Next Steps</div>
+                        <div class="result-value">
+                            <ul style="margin: 0; padding-left: 20px;">
+                                ${result.nextSteps.map(step => `<li>${step}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                        <button id="explore-package" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            min-width: 150px;
+                        ">
+                            <i class="fas fa-external-link-alt"></i> Explore
+                        </button>
+                        <button id="copy-links" style="
+                            padding: 12px;
+                            background: rgba(0, 122, 204, 0.1);
+                            color: var(--primary-color);
+                            border: 2px solid var(--primary-color);
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            min-width: 150px;
+                        ">
+                            <i class="fas fa-copy"></i> Copy Links
+                        </button>
+                    </div>
+                `;
+                
+                // Add event listeners for result buttons
+                document.getElementById('explore-package').addEventListener('click', () => {
+                    window.open(result.cdnUrl, '_blank');
+                });
+                
+                document.getElementById('copy-links').addEventListener('click', () => {
+                    const links = [
+                        `Pack: ${result.cdnUrl}`,
+                        `CDN: ${result.cdnUrl}`,
+                        `Install: ${result.installCommand}`,
+                        result.wasmUrl ? `WASM: ${result.wasmUrl}` : '',
+                        result.complexWasmUrl ? `Complex WASM: ${result.complexWasmUrl}` : ''
+                    ].filter(l => l).join('\n');
+                    
+                    navigator.clipboard.writeText(links).then(() => {
+                        showSuccess('Links copied to clipboard!');
+                    }).catch(err => {
+                        console.error('Failed to copy links:', err);
+                    });
+                });
+                
+                logToTerminal(`✓ Pack ${isNewVersion ? 'updated' : 'published'} successfully! ID: ${result.packId}`);
+                
+            } catch (error) {
+                publishLoading.style.display = 'none';
+                showError(`Publish failed: ${error.message}`);
+                logToTerminal(`✗ Publish failed: ${error.message}`, 'error');
+                console.error('Publish error:', error);
+            }
         }
-        
-        // 🆕 FIXED: Display results with version info
-        publishResults.innerHTML = `
-            <div class="result-item">
-                <div class="result-label">${isNewVersion ? '✓ Version Updated Successfully!' : '✓ Published Successfully!'}</div>
-                <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
-            </div>
-            
-            ${isNewVersion ? `
-            <div class="result-item">
-                <div class="result-label">Version Type</div>
-                <div class="result-value">📝 New version of existing package</div>
-            </div>
-            ` : ''}
-            
-            <div class="result-item">
-                <div class="result-label">Package ID</div>
-                <div class="result-value">${result.packId}</div>
-            </div>
-            
-            ${isNewVersion ? `
-            <div class="result-item">
-                <div class="result-label">Base Package ID</div>
-                <div class="result-value">${requestBody.basePackId}</div>
-            </div>
-            ` : ''}
-            
-            <div class="result-item">
-                <div class="result-label">URL ID</div>
-                <div class="result-value">${result.urlId}</div>
-            </div>
-            
-            <div class="result-item">
-                <div class="result-label">CDN URL</div>
-                <div class="result-value">
-                    <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
-                </div>
-            </div>
-            
-            <div class="result-item">
-                <div class="result-label">Worker URL</div>
-                <div class="result-value">
-                    <a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a>
-                </div>
-            </div>
-            
-            <div class="result-item">
-                <div class="result-label">Install Command</div>
-                <div class="result-value">
-                    <code>${result.installCommand}</code>
-                </div>
-            </div>
-            
-            ${result.wasmUrl ? `
-            <div class="result-item">
-                <div class="result-label">WASM URL</div>
-                <div class="result-value">
-                    <a href="${result.wasmUrl}" target="_blank">${result.wasmUrl}</a>
-                </div>
-            </div>
-            ` : ''}
-            
-            ${result.complexWasmUrl ? `
-            <div class="result-item">
-                <div class="result-label">Complex WASM URL</div>
-                <div class="result-value">
-                    <a href="${result.complexWasmUrl}" target="_blank">${result.complexWasmUrl}</a>
-                </div>
-            </div>
-            ` : ''}
-            
-            ${result.encryptedKey ? `
-            <div class="result-item">
-                <div class="result-label">🔐 Encryption Key</div>
-                <div class="result-value" style="color: #f2c811;">
-                    ${result.encryptedKey}
-                </div>
-                <div style="font-size: 12px; color: #f2c811; margin-top: 4px;">
-                    Save this key! It won't be shown again.
-                </div>
-            </div>
-            ` : ''}
-            
-            <div class="result-item">
-                <div class="result-label">Processing Time</div>
-                <div class="result-value">${result.processingTime}</div>
-            </div>
-            
-            <div class="result-item">
-                <div class="result-label">Advanced Features</div>
-                <div class="result-value">
-                    <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
-                        ✓ Versioning
-                    </span> | 
-                    <span style="color: ${result.advancedFeatures?.collaboration ? '#4ec9b0' : '#858585'}">
-                        ✓ Collaboration
-                    </span> | 
-                    <span style="color: ${result.advancedFeatures?.wasmSupport ? '#4ec9b0' : '#858585'}">
-                        ✓ WASM Support
-                    </span> |
-                    <span style="color: ${result.advancedFeatures?.packJsonExecution ? '#4ec9b0' : '#858585'}">
-                        ✓ Pack.json Execution
-                    </span>
-                </div>
-            </div>
-            
-            ${result.nextSteps ? `
-            <div class="result-item">
-                <div class="result-label">Next Steps</div>
-                <div class="result-value">
-                    <ul style="margin: 0; padding-left: 20px;">
-                        ${result.nextSteps.map(step => `<li>${step}</li>`).join('')}
-                    </ul>
-                </div>
-            </div>
-            ` : ''}
-            
-            <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px;">
-                <button id="explore-package" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                ">
-                    <i class="fas fa-external-link-alt"></i> Explore Package
-                </button>
-                <button id="copy-links" style="
-                    padding: 12px;
-                    background: rgba(0, 122, 204, 0.1);
-                    color: var(--primary-color);
-                    border: 2px solid var(--primary-color);
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                ">
-                    <i class="fas fa-copy"></i> Copy Links
-                </button>
-            </div>
-        `;
-        
-        // Add event listeners for result buttons
-        document.getElementById('explore-package').addEventListener('click', () => {
-            window.open(result.cdnUrl, '_blank');
-        });
-        
-        document.getElementById('copy-links').addEventListener('click', () => {
-            const links = [
-                `Package: ${result.cdnUrl}`,
-                `CDN: ${result.cdnUrl}`,
-                `Install: ${result.installCommand}`,
-                result.wasmUrl ? `WASM: ${result.wasmUrl}` : '',
-                result.complexWasmUrl ? `Complex WASM: ${result.complexWasmUrl}` : ''
-            ].filter(l => l).join('\n');
-            
-            navigator.clipboard.writeText(links).then(() => {
-                showSuccess('Links copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy links:', err);
-            });
-        });
-        
-        logToTerminal(`✓ Package ${isNewVersion ? 'updated' : 'published'} successfully! ID: ${result.packId}`);
-        
-    } catch (error) {
-        publishLoading.style.display = 'none';
-        showError(`Publish failed: ${error.message}`);
-        logToTerminal(`✗ Publish failed: ${error.message}`, 'error');
-        console.error('Publish error:', error);
-    }
-}
+
         // Utility functions
         function getFileIcon(fileName) {
             const extension = fileName.split('.').pop().toLowerCase();
@@ -2200,6 +2309,8 @@ async function publishPackage() {
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 z-index: 3000;
                 animation: slideIn 0.3s ease;
+                max-width: 90%;
+                word-break: break-word;
             `;
             notification.textContent = message;
             document.body.appendChild(notification);
@@ -2223,6 +2334,8 @@ async function publishPackage() {
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 z-index: 3000;
                 animation: slideIn 0.3s ease;
+                max-width: 90%;
+                word-break: break-word;
             `;
             notification.textContent = message;
             document.body.appendChild(notification);
@@ -2276,16 +2389,16 @@ async function publishPackage() {
                 card.addEventListener('click', () => {
                     document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
                     card.classList.add('active');
-                    appState.packageType = card.dataset.type;
+                    appState.packType = card.dataset.type;
                     
                     // Update compile to WASM checkbox
-                    const typeConfig = PACKAGE_TYPES[appState.packageType];
+                    const typeConfig = PACKAGE_TYPES[appState.packType];
                     compileWasmCheckbox.disabled = !typeConfig.canCompileToWasm;
                     if (!typeConfig.canCompileToWasm) {
                         compileWasmCheckbox.checked = false;
                     }
                     
-                    logToTerminal(`✓ Package type changed to: ${appState.packageType}`);
+                    logToTerminal(`✓ Pack type changed to: ${appState.packType}`);
                 });
             });
 
@@ -2363,19 +2476,19 @@ async function publishPackage() {
                     `;
                 }
                 
-                // Add info about package
-                const typeConfig = PACKAGE_TYPES[appState.packageType];
+                // Add info about pack
+                const typeConfig = PACKAGE_TYPES[appState.packType];
                 const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
                 
                 validationSummary.innerHTML += `
                     <div style="background: rgba(0, 122, 204, 0.2); border-left: 4px solid var(--primary-color); padding: 15px; border-radius: 6px; margin: 10px 0;">
                         <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 8px;">
-                            <i class="fas fa-info-circle"></i> Package Info
+                            <i class="fas fa-info-circle"></i> Pack Info
                         </div>
                         <div style="font-size: 14px; line-height: 1.5;">
-                            <div><strong>Name:</strong> ${packageNameInput.value}</div>
-                            <div><strong>Type:</strong> ${appState.packageType} ${typeConfig.icon}</div>
-                            <div><strong>Version:</strong> ${packageVersionInput.value}</div>
+                            <div><strong>Name:</strong> ${packNameInput.value}</div>
+                            <div><strong>Type:</strong> ${appState.packType} ${typeConfig.icon}</div>
+                            <div><strong>Version:</strong> ${packVersionInput.value}</div>
                             <div><strong>Files:</strong> ${totalFiles} / ${typeConfig.maxFiles}</div>
                             <div><strong>Visibility:</strong> ${isPublicCheckbox.checked ? 'Public' : 'Private'}</div>
                             ${compileWasmCheckbox.checked ? '<div><strong>✓ Compile to WASM:</strong> Enabled</div>' : ''}
@@ -2415,28 +2528,28 @@ async function publishPackage() {
                 }
             });
 
-            // Update package name from package.json
-            packageNameInput.addEventListener('input', () => {
+            // Update pack name from pack.json
+            packNameInput.addEventListener('input', () => {
                 try {
-                    const packageJson = JSON.parse(appState.files['package.json'].content);
-                    packageJson.name = packageNameInput.value;
-                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
-                    if (appState.activeFile === 'package.json') {
-                        appState.editor.setValue(appState.files['package.json'].content);
+                    const packJson = JSON.parse(appState.files['pack.json'].content);
+                    packJson.name = packNameInput.value;
+                    appState.files['pack.json'].content = JSON.stringify(packJson, null, 2);
+                    if (appState.activeFile === 'pack.json') {
+                        appState.editor.setValue(appState.files['pack.json'].content);
                     }
                 } catch (e) {
                     // Invalid JSON
                 }
             });
 
-            // Update package version from package.json
-            packageVersionInput.addEventListener('input', () => {
+            // Update pack version from pack.json
+            packVersionInput.addEventListener('input', () => {
                 try {
-                    const packageJson = JSON.parse(appState.files['package.json'].content);
-                    packageJson.version = packageVersionInput.value;
-                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
-                    if (appState.activeFile === 'package.json') {
-                        appState.editor.setValue(appState.files['package.json'].content);
+                    const packJson = JSON.parse(appState.files['pack.json'].content);
+                    packJson.version = packVersionInput.value;
+                    appState.files['pack.json'].content = JSON.stringify(packJson, null, 2);
+                    if (appState.activeFile === 'pack.json') {
+                        appState.editor.setValue(appState.files['pack.json'].content);
                     }
                 } catch (e) {
                     // Invalid JSON
@@ -2447,7 +2560,7 @@ async function publishPackage() {
         // Initialize
         renderWasmFiles();
         logToTerminal('🚀 Pack Studio v2.0 initialized');
-        logToTerminal('📦 Ready to create amazing packages with WebAssembly support');
+        logToTerminal('📦 Ready to create amazing packs with WebAssembly support');
         logToTerminal('💡 Tips: Drag & drop WASM files, use FAB buttons for quick actions');
         logToTerminal('🔐 NEW: Anonymous publishing with edit tokens, collaborators support, pack.json execution');
 
