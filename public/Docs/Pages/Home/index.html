@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PackCDN - Portal Game</title>
+  <title>PackCDN - Enhanced Portal Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     * {
@@ -13,7 +13,7 @@
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       line-height: 1.6;
       color: #333;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -29,12 +29,13 @@
       font-size: 3rem;
       margin-bottom: 10px;
       font-weight: 800;
-      text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      text-shadow: 0 4px 20px rgba(102, 126, 234, 0.6);
     }
     
     .header p {
       font-size: 1.2rem;
       opacity: 0.9;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.5);
     }
     
     .game-container {
@@ -46,12 +47,13 @@
     }
     
     canvas {
-      background: #1a1a2e;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      background: #0f0f1f;
+      border-radius: 30px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 2px rgba(102, 126, 234, 0.3) inset;
       max-width: 100%;
       height: auto;
-      border: 3px solid rgba(255,255,255,0.2);
+      border: 3px solid rgba(255,255,255,0.1);
+      display: block;
     }
     
     .controls {
@@ -59,23 +61,27 @@
       color: white;
       padding: 20px;
       font-size: 1rem;
-      background: rgba(0,0,0,0.2);
+      background: rgba(0,0,0,0.4);
       margin: 0 20px 20px;
       border-radius: 50px;
       backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     
     .controls kbd {
-      background: rgba(255,255,255,0.2);
-      padding: 4px 8px;
-      border-radius: 5px;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 12px;
+      border-radius: 8px;
       margin: 0 4px;
-      border: 1px solid rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.3);
+      font-size: 1.1rem;
+      color: #fff;
     }
     
     footer {
       text-align: center;
-      color: rgba(255,255,255,0.8);
+      color: rgba(255,255,255,0.7);
       padding: 20px;
       font-size: 0.9rem;
       margin-top: auto;
@@ -83,18 +89,21 @@
     
     footer a {
       color: white;
-      margin: 0 10px;
+      margin: 0 15px;
       text-decoration: none;
       font-weight: 500;
+      transition: 0.2s;
     }
     
     footer a:hover {
-      text-decoration: underline;
+      color: #a78bfa;
+      text-shadow: 0 0 10px #a78bfa;
     }
     
     @media (max-width: 600px) {
       .header h1 { font-size: 2rem; }
       canvas { width: 100%; height: auto; }
+      .controls kbd { padding: 4px 8px; font-size: 0.9rem; }
     }
   </style>
 </head>
@@ -124,21 +133,32 @@
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
 
-      // Player settings
+      // ========== ENHANCED SETTINGS ==========
       const player = {
         x: 400,
         y: 250,
-        radius: 15,
-        speed: 4
+        radius: 16,
+        speed: 4,
+        walkCycle: 0,        // for leg movement
+        bounce: 0,           // idle bounce
+        direction: 1,        // facing direction (1 right, -1 left)
+        hatAngle: 0
       };
 
-      // Portal definitions
       const portals = [
-        { x: 100, y: 250, width: 80, height: 120, color: '#667eea', label: 'CREATE', url: 'Pages/Editor/editor.html' },
-        { x: 620, y: 250, width: 80, height: 120, color: '#9f7aea', label: 'EXPLORE', url: 'Pages/Explore/explore.html' }
+        { x: 100, y: 250, width: 90, height: 130, color: '#667eea', color2: '#5a67d8', label: 'CREATE', url: 'Pages/Editor/editor.html', angle: 0 },
+        { x: 700, y: 250, width: 90, height: 130, color: '#9f7aea', color2: '#8b5cf6', label: 'EXPLORE', url: 'Pages/Explore/explore.html', angle: 0 }
       ];
 
-      // Boundaries (keep player inside canvas)
+      // Particle system
+      let particles = [];
+      const PARTICLE_COUNT = 80;
+
+      // Starfield
+      let stars = [];
+      const STAR_COUNT = 200;
+
+      // Boundaries
       const minX = player.radius;
       const maxX = canvas.width - player.radius;
       const minY = player.radius;
@@ -150,9 +170,37 @@
         KeyW: false, KeyA: false, KeyS: false, KeyD: false
       };
 
+      // Movement flags (for drawing)
+      let isMoving = false;
+      let moveX = 0, moveY = 0;
+
+      // ========== INITIALIZE PARTICLES AND STARS ==========
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 3 + 1,
+          speedX: (Math.random() - 0.5) * 0.2,
+          speedY: (Math.random() - 0.5) * 0.2,
+          color: `hsl(${Math.random() * 60 + 200}, 80%, 70%)`,
+          opacity: Math.random() * 0.5 + 0.3
+        });
+      }
+
+      for (let i = 0; i < STAR_COUNT; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 1,
+          brightness: Math.random() * 0.7 + 0.3,
+          speed: Math.random() * 0.02 + 0.01
+        });
+      }
+
+      // ========== EVENT LISTENERS ==========
       window.addEventListener('keydown', (e) => {
         if (keys.hasOwnProperty(e.code)) {
-          e.preventDefault(); // Prevent page scrolling
+          e.preventDefault();
           keys[e.code] = true;
         }
       });
@@ -163,142 +211,278 @@
         }
       });
 
-      // Prevent context menu on canvas
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-      // Game loop
+      // ========== HELPER FUNCTIONS ==========
+      function updateParticles() {
+        for (let p of particles) {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          if (p.x < 0) p.x = canvas.width;
+          if (p.x > canvas.width) p.x = 0;
+          if (p.y < 0) p.y = canvas.height;
+          if (p.y > canvas.height) p.y = 0;
+        }
+      }
+
+      function drawStars(time) {
+        for (let s of stars) {
+          // Twinkling effect
+          const twinkle = Math.sin(time * 3 + s.x) * 0.2 + 0.8;
+          ctx.fillStyle = `rgba(255, 255, 255, ${s.brightness * twinkle})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+
+      function drawGlow(x, y, radius, color) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = radius * 2;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+      }
+
+      // ========== MAIN GAME LOOP ==========
+      let lastTime = performance.now();
       function update() {
-        // Calculate movement
+        const now = performance.now();
+        const delta = Math.min(16, now - lastTime) / 16; // normalize to ~60fps
+        lastTime = now;
+
+        // --- Player movement ---
         let dx = 0, dy = 0;
         if (keys.ArrowUp || keys.KeyW) dy -= 1;
         if (keys.ArrowDown || keys.KeyS) dy += 1;
         if (keys.ArrowLeft || keys.KeyA) dx -= 1;
         if (keys.ArrowRight || keys.KeyD) dx += 1;
 
-        if (dx !== 0 || dy !== 0) {
-          // Normalize diagonal speed
+        isMoving = dx !== 0 || dy !== 0;
+
+        if (isMoving) {
           const length = Math.sqrt(dx*dx + dy*dy);
-          dx = (dx / length) * player.speed;
-          dy = (dy / length) * player.speed;
+          dx = (dx / length) * player.speed * delta;
+          dy = (dy / length) * player.speed * delta;
           
-          // Move and clamp
           player.x = Math.min(maxX, Math.max(minX, player.x + dx));
           player.y = Math.min(maxY, Math.max(minY, player.y + dy));
+
+          // Update direction for walking animation
+          if (dx !== 0) player.direction = dx > 0 ? 1 : -1;
+          
+          // Walk cycle (leg movement)
+          player.walkCycle = (player.walkCycle + 0.3 * delta) % (Math.PI * 2);
+        } else {
+          // Idle bounce
+          player.bounce = Math.sin(now * 0.008) * 1.5;
+          player.walkCycle = 0;
         }
 
-        // Portal collision
+        // Store movement for drawing (pupils follow)
+        moveX = dx;
+        moveY = dy;
+
+        // --- Portal collision ---
         for (let portal of portals) {
           const left = portal.x - portal.width/2;
           const right = portal.x + portal.width/2;
           const top = portal.y - portal.height/2;
           const bottom = portal.y + portal.height/2;
           
-          // Simple rectangle-circle collision
           const closestX = Math.max(left, Math.min(player.x, right));
           const closestY = Math.max(top, Math.min(player.y, bottom));
           const distance = Math.sqrt((player.x - closestX)**2 + (player.y - closestY)**2);
           
           if (distance < player.radius) {
             window.location.href = portal.url;
-            return; // stop further execution
+            return;
           }
         }
 
-        draw();
+        // --- Update portal angles for animation ---
+        for (let portal of portals) {
+          portal.angle += 0.02;
+        }
+
+        // --- Update particles ---
+        updateParticles();
+
+        // --- Draw everything ---
+        draw(now);
+
         requestAnimationFrame(update);
       }
 
-      function draw() {
+      function draw(time) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw floor pattern (grid)
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < canvas.width; i += 40) {
+        // ===== BACKGROUND =====
+        // Deep space gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#0a0a1a');
+        gradient.addColorStop(1, '#1a1a3a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Stars (parallax)
+        drawStars(time);
+
+        // ===== FLOOR with glowing grid =====
+        ctx.shadowColor = '#4a5fc1';
+        ctx.shadowBlur = 15;
+        ctx.lineWidth = 1.5;
+        
+        // Grid lines with pulsing opacity
+        const gridOpacity = 0.2 + Math.sin(time * 0.002) * 0.1;
+        for (let i = 0; i < canvas.width; i += 50) {
           ctx.beginPath();
           ctx.moveTo(i, 0);
           ctx.lineTo(i, canvas.height);
-          ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+          ctx.strokeStyle = `rgba(100, 150, 255, ${gridOpacity})`;
           ctx.stroke();
         }
-        for (let i = 0; i < canvas.height; i += 40) {
+        for (let i = 0; i < canvas.height; i += 50) {
           ctx.beginPath();
           ctx.moveTo(0, i);
           ctx.lineTo(canvas.width, i);
           ctx.stroke();
         }
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
 
-        // Draw portals
+        // ===== PARTICLES (floating orbs) =====
+        for (let p of particles) {
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.opacity;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, 2*Math.PI);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
+
+        // ===== PORTALS (enhanced) =====
         for (let portal of portals) {
-          // Glow effect
+          // Outer glow
           ctx.shadowColor = portal.color;
+          ctx.shadowBlur = 50;
+          
+          // Portal base with gradient
+          const grad = ctx.createRadialGradient(portal.x, portal.y, 10, portal.x, portal.y, portal.width/2);
+          grad.addColorStop(0, portal.color);
+          grad.addColorStop(0.7, portal.color2);
+          grad.addColorStop(1, 'rgba(0,0,0,0.8)');
+          
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(portal.x, portal.y, portal.width/2, portal.height/2, 0, 0, 2*Math.PI);
+          ctx.fill();
+          
+          // Inner rotating ring
+          ctx.save();
+          ctx.translate(portal.x, portal.y);
+          ctx.rotate(portal.angle);
           ctx.shadowBlur = 30;
-          
-          // Portal body
-          ctx.fillStyle = portal.color;
+          ctx.fillStyle = 'rgba(255,255,255,0.2)';
           ctx.beginPath();
-          ctx.ellipse(portal.x, portal.y, portal.width/2, portal.height/2, 0, 0, Math.PI*2);
+          ctx.ellipse(0, 0, portal.width/3, portal.height/3, 0, 0, 2*Math.PI);
           ctx.fill();
           
-          // Inner swirl
-          ctx.shadowBlur = 15;
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          // Second ring (counter-rotating)
+          ctx.rotate(-portal.angle * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.15)';
           ctx.beginPath();
-          ctx.ellipse(portal.x, portal.y, portal.width/4, portal.height/4, 0, 0, Math.PI*2);
+          ctx.ellipse(0, 0, portal.width/4, portal.height/4, 0, 0, 2*Math.PI);
           ctx.fill();
-          
+          ctx.restore();
+
+          // Sparkles around portal
+          for (let i = 0; i < 5; i++) {
+            const angle = (time * 0.005 + i) * 2;
+            const sx = portal.x + Math.cos(angle + portal.angle) * 50;
+            const sy = portal.y + Math.sin(angle * 2) * 30;
+            drawGlow(sx, sy, 4, portal.color);
+          }
+
           // Reset shadow
           ctx.shadowBlur = 0;
           ctx.shadowColor = 'transparent';
           
-          // Label
+          // Label with glow
+          ctx.shadowColor = portal.color;
+          ctx.shadowBlur = 20;
           ctx.fillStyle = 'white';
-          ctx.font = 'bold 20px Inter, -apple-system, sans-serif';
+          ctx.font = 'bold 24px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(portal.label, portal.x, portal.y - 50);
+          ctx.fillText(portal.label, portal.x, portal.y - 70);
+          ctx.shadowBlur = 0;
         }
 
-        // Draw player (character)
-        ctx.shadowColor = '#a78bfa';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#ffdbb5';
+        // ===== PLAYER (enhanced) =====
+        const bounceY = player.y + player.bounce + (isMoving ? Math.sin(player.walkCycle) * 2 : 0);
+
+        // Shadow under player
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
-        ctx.arc(player.x, player.y, player.radius, 0, 2*Math.PI);
+        ctx.ellipse(player.x, player.y + player.radius - 5, player.radius-2, 5, 0, 0, 2*Math.PI);
         ctx.fill();
-        
-        // Eyes
+
+        // Body (with gradient)
+        const bodyGrad = ctx.createRadialGradient(player.x-5, player.y-5, 5, player.x, player.y, player.radius);
+        bodyGrad.addColorStop(0, '#ffdbb5');
+        bodyGrad.addColorStop(1, '#e0a87a');
+        ctx.fillStyle = bodyGrad;
+        ctx.shadowColor = '#a78bfa';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(player.x, bounceY, player.radius, 0, 2*Math.PI);
+        ctx.fill();
+
+        // Eyes with direction
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(player.x-5, player.y-4, 3, 0, 2*Math.PI);
+        ctx.arc(player.x + (player.direction * 4) - 2, bounceY - 5, 4, 0, 2*Math.PI);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(player.x+5, player.y-4, 3, 0, 2*Math.PI);
+        ctx.arc(player.x + (player.direction * 4) + 2, bounceY - 5, 4, 0, 2*Math.PI);
         ctx.fill();
-        
+
+        // Pupils (follow movement slightly)
         ctx.fillStyle = '#000000';
         ctx.beginPath();
-        ctx.arc(player.x-5, player.y-4, 1.5, 0, 2*Math.PI);
+        ctx.arc(player.x + (player.direction * 4) - 2 + (moveX * 0.3), bounceY - 5 + (moveY * 0.3), 2, 0, 2*Math.PI);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(player.x+5, player.y-4, 1.5, 0, 2*Math.PI);
+        ctx.arc(player.x + (player.direction * 4) + 2 + (moveX * 0.3), bounceY - 5 + (moveY * 0.3), 2, 0, 2*Math.PI);
         ctx.fill();
-        
-        // Hat (optional)
+
+        // Hat with bounce
+        const hatY = bounceY - 18 + Math.sin(time*0.01)*1;
         ctx.fillStyle = '#3f4d7a';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#5f6b8a';
         ctx.beginPath();
-        ctx.ellipse(player.x, player.y-18, 12, 6, 0, 0, 2*Math.PI);
+        ctx.ellipse(player.x, hatY, 14, 6, 0, 0, 2*Math.PI);
         ctx.fill();
+        ctx.fillRect(player.x-6, hatY-10, 12, 12);
+
+        // Reset shadows
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
       }
 
-      // Start game
+      // Start animation
       update();
-
-      // Handle window resize (maintain aspect ratio if needed)
-      window.addEventListener('resize', () => {
-        // Canvas size is fixed, nothing to do
-      });
     })();
   </script>
 </body>
