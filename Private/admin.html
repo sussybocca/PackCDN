@@ -973,26 +973,32 @@
     // Get SUPABASE_URL from currentSession or environment
     const supabaseUrl = currentSession.supabaseUrl || 'https://legmizhfmslpdviijtwt.supabase.co';
     
-    // Create the message WITH SUPABASE_URL to match backend
-    let message = `${password}:${timestamp}:${action}:${supabaseUrl}`;
+    // =========== FIX THIS PART ===========
+    // MASK the URL to match backend (use '***.supabase.co' instead of actual)
+    const maskedUrl = supabaseUrl.replace(/\/\/(.*?)\.supabase\.co/, '//***.supabase.co');
     
-    // Debug log - see exactly what's being signed
-    console.log('🔐 FRONTEND SIGNING:', {
-      passwordPreview: password.substring(0, 3) + '...',
-      timestamp: timestamp,
-      action: action,
-      supabaseUrl: supabaseUrl.substring(0, 20) + '...',
-      hasData: data !== null,
-      dataType: typeof data
-    });
+    // Create the message WITH MASKED SUPABASE_URL to match backend
+    let message = `${password}:${timestamp}:${action}:${maskedUrl}`;
+    // =========== END FIX ===========
     
-    // ONLY include data if it's not null AND has content
-    if (data !== null && Object.keys(data).length > 0) {
-      const dataString = typeof data === 'string' ? data : JSON.stringify(data);
-      message += `:${dataString}`;
+    // Check if data should be included - FIXED to handle null properly
+    if (data !== null && data !== undefined) {
+      // Check if it's an object with keys
+      if (typeof data === 'object' && Object.keys(data).length > 0) {
+        // Only include for non-read actions
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          const dataString = JSON.stringify(data);
+          message += `:${dataString}`;
+        }
+      } else if (typeof data === 'string' && data.trim() !== '') {
+        if (!['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+          message += `:${data}`;
+        }
+      }
     }
     
-    console.log('🔐 FINAL MESSAGE BEING SIGNED:', message.substring(0, 100) + '...');
+    console.log('🔐 FRONTEND FINAL SIGNATURE MESSAGE:', message.substring(0, 100) + '...');
+    console.log('🔐 FRONTEND MASKED URL:', maskedUrl);
     
     const messageData = encoder.encode(message);
     
@@ -1064,44 +1070,77 @@ async function generateIPValidator(timestamp) {
         // ============================
         // API COMMUNICATION
         // ============================
- async function makeSecureRequest(action, data = {}) {
+ async function makeSecureRequest(action, requestParams = {}) {
   const password = currentSession.token || document.getElementById('password').value;
   if (!password) {
     addLog('ERROR: No authentication token available', 'danger');
     return null;
   }
 
-  // IMPORTANT: Generate ONE timestamp for the entire request
   const timestamp = new Date().toISOString();
 
   try {
-    // 1. Generate signature - DON'T include empty data for GET_ALL_TABLES
-    const signature = await generateSignature(
-      password, 
-      timestamp, 
-      action, 
-      action === 'GET_ALL_TABLES' ? null : data
-    );
+    console.log('🔐 FRONTEND REQUEST:', { action, params: requestParams });
 
-    // 2. Generate IP validator with THE SAME timestamp
+    // Generate signature - Handle different actions differently
+    let signatureData = null;
+    
+    if (['GET_ALL_TABLES', 'GET_TABLE'].includes(action)) {
+      // For these actions, don't include any data in signature
+      signatureData = null;
+    } else if (action === 'RAW_SQL') {
+      // For SQL, include the query string in signature - BUT backend expects it in req.body.data
+      // So we need to structure it as { query: "SQL here" } for signature
+      signatureData = { query: requestParams.query };
+    } else if (action === 'INSERT' || action === 'UPDATE' || action === 'DELETE') {
+      // For INSERT/UPDATE/DELETE, include the data object
+      signatureData = requestParams.data || requestParams;
+    }
+    
+    const signature = await generateSignature(password, timestamp, action, signatureData);
+    
     const ipValidator = await generateIPValidator(timestamp);
 
     if (!signature) {
       throw new Error('Signature generation failed');
     }
 
-    // 3. Build request data
+    // Build request - MATCH BACKEND EXPECTATIONS
     const requestData = {
       password: password,
       timestamp: timestamp,
       signature: signature,
-      action: action,
-      ...data
+      action: action
     };
+
+    // Add parameters based on action type (MATCHES BACKEND)
+    if (action === 'GET_TABLE') {
+      requestData.table = requestParams.table;
+      requestData.limit = requestParams.limit || 100;
+    } 
+    else if (action === 'RAW_SQL') {
+      // FIX: Backend expects query in req.body.query AND data in req.body.data for signature
+      requestData.query = requestParams.query;
+      requestData.data = { query: requestParams.query }; // Add to data for signature validation
+    } 
+    else if (action === 'INSERT') {
+      requestData.table = requestParams.table;
+      requestData.data = requestParams.data;
+    }
+    else if (action === 'UPDATE') {
+      requestData.table = requestParams.table;
+      requestData.id = requestParams.id;
+      requestData.data = requestParams.data;
+    }
+    else if (action === 'DELETE') {
+      requestData.table = requestParams.table;
+      requestData.id = requestParams.id;
+    }
+
+    console.log('🔐 FRONTEND SENDING:', requestData);
 
     addLog(`API: Sending ${action} request...`, 'info');
 
-    // 4. Send request with IP validator header
     const response = await fetch('/api/admin/database', {
       method: 'POST',
       headers: {
@@ -1117,7 +1156,6 @@ async function generateIPValidator(timestamp) {
       addLog(`API: ${action} completed successfully`, 'success');
       return result;
     } else {
-      // Log detailed error
       console.error('API Error Response:', result);
       throw new Error(result.error || result.firewall || `API request failed: ${action}`);
     }
@@ -1253,45 +1291,73 @@ async function generateIPValidator(timestamp) {
             });
         }
 
-        async function selectTable(tableName) {
-            addLog(`DATABASE: Loading table "${tableName}"...`, 'info');
-            updateOperationTerminal(`Loading table "${tableName}"...`);
-            
-            const result = await makeSecureRequest('GET_TABLE', {
-                table: tableName,
-                limit: parseInt(document.getElementById('rowLimit').value)
-            });
-            
-            if (result && result.data) {
-                currentSession.currentTable = tableName;
-                currentSession.currentData = result.data;
-                
-                // Update UI
-                document.getElementById('currentTable').textContent = tableName;
-                document.getElementById('btnInsert').disabled = false;
-                document.getElementById('btnUpdate').disabled = false;
-                document.getElementById('btnDelete').disabled = false;
-                document.getElementById('btnView').disabled = false;
-                
-                // Clear selection
-                currentSession.selectedRows.clear();
-                
-                // Display data
-                displayTableData(result.data);
-                
-                // Update table list highlighting
-                document.querySelectorAll('.table-item').forEach(item => {
-                    item.classList.remove('active');
-                    if (item.textContent.includes(tableName)) {
-                        item.classList.add('active');
-                    }
-                });
-                
-                addLog(`Table "${tableName}" loaded (${result.data.length} rows)`, 'success');
-                updateOperationTerminal(`Table "${tableName}" ready. ${result.data.length} rows loaded.`);
-            }
-        }
+        async function makeSecureRequest(action, requestParams = {}) {
+  const password = currentSession.token || document.getElementById('password').value;
+  if (!password) {
+    addLog('ERROR: No authentication token available', 'danger');
+    return null;
+  }
 
+  const timestamp = new Date().toISOString();
+
+  try {
+    console.log('🔐 FRONTEND REQUEST:', { action, params: requestParams });
+
+    // Generate signature - for GET_TABLE, use null as data
+    const signatureData = ['GET_ALL_TABLES', 'GET_TABLE'].includes(action) ? null : requestParams;
+    const signature = await generateSignature(password, timestamp, action, signatureData);
+    
+    const ipValidator = await generateIPValidator(timestamp);
+
+    if (!signature) {
+      throw new Error('Signature generation failed');
+    }
+
+    // Build request - MATCH BACKEND EXPECTATIONS
+    const requestData = {
+      password: password,
+      timestamp: timestamp,
+      signature: signature,
+      action: action
+    };
+
+    // CRITICAL FIX: For GET_TABLE, add table and limit directly to requestData
+    if (action === 'GET_TABLE') {
+      requestData.table = requestParams.table;
+      requestData.limit = requestParams.limit || 100;
+    }
+    // For other actions that need data field
+    else if (['INSERT', 'UPDATE', 'DELETE', 'RAW_SQL'].includes(action)) {
+      requestData.data = requestParams;
+    }
+
+    console.log('🔐 FRONTEND SENDING:', requestData);
+
+    addLog(`API: Sending ${action} request...`, 'info');
+
+    const response = await fetch('/api/admin/database', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-IP-Validator': ipValidator
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      addLog(`API: ${action} completed successfully`, 'success');
+      return result;
+    } else {
+      console.error('API Error Response:', result);
+      throw new Error(result.error || result.firewall || `API request failed: ${action}`);
+    }
+  } catch (error) {
+    addLog(`API ERROR: ${error.message}`, 'danger');
+    return null;
+  }
+}
         function displayTableData(data) {
             const table = document.getElementById('dataTable');
             table.innerHTML = '';
