@@ -1,6 +1,9 @@
 // Cloudflare Worker - packcdn.firefly-worker.workers.dev
 // ULTIMATE COMPLETE VERSION 8.0 - FULLY FUNCTIONAL WITH ALL ENDPOINTS + IMMERSIVE UI
 // 300+ Error Codes | 70+ API Endpoints | Advanced Immersive UI | Full Integration
+// FIXED: Pack ID resolution now works with cdn_url
+// EMBEDDED: /api/embed-website and /api/run endpoints locally
+// REBRANDED: All user-facing "packages" → "packs"
 
 export default {
   async fetch(request, env) {
@@ -64,7 +67,8 @@ export default {
         '^/api/search$': handleAPISearch,
         '^/api/publish$': handleAPIPublish,
         '^/api/analyze$': handleAPIAnalyze,
-        '^/api/embed-website$': handleAPIEmbed,
+        '^/api/embed-website$': handleAPIEmbed, // EMBEDDED LOCALLY
+        '^/api/run$': handleAPIRun, // EMBEDDED LOCALLY
         '^/api/admin-auth$': handleAPIAdminAuth,
         '^/api/admin/database$': handleAPIAdminDatabase,
         '^/api/random-urls$': handleAPIRandomUrls,
@@ -164,8 +168,8 @@ export default {
             timestamp: new Date().toISOString(),
             suggestions: [
               'Check URL spelling at /docs',
-              'Browse packages at /pack-explore',
-              'Use /search to find packages'
+              'Browse packs at /pack-explore',
+              'Use /search to find packs'
             ]
           },
           hostname,
@@ -248,15 +252,15 @@ const ERROR_CODES = {
   'E403-003': { status: 403, title: 'Account Suspended', category: 'Authorization', severity: 'critical' },
   'E403-004': { status: 403, title: 'IP Blocked', category: 'Security', severity: 'critical' },
   'E403-005': { status: 403, title: 'Rate Limit Exceeded', category: 'Security', severity: 'high' },
-  'E403-006': { status: 403, title: 'Private Package', category: 'Security', severity: 'high' },
+  'E403-006': { status: 403, title: 'Private Pack', category: 'Security', severity: 'high' },
   'E403-007': { status: 403, title: 'Region Blocked', category: 'Security', severity: 'high' },
   'E403-008': { status: 403, title: 'Maintenance Mode', category: 'System', severity: 'high' },
   'E403-009': { status: 403, title: 'Tor Exit Node Blocked', category: 'Security', severity: 'high' },
   
   'E404-001': { status: 404, title: 'Not Found', category: 'Resource', severity: 'low' },
-  'E404-002': { status: 404, title: 'Package Not Found', category: 'Package', severity: 'low' },
-  'E404-003': { status: 404, title: 'File Not Found', category: 'Package', severity: 'low' },
-  'E404-004': { status: 404, title: 'Version Not Found', category: 'Package', severity: 'low' },
+  'E404-002': { status: 404, title: 'Pack Not Found', category: 'Pack', severity: 'low' },
+  'E404-003': { status: 404, title: 'File Not Found', category: 'Pack', severity: 'low' },
+  'E404-004': { status: 404, title: 'Version Not Found', category: 'Pack', severity: 'low' },
   'E404-005': { status: 404, title: 'User Not Found', category: 'User', severity: 'low' },
   'E404-006': { status: 404, title: 'API Endpoint Not Found', category: 'API', severity: 'low' },
   'E404-007': { status: 404, title: 'Route Not Found', category: 'System', severity: 'low' },
@@ -264,18 +268,18 @@ const ERROR_CODES = {
   'E404-009': { status: 404, title: 'Organization Not Found', category: 'Organization', severity: 'low' },
   
   'E409-001': { status: 409, title: 'Conflict', category: 'State', severity: 'medium' },
-  'E409-002': { status: 409, title: 'Package Already Exists', category: 'Package', severity: 'medium' },
-  'E409-003': { status: 409, title: 'Version Already Exists', category: 'Package', severity: 'medium' },
+  'E409-002': { status: 409, title: 'Pack Already Exists', category: 'Pack', severity: 'medium' },
+  'E409-003': { status: 409, title: 'Version Already Exists', category: 'Pack', severity: 'medium' },
   'E409-004': { status: 409, title: 'Name Already Taken', category: 'User', severity: 'medium' },
   'E409-005': { status: 409, title: 'Resource Locked', category: 'Resource', severity: 'medium' },
   'E409-006': { status: 409, title: 'Concurrent Modification', category: 'State', severity: 'medium' },
-  'E409-007': { status: 409, title: 'Dependency Conflict', category: 'Package', severity: 'high' },
+  'E409-007': { status: 409, title: 'Dependency Conflict', category: 'Pack', severity: 'high' },
   
   'E413-001': { status: 413, title: 'Payload Too Large', category: 'Validation', severity: 'medium' },
-  'E413-002': { status: 413, title: 'Package Too Large', category: 'Package', severity: 'medium' },
-  'E413-003': { status: 413, title: 'File Too Large', category: 'Package', severity: 'medium' },
-  'E413-004': { status: 413, title: 'Too Many Files', category: 'Package', severity: 'medium' },
-  'E413-005': { status: 413, title: 'Archive Too Large', category: 'Package', severity: 'medium' },
+  'E413-002': { status: 413, title: 'Pack Too Large', category: 'Pack', severity: 'medium' },
+  'E413-003': { status: 413, title: 'File Too Large', category: 'Pack', severity: 'medium' },
+  'E413-004': { status: 413, title: 'Too Many Files', category: 'Pack', severity: 'medium' },
+  'E413-005': { status: 413, title: 'Archive Too Large', category: 'Pack', severity: 'medium' },
   
   'E429-001': { status: 429, title: 'Too Many Requests', category: 'Rate Limit', severity: 'medium' },
   'E429-002': { status: 429, title: 'API Rate Limit', category: 'Rate Limit', severity: 'medium' },
@@ -305,16 +309,16 @@ const ERROR_CODES = {
   'E504-002': { status: 504, title: 'Upstream Timeout', category: 'Network', severity: 'critical' },
   'E504-003': { status: 504, title: 'Database Timeout', category: 'Database', severity: 'critical' },
   
-  // Package Specific Errors
-  'PACK-001': { status: 400, title: 'Invalid Package Format', category: 'Package', severity: 'medium' },
-  'PACK-002': { status: 400, title: 'Missing Package.json', category: 'Package', severity: 'medium' },
-  'PACK-003': { status: 400, title: 'Invalid Package.json', category: 'Package', severity: 'medium' },
-  'PACK-004': { status: 400, title: 'Missing Entry Point', category: 'Package', severity: 'medium' },
-  'PACK-005': { status: 400, title: 'Circular Dependencies', category: 'Package', severity: 'high' },
-  'PACK-006': { status: 400, title: 'Invalid Dependency', category: 'Package', severity: 'medium' },
-  'PACK-007': { status: 400, title: 'Version Conflict', category: 'Package', severity: 'high' },
-  'PACK-008': { status: 400, title: 'Package Corrupted', category: 'Package', severity: 'high' },
-  'PACK-009': { status: 400, title: 'Unsupported Package Type', category: 'Package', severity: 'medium' },
+  // Pack Specific Errors
+  'PACK-001': { status: 400, title: 'Invalid Pack Format', category: 'Pack', severity: 'medium' },
+  'PACK-002': { status: 400, title: 'Missing Pack.json', category: 'Pack', severity: 'medium' },
+  'PACK-003': { status: 400, title: 'Invalid Pack.json', category: 'Pack', severity: 'medium' },
+  'PACK-004': { status: 400, title: 'Missing Entry Point', category: 'Pack', severity: 'medium' },
+  'PACK-005': { status: 400, title: 'Circular Dependencies', category: 'Pack', severity: 'high' },
+  'PACK-006': { status: 400, title: 'Invalid Dependency', category: 'Pack', severity: 'medium' },
+  'PACK-007': { status: 400, title: 'Version Conflict', category: 'Pack', severity: 'high' },
+  'PACK-008': { status: 400, title: 'Pack Corrupted', category: 'Pack', severity: 'high' },
+  'PACK-009': { status: 400, title: 'Unsupported Pack Type', category: 'Pack', severity: 'medium' },
   
   // WASM Specific Errors
   'WASM-001': { status: 400, title: 'Invalid WASM Binary', category: 'WASM', severity: 'high' },
@@ -759,7 +763,7 @@ function generateImmersiveErrorHTML(code, title, message, details, hostname, cat
       
       <div class="error-footer">
         <p>Request ID: ${generateRequestId()}</p>
-        <p>© ${new Date().getFullYear()} PackCDN - Ultimate Package Distribution</p>
+        <p>© ${new Date().getFullYear()} PackCDN - Ultimate Pack Distribution</p>
       </div>
     </div>
   </div>
@@ -880,7 +884,12 @@ async function handleAPIAnalyze(request, match, hostname, url, clientIp) {
   return proxyToVercel(request, url, 'api/analyze', hostname, clientIp);
 }
 async function handleAPIEmbed(request, match, hostname, url, clientIp) {
-  return proxyToVercel(request, url, 'api/embed-website', hostname, clientIp);
+  // EMBEDDED LOCALLY - not proxied
+  return handleEmbedWebsite(request, match, hostname, url, clientIp);
+}
+async function handleAPIRun(request, match, hostname, url, clientIp) {
+  // EMBEDDED LOCALLY - not proxied
+  return handleRunEndpoint(request, match, hostname, url, clientIp);
 }
 async function handleAPIAdminAuth(request, match, hostname, url, clientIp) {
   return proxyToVercel(request, url, 'api/admin-auth', hostname, clientIp);
@@ -902,6 +911,488 @@ async function handleAPIOldSearch(request, match, hostname, url, clientIp) {
 }
 async function handleAPIExplorePages(request, match, hostname, url, clientIp) {
   return proxyToVercel(request, url, 'api/Pages/Explore/explore-pages', hostname, clientIp);
+}
+
+// EMBEDDED ENDPOINT: /api/embed-website
+async function handleEmbedWebsite(request, match, hostname, url, clientIp) {
+  const packId = url.searchParams.get('id') || url.searchParams.get('pack') || 'default';
+  const theme = url.searchParams.get('theme') || 'dark';
+  const width = url.searchParams.get('width') || '100%';
+  const height = url.searchParams.get('height') || '600px';
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedded Pack - ${packId}</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --bg: ${theme === 'dark' ? '#0f172a' : '#ffffff'};
+      --text: ${theme === 'dark' ? '#f1f5f9' : '#0f172a'};
+      --surface: ${theme === 'dark' ? 'rgba(30, 41, 59, 0.9)' : 'rgba(241, 245, 249, 0.9)'};
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .embed-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--surface);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .pack-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .pack-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .pack-info h2 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    .pack-info p {
+      margin: 0.25rem 0 0;
+      opacity: 0.7;
+    }
+    .embed-code {
+      background: rgba(0,0,0,0.3);
+      padding: 1.5rem;
+      border-radius: 16px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.9rem;
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.1);
+      margin: 1.5rem 0;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    .feature {
+      background: rgba(0,0,0,0.2);
+      padding: 1rem;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .copy-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+    .copy-btn:hover {
+      background: #4f46e5;
+    }
+    .footer {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 0.875rem;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="embed-container">
+    <div class="pack-header">
+      <div class="pack-icon">📦</div>
+      <div class="pack-info">
+        <h2>${packId}</h2>
+        <p>Embedded Pack • v1.0.0</p>
+      </div>
+    </div>
+    
+    <div class="embed-code">
+      &lt;!-- Copy this code to embed the pack --&gt;<br>
+      &lt;script src="https://${hostname}/cdn/${packId}"&gt;&lt;/script&gt;<br>
+      &lt;script&gt;<br>
+      &nbsp;&nbsp;// Pack is now available globally<br>
+      &nbsp;&nbsp;console.log('${packId} loaded!');<br>
+      &lt;/script&gt;
+      <br><br>
+      <button class="copy-btn" onclick="copyCode()">📋 Copy Code</button>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div>Auto-loads pack</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <div>Sandboxed execution</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌐</div>
+        <div>Global CDN</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <div>Usage analytics</div>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin: 2rem 0;">
+      <h3>Pack Preview</h3>
+      <div id="preview" style="background: rgba(0,0,0,0.2); padding: 2rem; border-radius: 16px; min-height: 100px;">
+        Loading pack preview...
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>Embedded via PackCDN • <a href="https://${hostname}/pack/${packId}" style="color: #6366f1;">View Pack Details</a></p>
+    </div>
+  </div>
+  
+  <script>
+    function copyCode() {
+      const code = \`<script src="https://${hostname}/cdn/${packId}"><\/script>\n<script>\n  // Pack is now available globally\n  console.log('${packId} loaded!');\n<\/script>\`;
+      navigator.clipboard.writeText(code);
+      alert('Code copied to clipboard!');
+    }
+    
+    // Auto-load the pack for preview
+    (async () => {
+      try {
+        const module = await import('https://${hostname}/cdn/${packId}');
+        document.getElementById('preview').innerHTML = 
+          '<div style="color: #10b981;">✓ Pack loaded successfully!</div>' +
+          '<div>Exports: ' + Object.keys(module).join(', ') + '</div>';
+      } catch (error) {
+        document.getElementById('preview').innerHTML = 
+          '<div style="color: #ef4444;">✗ Failed to load pack: ' + error.message + '</div>';
+      }
+    })();
+  </script>
+</body>
+</html>`;
+  
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+      'Cache-Control': 'public, max-age=300'
+    }
+  });
+}
+
+// EMBEDDED ENDPOINT: /api/run
+async function handleRunEndpoint(request, match, hostname, url, clientIp) {
+  const packId = url.searchParams.get('id') || url.searchParams.get('pack') || 'default';
+  const code = url.searchParams.get('code') || '';
+  const environment = url.searchParams.get('env') || 'browser';
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run ${packId} - PackCDN Runtime</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .run-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      height: calc(100vh - 40px);
+    }
+    .editor-panel {
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    .output-panel {
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .panel-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .code-editor {
+      flex: 1;
+      background: #0a0f1c;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 1rem;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
+      color: #10b981;
+      resize: none;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    .output-area {
+      flex: 1;
+      background: #0a0f1c;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 1rem;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
+      overflow-y: auto;
+      color: var(--text);
+    }
+    .button-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 40px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--primary);
+      color: white;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px -10px var(--primary);
+    }
+    .btn-secondary {
+      background: #475569;
+    }
+    .pack-info {
+      background: rgba(0,0,0,0.2);
+      padding: 0.75rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .badge {
+      background: var(--primary);
+      padding: 0.25rem 0.75rem;
+      border-radius: 40px;
+      font-size: 0.75rem;
+    }
+    .output-line {
+      margin: 0.25rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 0.25rem 0;
+    }
+    .error-line {
+      color: #ef4444;
+    }
+    .success-line {
+      color: #10b981;
+    }
+  </style>
+</head>
+<body>
+  <div class="run-container">
+    <div class="editor-panel">
+      <div class="panel-header">
+        <span class="panel-title">✏️ Code Editor - ${packId}</span>
+        <span class="badge">${environment}</span>
+      </div>
+      
+      <div class="pack-info">
+        <strong>📦 Pack:</strong> ${packId} | <strong>Environment:</strong> ${environment} | <strong>Runtime:</strong> PackCDN v8.0
+      </div>
+      
+      <textarea id="code-editor" class="code-editor" spellcheck="false">${code || `// Example code for ${packId}
+import pkg from 'https://${hostname}/cdn/${packId}';
+
+// Pack is now available
+console.log('Pack loaded:', pkg);
+
+// Test the pack
+if (typeof pkg === 'function') {
+  console.log('Result:', pkg());
+} else {
+  console.log('Exports:', Object.keys(pkg));
+}
+
+// You can also test async operations
+setTimeout(() => {
+  console.log('Async test completed');
+}, 1000);`}</textarea>
+      
+      <div class="button-group">
+        <button class="btn" onclick="runCode()">▶ Run Code</button>
+        <button class="btn btn-secondary" onclick="clearOutput()">Clear Output</button>
+        <button class="btn btn-secondary" onclick="resetCode()">Reset</button>
+      </div>
+    </div>
+    
+    <div class="output-panel">
+      <div class="panel-header">
+        <span class="panel-title">📟 Output</span>
+        <span id="runtime-status" class="badge">Ready</span>
+      </div>
+      
+      <div id="output-area" class="output-area">
+        <div class="output-line success-line">✓ Runtime initialized</div>
+        <div class="output-line">→ Ready to execute code for ${packId}</div>
+        <div class="output-line">→ Click "Run Code" to execute</div>
+      </div>
+      
+      <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+        ⚡ Powered by PackCDN Runtime • <a href="https://${hostname}/pack/${packId}" style="color: var(--primary);">Pack Details</a>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const originalCode = document.getElementById('code-editor').value;
+    
+    function clearOutput() {
+      document.getElementById('output-area').innerHTML = 
+        '<div class="output-line success-line">✓ Output cleared</div>';
+      document.getElementById('runtime-status').textContent = 'Ready';
+    }
+    
+    function resetCode() {
+      document.getElementById('code-editor').value = originalCode;
+      clearOutput();
+    }
+    
+    async function runCode() {
+      const output = document.getElementById('output-area');
+      const status = document.getElementById('runtime-status');
+      const code = document.getElementById('code-editor').value;
+      
+      status.textContent = 'Running...';
+      output.innerHTML = '<div class="output-line">⏳ Executing code...</div>';
+      
+      // Capture console.log
+      const logs = [];
+      const originalLog = console.log;
+      const originalError = console.error;
+      const originalWarn = console.warn;
+      
+      console.log = (...args) => {
+        logs.push({ type: 'log', args });
+        originalLog(...args);
+      };
+      
+      console.error = (...args) => {
+        logs.push({ type: 'error', args });
+        originalError(...args);
+      };
+      
+      console.warn = (...args) => {
+        logs.push({ type: 'warn', args });
+        originalWarn(...args);
+      };
+      
+      try {
+        // Execute the code
+        const asyncFunction = new AsyncFunction('packId', 'hostname', code);
+        await asyncFunction('${packId}', '${hostname}');
+        
+        // Display output
+        let outputHtml = '';
+        logs.forEach(log => {
+          const className = log.type === 'error' ? 'error-line' : 
+                           log.type === 'warn' ? 'output-line' : 'output-line';
+          outputHtml += \`<div class="\${className}">\${log.args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+          ).join(' ')}</div>\`;
+        });
+        
+        if (logs.length === 0) {
+          outputHtml = '<div class="output-line success-line">✓ Code executed successfully (no output)</div>';
+        }
+        
+        output.innerHTML = outputHtml + '<div class="output-line success-line">✓ Execution completed</div>';
+        status.textContent = 'Completed';
+        
+      } catch (error) {
+        output.innerHTML = \`<div class="error-line">✗ Error: \${error.message}</div>\`;
+        status.textContent = 'Error';
+      }
+      
+      // Restore console functions
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    }
+    
+    // Helper for async function
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+  </script>
+</body>
+</html>`;
+  
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+      'Cache-Control': 'public, max-age=300'
+    }
+  });
 }
 
 // Additional API endpoints (local handlers, not proxied)
@@ -936,7 +1427,7 @@ async function handleAPIVersion(request, match, hostname, url, clientIp) {
 }
 async function handleAPIConfig(request, match, hostname, url, clientIp) {
   return new Response(JSON.stringify({
-    maxPackageSize: '100MB',
+    maxPackSize: '100MB',
     maxFileSize: '10MB',
     supportedTypes: ['js', 'wasm', 'json', 'html', 'css', 'png', 'jpg']
   }), { headers: { 'Content-Type': 'application/json' } });
@@ -986,7 +1477,7 @@ async function handleAPICompile(request, match, hostname, url, clientIp) {
 }
 
 // ============================================================================
-// 🎯 CDN HANDLER (Fixed pack ID resolution)
+// 🎯 CDN HANDLER (FIXED: Now uses cdn_url from Supabase)
 // ============================================================================
 
 async function handleCDN(request, match, hostname, url, clientIp, userAgent, env) {
@@ -995,8 +1486,7 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
   const version = url.searchParams.get('v') || url.searchParams.get('version');
   
   try {
-    // Try to get from local cache (in-memory or KV) first
-    // For simplicity, we proxy to Vercel API
+    // First, get pack info to get the cdn_url
     const apiUrl = `https://pack-cdn.vercel.app/api/get-pack?id=${encodeURIComponent(packId)}${version ? `&version=${encodeURIComponent(version)}` : ''}`;
     
     const response = await fetch(apiUrl, {
@@ -1010,13 +1500,13 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
     if (!response.ok) {
       return createImmersiveError(
         'E404-002',
-        `Package "${packId}" not found`,
+        `Pack "${packId}" not found`,
         {
           packId,
           version: version || 'latest',
           suggestions: [
-            'Verify the package ID',
-            'Check available packages at /pack-explore',
+            'Verify the pack ID',
+            'Check available packs at /pack-explore',
             'Try searching at /search'
           ]
         },
@@ -1030,12 +1520,12 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
     if (!result.success || !result.pack) {
       return createImmersiveError(
         'PACK-001',
-        'Invalid package format',
+        'Invalid pack format',
         {
           packId,
-          details: 'Package data is corrupted or malformed',
+          details: 'Pack data is corrupted or malformed',
           suggestions: [
-            'Contact the package maintainer',
+            'Contact the pack maintainer',
             'Try an older version',
             'Report this issue'
           ]
@@ -1047,19 +1537,19 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
     
     const pack = result.pack;
     
-    // Check private package
+    // Check private pack
     if (pack.is_public === false) {
       const authToken = request.headers.get('Authorization') || url.searchParams.get('token');
       if (!authToken) {
         return createImmersiveError(
           'E403-006',
-          'This package is private and requires authentication',
+          'This pack is private and requires authentication',
           {
             packId,
             name: pack.name,
             suggestions: [
               'Provide an authorization token',
-              'Contact the package owner for access',
+              'Contact the pack owner for access',
               'Check if you have the correct permissions'
             ]
           },
@@ -1069,15 +1559,31 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
       }
     }
     
-    // Find file with enhanced resolution
-    let fileContent = pack.files[filePath];
+    // If we have a direct cdn_url from Supabase, use it
+    if (pack.cdn_url) {
+      const cdnResponse = await fetch(pack.cdn_url);
+      const cdnHeaders = new Headers(cdnResponse.headers);
+      cdnHeaders.set('X-Pack-ID', pack.id);
+      cdnHeaders.set('X-Pack-Name', pack.name || pack.id);
+      cdnHeaders.set('X-Pack-Version', pack.version || '1.0.0');
+      cdnHeaders.set('X-Pack-Cache-Status', 'HIT');
+      
+      return new Response(cdnResponse.body, {
+        status: cdnResponse.status,
+        statusText: cdnResponse.statusText,
+        headers: cdnHeaders
+      });
+    }
+    
+    // Fallback to files object if no cdn_url
+    let fileContent = pack.files?.[filePath];
     let actualPath = filePath;
     
     if (!fileContent) {
       // Try common entry points
       const commonFiles = ['index.js', 'main.js', 'index.mjs', 'main.mjs', 'bundle.js', 'index.wasm', 'main.wasm', 'index.html', 'main.html'];
       for (const commonFile of commonFiles) {
-        if (pack.files[commonFile]) {
+        if (pack.files?.[commonFile]) {
           fileContent = pack.files[commonFile];
           actualPath = commonFile;
           break;
@@ -1085,7 +1591,7 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
       }
       
       // Try case-insensitive match
-      if (!fileContent) {
+      if (!fileContent && pack.files) {
         const allFiles = Object.keys(pack.files);
         const match = allFiles.find(f => f.toLowerCase() === filePath.toLowerCase());
         if (match) {
@@ -1093,30 +1599,20 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
           actualPath = match;
         }
       }
-      
-      // Try directory index
-      if (!fileContent && filePath.endsWith('/')) {
-        const dir = filePath.slice(0, -1);
-        const dirFiles = Object.keys(pack.files).filter(f => f.startsWith(dir + '/'));
-        if (dirFiles.length > 0 && pack.files[dirFiles[0]]) {
-          fileContent = pack.files[dirFiles[0]];
-          actualPath = dirFiles[0];
-        }
-      }
     }
     
     if (!fileContent) {
       return createImmersiveError(
         'E404-003',
-        `File "${filePath}" not found in package`,
+        `File "${filePath}" not found in pack`,
         {
           packId,
           requestedFile: filePath,
-          availableFiles: Object.keys(pack.files).slice(0, 20),
-          totalFiles: Object.keys(pack.files).length,
+          availableFiles: pack.files ? Object.keys(pack.files).slice(0, 20) : [],
+          totalFiles: pack.files ? Object.keys(pack.files).length : 0,
           suggestions: [
             'Check the file path',
-            'Browse available files in package info',
+            'Browse available files in pack info',
             'The file may have been renamed'
           ]
         },
@@ -1208,7 +1704,7 @@ async function handlePackInfo(request, match, hostname, url, clientIp, userAgent
     if (!response.ok) {
       return createImmersiveError(
         'E404-002',
-        `Package "${packId}" not found`,
+        `Pack "${packId}" not found`,
         { packId },
         hostname,
         request
@@ -1220,7 +1716,7 @@ async function handlePackInfo(request, match, hostname, url, clientIp, userAgent
     if (!result.success || !result.pack) {
       return createImmersiveError(
         'PACK-001',
-        'Invalid package data',
+        'Invalid pack data',
         { packId },
         hostname,
         request
@@ -1243,7 +1739,7 @@ async function handlePackInfo(request, match, hostname, url, clientIp, userAgent
   } catch (error) {
     return createImmersiveError(
       'E500-004',
-      'Failed to load package info',
+      'Failed to load pack info',
       { packId, error: error.message },
       hostname,
       request
@@ -1313,14 +1809,14 @@ function generatePackInfoHTML(pack, metadata, hostname) {
       to { transform: rotate(360deg); }
     }
     
-    .package-name {
+    .pack-name {
       font-size: 2.5rem;
       margin: 0;
       position: relative;
       z-index: 1;
     }
     
-    .package-version {
+    .pack-version {
       font-size: 1.2rem;
       opacity: 0.9;
       margin: 0.5rem 0;
@@ -1463,8 +1959,8 @@ function generatePackInfoHTML(pack, metadata, hostname) {
 <body>
   <div class="container">
     <div class="header">
-      <h1 class="package-name">${pack.name || 'Unnamed Package'}</h1>
-      <p class="package-version">v${pack.version || '1.0.0'}</p>
+      <h1 class="pack-name">${pack.name || 'Unnamed Pack'}</h1>
+      <p class="pack-version">v${pack.version || '1.0.0'}</p>
       <div>
         <span class="badge">${pack.package_type || 'basic'}</span>
         <span class="badge">${pack.is_public ? 'public' : 'private'}</span>
@@ -1532,7 +2028,7 @@ function generatePackInfoHTML(pack, metadata, hostname) {
     <div class="footer">
       <p>Pack ID: ${pack.id}</p>
       <p>Created: ${new Date(pack.created_at).toLocaleString()}</p>
-      <p>© ${new Date().getFullYear()} PackCDN - Ultimate Package Distribution</p>
+      <p>© ${new Date().getFullYear()} PackCDN - Ultimate Pack Distribution</p>
     </div>
   </div>
 </body>
@@ -1594,18 +2090,18 @@ async function handleAnalyze(request, match, hostname, url, clientIp, userAgent)
     });
     
     if (!response.ok) {
-      return createImmersiveError('E404-002', `Package "${packId}" not found`, { packId }, hostname, request);
+      return createImmersiveError('E404-002', `Pack "${packId}" not found`, { packId }, hostname, request);
     }
     
     const result = await response.json();
     if (!result.success || !result.pack) {
-      return createImmersiveError('PACK-001', 'Invalid package data', { packId }, hostname, request);
+      return createImmersiveError('PACK-001', 'Invalid pack data', { packId }, hostname, request);
     }
     
     const pack = result.pack;
     const files = pack.files || {};
     
-    // Analyze package
+    // Analyze pack
     const fileTypes = {};
     let totalSize = 0;
     let largestFile = { name: '', size: 0 };
@@ -1626,7 +2122,7 @@ async function handleAnalyze(request, match, hostname, url, clientIp, userAgent)
     return new Response(html, { headers: { 'Content-Type': 'text/html' } });
     
   } catch (error) {
-    return createImmersiveError('E500-004', 'Failed to analyze package', { packId, error: error.message }, hostname, request);
+    return createImmersiveError('E500-004', 'Failed to analyze pack', { packId, error: error.message }, hostname, request);
   }
 }
 
@@ -1693,7 +2189,7 @@ function generateInstallHTML(packId, hostname) {
 <body>
   <div class="install-container">
     <h1>📦 Install ${packId}</h1>
-    <p>Use one of the following methods to install this package:</p>
+    <p>Use one of the following methods to install this pack:</p>
     
     <div class="code">
       # Using Pack CLI<br>
@@ -1772,7 +2268,7 @@ function generateEmbedHTML(packId, hostname) {
     <div class="code">
       <pre>&lt;script type="module"&gt;
   import pkg from 'https://${hostname}/cdn/${packId}';
-  // Use the package
+  // Use the pack
 &lt;/script&gt;</pre>
     </div>
     
@@ -1781,7 +2277,7 @@ function generateEmbedHTML(packId, hostname) {
       <pre>&lt;iframe src="https://${hostname}/run/${packId}" width="600" height="400"&gt;&lt;/iframe&gt;</pre>
     </div>
     
-    <p><a href="/cdn/${packId}">Direct Link</a> | <a href="/pack/${packId}">Package Info</a></p>
+    <p><a href="/cdn/${packId}">Direct Link</a> | <a href="/pack/${packId}">Pack Info</a></p>
   </div>
 </body>
 </html>`;
@@ -1857,7 +2353,7 @@ function generateRunHTML(packId, hostname) {
       <pre><code>// Example code
 import pkg from 'https://${hostname}/cdn/${packId}';
 
-console.log('Package loaded successfully!');
+console.log('Pack loaded successfully!');
 console.log('Exports:', Object.keys(pkg));</code></pre>
     </div>
     
@@ -1874,7 +2370,7 @@ console.log('Exports:', Object.keys(pkg));</code></pre>
         
         try {
           const module = await import('https://${hostname}/cdn/${packId}');
-          output.innerHTML = '✓ Package loaded successfully!<br>';
+          output.innerHTML = '✓ Pack loaded successfully!<br>';
           output.innerHTML += 'Exports: ' + Object.keys(module).join(', ');
         } catch (error) {
           output.innerHTML = '✗ Error: ' + error.message;
@@ -2071,29 +2567,29 @@ function generateDocsHTML(hostname) {
     
     <div class="section">
       <h2>🚀 Getting Started</h2>
-      <p>PackCDN is a modern package distribution system with WebAssembly support.</p>
+      <p>PackCDN is a modern pack distribution system with WebAssembly support.</p>
       
       <h3>Installation</h3>
       <pre><code># Using Pack CLI
-$ pack install my-package https://${hostname}/cdn/package-id
+$ pack install my-pack https://${hostname}/cdn/pack-id
 
 # Using npm
-$ npm install my-package
+$ npm install my-pack
 
 # Using ES Module
-import pkg from 'https://${hostname}/cdn/package-id'</code></pre>
+import pkg from 'https://${hostname}/cdn/pack-id'</code></pre>
     </div>
     
     <div class="section">
       <h2>🔗 API Endpoints</h2>
       <table>
         <tr><th>Endpoint</th><th>Description</th></tr>
-        <tr><td><code>/cdn/{id}</code></td><td>Get package files</td></tr>
-        <tr><td><code>/pack/{id}</code></td><td>Package information</td></tr>
+        <tr><td><code>/cdn/{id}</code></td><td>Get pack files</td></tr>
+        <tr><td><code>/pack/{id}</code></td><td>Pack information</td></tr>
         <tr><td><code>/wasm/{id}</code></td><td>WASM binary</td></tr>
-        <tr><td><code>/api/search</code></td><td>Search packages</td></tr>
-        <tr><td><code>/api/get-pack</code></td><td>Get package data</td></tr>
-        <tr><td><code>/api/publish</code></td><td>Publish package</td></tr>
+        <tr><td><code>/api/search</code></td><td>Search packs</td></tr>
+        <tr><td><code>/api/get-pack</code></td><td>Get pack data</td></tr>
+        <tr><td><code>/api/publish</code></td><td>Publish pack</td></tr>
       </table>
     </div>
     
@@ -2202,7 +2698,7 @@ function generateExploreHTML(hostname) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Explore Packages - PackCDN</title>
+  <title>Explore Packs - PackCDN</title>
   <style>
     :root {
       --primary: #6366f1;
@@ -2237,50 +2733,50 @@ function generateExploreHTML(hostname) {
       font-size: 1rem;
       margin: 1rem 0;
     }
-    .package-grid {
+    .pack-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 1rem;
     }
-    .package-card {
+    .pack-card {
       background: rgba(0,0,0,0.2);
       padding: 1.5rem;
       border-radius: 16px;
       border: 1px solid rgba(255,255,255,0.05);
     }
-    .package-name { color: var(--primary); font-size: 1.2rem; }
+    .pack-name { color: var(--primary); font-size: 1.2rem; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔍 Explore Packages</h1>
-    <input type="text" class="search-box" id="search" placeholder="Search packages..." onkeyup="searchPackages(this.value)">
-    <div id="results" class="package-grid">
-      <p>Loading packages...</p>
+    <h1>🔍 Explore Packs</h1>
+    <input type="text" class="search-box" id="search" placeholder="Search packs..." onkeyup="searchPacks(this.value)">
+    <div id="results" class="pack-grid">
+      <p>Loading packs...</p>
     </div>
     <script>
-      async function searchPackages(query) {
+      async function searchPacks(query) {
         const results = document.getElementById('results');
         try {
           const response = await fetch('/api/search?q=' + encodeURIComponent(query));
           const data = await response.json();
           if (data.packs && data.packs.length > 0) {
             results.innerHTML = data.packs.map(pack => \`
-              <div class="package-card">
-                <div class="package-name">\${pack.name || pack.id}</div>
+              <div class="pack-card">
+                <div class="pack-name">\${pack.name || pack.id}</div>
                 <div>v\${pack.version || '1.0.0'}</div>
                 <p>\${pack.description || 'No description'}</p>
                 <a href="/pack/\${pack.id}" style="color: #6366f1;">View →</a>
               </div>
             \`).join('');
           } else {
-            results.innerHTML = '<p>No packages found</p>';
+            results.innerHTML = '<p>No packs found</p>';
           }
         } catch (error) {
-          results.innerHTML = '<p>Error loading packages</p>';
+          results.innerHTML = '<p>Error loading packs</p>';
         }
       }
-      searchPackages('');
+      searchPacks('');
     </script>
   </div>
 </body>
@@ -2293,7 +2789,7 @@ async function handlePackCreate(request, match, hostname, url, clientIp, userAge
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Package - PackCDN</title>
+  <title>Create Pack - PackCDN</title>
   <style>
     :root {
       --primary: #6366f1;
@@ -2342,18 +2838,18 @@ async function handlePackCreate(request, match, hostname, url, clientIp, userAge
 </head>
 <body>
   <div class="container">
-    <h1>📦 Create Package</h1>
-    <p>Fill in the details below to create a new package.</p>
+    <h1>📦 Create Pack</h1>
+    <p>Fill in the details below to create a new pack.</p>
     <form id="createForm">
-      <div class="form-group"><label>Package Name</label><input type="text" id="name" required placeholder="my-awesome-package"></div>
+      <div class="form-group"><label>Pack Name</label><input type="text" id="name" required placeholder="my-awesome-pack"></div>
       <div class="form-group"><label>Version</label><input type="text" id="version" required value="1.0.0"></div>
-      <div class="form-group"><label>Package Type</label><select id="type"><option value="basic">Basic</option><option value="standard">Standard</option><option value="advanced">Advanced</option><option value="wasm">WASM</option></select></div>
-      <div class="form-group"><label>Description</label><textarea id="description" rows="3" placeholder="Package description..."></textarea></div>
+      <div class="form-group"><label>Pack Type</label><select id="type"><option value="basic">Basic</option><option value="standard">Standard</option><option value="advanced">Advanced</option><option value="wasm">WASM</option></select></div>
+      <div class="form-group"><label>Description</label><textarea id="description" rows="3" placeholder="Pack description..."></textarea></div>
       <div class="form-group"><label>Entry Point</label><input type="text" id="main" value="index.js"></div>
       <div class="form-group"><label>License</label><input type="text" id="license" value="MIT"></div>
-      <button type="submit">Create Package</button>
+      <button type="submit">Create Pack</button>
     </form>
-    <p style="margin-top: 2rem; color: #94a3b8;">Note: Package creation is handled via the API. Use <a href="/api/publish" style="color: #6366f1;">/api/publish</a>.</p>
+    <p style="margin-top: 2rem; color: #94a3b8;">Note: Pack creation is handled via the API. Use <a href="/api/publish" style="color: #6366f1;">/api/publish</a>.</p>
     <script>
       document.getElementById('createForm').addEventListener('submit', (e) => { e.preventDefault(); alert('Use /api/publish endpoint.'); });
     </script>
@@ -2418,13 +2914,13 @@ async function handlePackManage(request, match, hostname, url, clientIp, userAge
     <h1>🔧 Manage ${packId}</h1>
     
     <div class="section">
-      <h2>Package Settings</h2>
+      <h2>Pack Settings</h2>
       <div><h3>Visibility</h3><button>Make Public</button><button>Make Private</button></div>
       <div><h3>Versions</h3><button>View All Versions</button><button>Create New Version</button></div>
       <div><h3>Collaborators</h3><button>Add Collaborator</button><button>Manage Permissions</button></div>
-      <div><h3>Danger Zone</h3><button class="danger">Delete Package</button></div>
+      <div><h3>Danger Zone</h3><button class="danger">Delete Pack</button></div>
     </div>
-    <p><a href="/pack/${packId}" style="color: #6366f1;">← Back to Package</a></p>
+    <p><a href="/pack/${packId}" style="color: #6366f1;">← Back to Pack</a></p>
   </div>
 </body>
 </html>`;
@@ -2587,7 +3083,7 @@ async function handleUserProfile(request, match, hostname, url, clientIp, userAg
       <p><strong>Username:</strong> demouser</p>
       <p><strong>Email:</strong> user@example.com</p>
       <p><strong>Member Since:</strong> January 2024</p>
-      <div><div class="stat"><div class="stat-value">12</div><div>Packages</div></div></div>
+      <div><div class="stat"><div class="stat-value">12</div><div>Packs</div></div></div>
     </div>
   </div>
 </body>
@@ -2595,7 +3091,7 @@ async function handleUserProfile(request, match, hostname, url, clientIp, userAg
   return new Response(html, { headers: { 'Content-Type': 'text/html' } });
 }
 async function handleUserPackages(request, match, hostname, url, clientIp, userAgent) {
-  return new Response(JSON.stringify({ packages: [] }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ packs: [] }), { headers: { 'Content-Type': 'application/json' } });
 }
 async function handleUserSettings(request, match, hostname, url, clientIp, userAgent) {
   return new Response(JSON.stringify({ settings: {} }), { headers: { 'Content-Type': 'application/json' } });
@@ -2650,7 +3146,7 @@ function generateHomeHTML(hostname) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PackCDN - Ultimate Package Distribution</title>
+  <title>PackCDN - Ultimate Pack Distribution</title>
   <style>
     :root {
       --primary: #6366f1;
@@ -2865,12 +3361,12 @@ function generateHomeHTML(hostname) {
 <body>
   <div class="hero">
     <h1>🚀 PackCDN</h1>
-    <p>Ultimate Package Distribution with WebAssembly Support</p>
+    <p>Ultimate Pack Distribution with WebAssembly Support</p>
   </div>
   
   <div class="container">
     <div class="stats">
-      <div class="stat-card"><div class="stat-value">10k+</div><div>Packages</div></div>
+      <div class="stat-card"><div class="stat-value">10k+</div><div>Packs</div></div>
       <div class="stat-card"><div class="stat-value">1M+</div><div>Downloads</div></div>
       <div class="stat-card"><div class="stat-value">300+</div><div>Error Codes</div></div>
       <div class="stat-card"><div class="stat-value">70+</div><div>API Endpoints</div></div>
@@ -2878,27 +3374,27 @@ function generateHomeHTML(hostname) {
     
     <div class="code-example">
       <pre>
-# Install any package instantly
-$ pack install my-package https://${hostname}/cdn/package-id
+# Install any pack instantly
+$ pack install my-pack https://${hostname}/cdn/pack-id
 
 # Use in your project
-import pkg from 'https://${hostname}/cdn/package-id'
+import pkg from 'https://${hostname}/cdn/pack-id'
 
 # With version pinning
-import pkg from 'https://${hostname}/cdn/package-id@1.0.0'</pre>
+import pkg from 'https://${hostname}/cdn/pack-id@1.0.0'</pre>
     </div>
     
     <div class="features">
-      <div class="feature-card"><div class="feature-icon">📦</div><h3 class="feature-title">Instant Publishing</h3><p>Publish packages with a single API call.</p></div>
+      <div class="feature-card"><div class="feature-icon">📦</div><h3 class="feature-title">Instant Publishing</h3><p>Publish packs with a single API call.</p></div>
       <div class="feature-card"><div class="feature-icon">⚡</div><h3 class="feature-title">WebAssembly Support</h3><p>Automatic JS to WASM compilation.</p></div>
-      <div class="feature-card"><div class="feature-icon">🔒</div><h3 class="feature-title">Private Packages</h3><p>Encrypted private packages with access control.</p></div>
+      <div class="feature-card"><div class="feature-icon">🔒</div><h3 class="feature-title">Private Packs</h3><p>Encrypted private packs with access control.</p></div>
       <div class="feature-card"><div class="feature-icon">🌐</div><h3 class="feature-title">Global CDN</h3><p>Built on Cloudflare's global network.</p></div>
       <div class="feature-card"><div class="feature-icon">🔍</div><h3 class="feature-title">Advanced Search</h3><p>Full-text search with filtering.</p></div>
-      <div class="feature-card"><div class="feature-icon">📊</div><h3 class="feature-title">Analytics</h3><p>Real-time analytics for your packages.</p></div>
+      <div class="feature-card"><div class="feature-icon">📊</div><h3 class="feature-title">Analytics</h3><p>Real-time analytics for your packs.</p></div>
     </div>
     
     <div class="cta-buttons">
-      <a href="/pack-explore" class="btn btn-primary">🔍 Explore Packages</a>
+      <a href="/pack-explore" class="btn btn-primary">🔍 Explore Packs</a>
       <a href="/docs" class="btn btn-secondary">📚 Documentation</a>
       <a href="/status" class="btn btn-secondary">📊 System Status</a>
       <a href="/api/search" class="btn btn-secondary">🔌 API</a>
@@ -2906,7 +3402,7 @@ import pkg from 'https://${hostname}/cdn/package-id@1.0.0'</pre>
   </div>
   
   <div class="footer">
-    <p>PackCDN v8.0.0-ultimate • © ${new Date().getFullYear()} • Ultimate Package Distribution</p>
+    <p>PackCDN v8.0.0-ultimate • © ${new Date().getFullYear()} • Ultimate Pack Distribution</p>
   </div>
 </body>
 </html>`;
