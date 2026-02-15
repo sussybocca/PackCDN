@@ -5,12 +5,201 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Enhanced pack response formatter (unchanged)
+// ============================================================================
+// Enhanced pack response formatter (fully restored)
+// ============================================================================
 function formatPackResponse(pack, metadata = null, versions = [], dependencies = [], collaborators = [], changes = []) {
-  // ... (your existing code, unchanged)
+  const isPublic = pack.is_public !== false;
+  const packageType = pack.package_type || 'basic';
+  
+  // Parse pack_json if it's a string
+  let packJson = pack.pack_json;
+  if (typeof packJson === 'string') {
+    try {
+      packJson = JSON.parse(packJson);
+    } catch (e) {
+      console.warn('Failed to parse pack_json:', e);
+      packJson = {};
+    }
+  }
+  
+  // Parse files if it's a string
+  let files = pack.files;
+  if (typeof files === 'string') {
+    try {
+      files = JSON.parse(files);
+    } catch (e) {
+      console.warn('Failed to parse files:', e);
+      files = {};
+    }
+  }
+  
+  // Format version history
+  const formattedVersions = versions.map(v => ({
+    version: v.version,
+    version_number: v.version_number,
+    created_at: v.created_at,
+    publisher_id: v.publisher_id,
+    checksum: v.checksum,
+    size: v.files ? JSON.stringify(v.files).length : 0
+  })).sort((a, b) => b.version_number - a.version_number);
+  
+  // Get latest version
+  const latestVersion = formattedVersions.length > 0 ? formattedVersions[0] : {
+    version: pack.version || '1.0.0',
+    version_number: 1,
+    created_at: pack.created_at,
+    publisher_id: pack.publisher_id
+  };
+  
+  // Format metadata
+  const formattedMetadata = metadata ? {
+    package_type: metadata.package_type,
+    sandbox_level: metadata.sandbox_level,
+    verification_status: metadata.verification_status,
+    file_count: metadata.file_count,
+    total_size: metadata.total_size,
+    wasm_size: metadata.wasm_size || 0,
+    complex_wasm_size: metadata.complex_wasm_size || 0,
+    last_accessed: metadata.last_accessed,
+    compile_to_wasm: pack.compile_to_wasm || false,
+    wasm_generated: !!(pack.wasm_url || metadata.wasm_size),
+    complex_wasm_generated: !!(pack.complex_wasm_url || metadata.complex_wasm_size)
+  } : {
+    package_type: packageType,
+    sandbox_level: 'basic',
+    file_count: Object.keys(files || {}).length,
+    total_size: JSON.stringify(files || {}).length,
+    wasm_generated: !!pack.wasm_url,
+    complex_wasm_generated: !!pack.complex_wasm_url
+  };
+  
+  // Format dependencies
+  const formattedDependencies = dependencies.map(d => d.dependency_name);
+  
+  // Format collaborators
+  const formattedCollaborators = collaborators.map(c => ({
+    user_id: c.user_id,
+    permission_level: c.permission_level,
+    invited_by: c.invited_by,
+    accepted_at: c.accepted_at
+  }));
+  
+  // Format recent changes
+  const formattedChanges = changes.slice(0, 10).map(c => ({
+    change_type: c.change_type,
+    description: c.description,
+    user_id: c.user_id,
+    created_at: c.created_at,
+    metadata: c.metadata
+  }));
+  
+  // Calculate total downloads from all versions
+  const totalDownloads = pack.downloads || 0;
+  const totalViews = pack.views || 0;
+  
+  // Build response object
+  const response = {
+    success: true,
+    pack: {
+      // Basic info
+      id: pack.id,
+      url_id: pack.url_id,
+      name: pack.name,
+      version: pack.version,
+      package_type: packageType,
+      is_public: isPublic,
+      
+      // URLs
+      cdn_url: pack.cdn_url,
+      worker_url: pack.worker_url,
+      wasm_url: pack.wasm_url,
+      complex_wasm_url: pack.complex_wasm_url,
+      
+      // Content
+      pack_json: packJson,
+      files: files,
+      encrypted_key: isPublic ? undefined : pack.encrypted_key, // Hide key for private packages
+      
+      // Publisher info
+      publisher_id: pack.publisher_id,
+      created_at: pack.created_at,
+      updated_at: pack.updated_at,
+      last_accessed: pack.last_accessed,
+      
+      // Stats
+      views: totalViews,
+      downloads: totalDownloads,
+      
+      // WASM info
+      compile_to_wasm: pack.compile_to_wasm || false,
+      wasm_metadata: pack.wasm_metadata || null,
+      
+      // Version info
+      version_info: {
+        current: latestVersion.version,
+        number: latestVersion.version_number,
+        total_versions: formattedVersions.length,
+        all_versions: formattedVersions
+      }
+    },
+    
+    metadata: formattedMetadata,
+    
+    // Advanced features
+    advanced: {
+      has_dependencies: formattedDependencies.length > 0,
+      has_collaborators: formattedCollaborators.length > 0,
+      has_wasm: formattedMetadata.wasm_generated,
+      has_complex_wasm: formattedMetadata.complex_wasm_generated,
+      version_history: formattedVersions.length > 1,
+      verification_required: metadata?.requires_verification || false,
+      verification_status: metadata?.verification_status || 'unknown'
+    },
+    
+    // Lists
+    dependencies: formattedDependencies,
+    collaborators: formattedCollaborators,
+    recent_changes: formattedChanges,
+    
+    // Download/install info
+    install_info: {
+      pack_cli: `pack install ${pack.name}@${latestVersion.version}`,
+      npm: `npm install ${pack.name}@${latestVersion.version}`,
+      yarn: `yarn add ${pack.name}@${latestVersion.version}`,
+      direct_url: pack.cdn_url,
+      wasm_url: pack.wasm_url,
+      complex_wasm_url: pack.complex_wasm_url
+    },
+    
+    // API endpoints
+    api_endpoints: {
+      versions: `/api/pack-versions?id=${pack.id}`,
+      download: `/api/download-pack?id=${pack.url_id}`,
+      wasm: pack.wasm_url ? `/api/wasm-pack?id=${pack.url_id}` : null,
+      stats: `/api/pack-stats?id=${pack.id}`
+    },
+    
+    // Quick stats
+    stats: {
+      total_files: Object.keys(files || {}).length,
+      total_size: formattedMetadata.total_size,
+      wasm_size: formattedMetadata.wasm_size,
+      complex_wasm_size: formattedMetadata.complex_wasm_size,
+      view_count: totalViews,
+      download_count: totalDownloads,
+      version_count: formattedVersions.length,
+      dependency_count: formattedDependencies.length,
+      collaborator_count: formattedCollaborators.length
+    }
+  };
+  
+  return response;
 }
 
+// ============================================================================
 // Helper to get all pack data (improved error handling)
+// ============================================================================
 async function getCompletePackData(packId, includeAdvanced = true) {
   console.log(`[getCompletePackData] Searching for pack with identifier: ${packId}`);
 
@@ -141,7 +330,9 @@ async function getCompletePackData(packId, includeAdvanced = true) {
   }
 }
 
-// Main handler (improved error responses)
+// ============================================================================
+// Main handler
+// ============================================================================
 export default async function handler(req, res) {
   const { id, includeAdvanced = 'true' } = req.query;
 
@@ -202,7 +393,9 @@ export default async function handler(req, res) {
   }
 }
 
-// HEAD handler (unchanged, but could use same improved logic)
+// ============================================================================
+// HEAD handler (check existence)
+// ============================================================================
 export async function headHandler(req, res) {
   const { id } = req.query;
 
@@ -247,12 +440,18 @@ export async function headHandler(req, res) {
   }
 }
 
+// ============================================================================
+// Vercel config
+// ============================================================================
 export const config = {
   api: {
     responseLimit: '10mb',
   },
 };
 
+// ============================================================================
+// Exports for testing
+// ============================================================================
 export {
   formatPackResponse,
   getCompletePackData
