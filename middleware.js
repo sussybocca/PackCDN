@@ -1,5 +1,4 @@
 // middleware.js
-import { next } from '@vercel/edge';
 import { createClient } from '@vercel/edge-config';
 
 export const config = {
