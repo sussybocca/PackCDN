@@ -1560,7 +1560,7 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
     }
     
       // Use url_id to construct the external CDN URL (ignores stored cdn_url)
-    const cdnBase = env.EXTERNAL_CDN_BASE || 'https://pack-cdn.vercel.app/cdn';
+    const cdnBase = env.EXTERNAL_CDN_BASE || 'https://packcdn.firefly-worker.workers.dev/cdn';
     const externalUrl = `${cdnBase}/${pack.url_id}/${filePath}`;
     
     try {
