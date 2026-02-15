@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PackCDN · immersive portal realm</title>
+    <title>PackCDN · immersive portal realm · ENHANCED</title>
     <!-- Three.js and addons -->
     <script type="importmap">
         {
@@ -20,7 +20,7 @@
             margin: 0;
             overflow: hidden;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            touch-action: none; /* prevent page scroll on mobile */
+            touch-action: none;
         }
         #info {
             position: absolute;
@@ -188,15 +188,32 @@
         @media (max-width: 768px) {
             #mobile-instruction { display: block; }
         }
+        #focus-message {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: 1px solid #667eea;
+            backdrop-filter: blur(5px);
+            z-index: 350;
+            pointer-events: none;
+            opacity: 0.8;
+            font-size: 0.9rem;
+            transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body>
     <div id="loading">
-        <div>🌀 entering immersive PackCDN dimension...</div>
+        <div>🌀 entering ENHANCED PackCDN dimension...</div>
         <div class="spinner"></div>
     </div>
 
-    <div id="info">✨ <span>PackCDN</span> · immersive portal realm</div>
+    <div id="info">✨ <span>PackCDN</span> · enhanced portal realm</div>
     <div id="crosshair"></div>
     <div id="portal-labels">
         <div class="portal-label">📦 CREATE PACK</div>
@@ -207,6 +224,7 @@
         <span><span class="key">🖱️</span> look around</span>
         <span>walk into <span class="key">portals</span> to teleport</span>
     </div>
+    <div id="focus-message">👆 Click here to focus and enable keyboard</div>
 
     <!-- mobile joystick -->
     <div id="joystick-container">
@@ -224,18 +242,31 @@
         // --- setup scene, camera, renderers ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a1a);
-        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.015);
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.012); // slightly less fog for visibility
 
         const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(15, 7, 25);
+        camera.position.set(15, 8, 30); // higher start
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.shadowMap.bias = 0.0001;
+        renderer.shadowMap.normalBias = 0.02; // reduce shadow acne
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
+
+        // --- FIX CONTROLS: make canvas focusable and capture events ---
+        renderer.domElement.setAttribute('tabindex', '0');
+        renderer.domElement.style.outline = 'none';
+        renderer.domElement.addEventListener('click', () => {
+            renderer.domElement.focus();
+            document.getElementById('focus-message').style.opacity = '0';
+        });
+        // Also hide message after any key press
+        window.addEventListener('keydown', () => {
+            document.getElementById('focus-message').style.opacity = '0';
+        }, { once: true });
 
         // CSS2 renderer for labels
         const labelRenderer = new CSS2DRenderer();
@@ -247,56 +278,62 @@
         document.body.appendChild(labelRenderer.domElement);
 
         // --- enhanced lighting ---
-        const ambient = new THREE.AmbientLight(0x40406b);
+        const ambient = new THREE.AmbientLight(0x40406b, 1.2);
         scene.add(ambient);
 
-        // main sun
-        const sunLight = new THREE.DirectionalLight(0xffeedd, 1.5);
-        sunLight.position.set(25, 35, 15);
+        // main sun with godray effect (positioned for dramatic lighting)
+        const sunLight = new THREE.DirectionalLight(0xffeedd, 2.0);
+        sunLight.position.set(25, 40, 20);
         sunLight.castShadow = true;
         sunLight.receiveShadow = true;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
-        const d = 40;
+        sunLight.shadow.mapSize.width = 4096;
+        sunLight.shadow.mapSize.height = 4096;
+        const d = 60;
         sunLight.shadow.camera.left = -d;
         sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d;
         sunLight.shadow.camera.bottom = -d;
         sunLight.shadow.camera.near = 1;
-        sunLight.shadow.camera.far = 70;
-        sunLight.shadow.bias = -0.0005;
+        sunLight.shadow.camera.far = 100;
+        sunLight.shadow.bias = -0.0008;
         scene.add(sunLight);
 
         // fill with blue/purple
-        const fillLight = new THREE.PointLight(0x5a6fd8, 1.0, 50);
-        fillLight.position.set(-15, 12, 20);
+        const fillLight = new THREE.PointLight(0x5a6fd8, 1.2, 70);
+        fillLight.position.set(-20, 15, 25);
         scene.add(fillLight);
 
         // back rim light
-        const backLight = new THREE.PointLight(0xaa88ff, 0.8);
-        backLight.position.set(0, 10, -30);
+        const backLight = new THREE.PointLight(0xaa88ff, 1.0, 50);
+        backLight.position.set(0, 12, -40);
         scene.add(backLight);
 
         // portal glows (intensified)
-        const portalLightLeft = new THREE.PointLight(0x667eea, 3, 30);
-        portalLightLeft.position.set(-15, 4, 0);
+        const portalLightLeft = new THREE.PointLight(0x667eea, 5, 40);
+        portalLightLeft.position.set(-18, 5, 0);
         scene.add(portalLightLeft);
-        const portalLightRight = new THREE.PointLight(0x9f7aea, 3, 30);
-        portalLightRight.position.set(15, 4, 0);
+        const portalLightRight = new THREE.PointLight(0x9f7aea, 5, 40);
+        portalLightRight.position.set(18, 5, 0);
         scene.add(portalLightRight);
 
-        // additional atmospheric lights
-        const ambientParticles = new THREE.PointLight(0x4488ff, 0.5);
-        ambientParticles.position.set(0, 8, 0);
-        scene.add(ambientParticles);
+        // additional atmospheric lights (floating orbs)
+        const extraLights = [];
+        for (let i = 0; i < 8; i++) {
+            const color = new THREE.Color().setHSL(Math.random() * 0.3 + 0.5, 0.8, 0.5);
+            const light = new THREE.PointLight(color, 1.5, 30);
+            const angle = (i / 8) * Math.PI * 2;
+            light.position.set(Math.cos(angle) * 25, 5 + Math.random() * 8, Math.sin(angle) * 25);
+            scene.add(light);
+            extraLights.push(light);
+        }
 
-        // --- ground with reflective pool effect ---
-        const groundGeometry = new THREE.CircleGeometry(80, 64);
+        // --- ground with more texture (using a checkerboard pattern? but simple for now) ---
+        const groundGeometry = new THREE.CircleGeometry(120, 128); // larger ground
         const groundMaterial = new THREE.MeshStandardMaterial({ 
             color: 0x1a2b3c, 
-            roughness: 0.4, 
-            metalness: 0.2,
-            emissive: 0x101820
+            roughness: 0.5, 
+            metalness: 0.1,
+            emissive: 0x0a1018
         });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
@@ -304,25 +341,38 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // decorative small reflective puddles
-        for (let i = 0; i < 20; i++) {
-            const puddleGeom = new THREE.CircleGeometry(0.8 + Math.random()*1.2, 8);
-            const puddleMat = new THREE.MeshStandardMaterial({ color: 0x2a3f5a, emissive: 0x112233, transparent: true, opacity: 0.3 });
+        // decorative reflective puddles (more)
+        for (let i = 0; i < 40; i++) {
+            const puddleGeom = new THREE.CircleGeometry(0.6 + Math.random()*2.0, 8);
+            const puddleMat = new THREE.MeshStandardMaterial({ color: 0x2a4a6a, emissive: 0x102030, transparent: true, opacity: 0.4 });
             const puddle = new THREE.Mesh(puddleGeom, puddleMat);
             puddle.rotation.x = -Math.PI / 2;
             const angle = Math.random() * Math.PI * 2;
-            const rad = 10 + Math.random() * 25;
+            const rad = 12 + Math.random() * 40;
             puddle.position.set(Math.cos(angle)*rad, 0.0, Math.sin(angle)*rad);
             puddle.receiveShadow = true;
             scene.add(puddle);
         }
 
-        // --- enhanced trees with variations and more details ---
+        // --- central reflective pool (using Reflector) ---
+        const reflectorGeometry = new THREE.CircleGeometry(8, 32);
+        const reflector = new Reflector(reflectorGeometry, {
+            clipBias: 0.003,
+            textureWidth: window.innerWidth,
+            textureHeight: window.innerHeight,
+            color: 0x3a5f8a
+        });
+        reflector.rotation.x = -Math.PI / 2;
+        reflector.position.set(0, 0.01, 0);
+        reflector.receiveShadow = true;
+        scene.add(reflector);
+
+        // --- enhanced trees with variations and more details (increased count) ---
         function createTree(x, z, variant = 'normal') {
             const group = new THREE.Group();
-            const trunkHeight = variant === 'tall' ? 3.5 : 2.2;
-            const trunkGeom = new THREE.CylinderGeometry(0.5, 0.9, trunkHeight);
-            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.7 });
+            const trunkHeight = variant === 'tall' ? 4.0 : (variant === 'pine' ? 5.0 : 2.8);
+            const trunkGeom = new THREE.CylinderGeometry(0.6, 1.0, trunkHeight);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.8 });
             const trunk = new THREE.Mesh(trunkGeom, trunkMat);
             trunk.position.y = trunkHeight/2;
             trunk.castShadow = true;
@@ -337,39 +387,43 @@
             if (variant === 'pine') {
                 // pine tree
                 const folMat = new THREE.MeshStandardMaterial({ color: 0x2E7D32 });
-                const fol1 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.8, 6), folMat);
-                fol1.position.y = trunkHeight + 0.9;
+                const fol1 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.0, 8), folMat);
+                fol1.position.y = trunkHeight - 0.5;
                 fol1.castShadow = true;
                 fol1.receiveShadow = true;
                 group.add(fol1);
-                const fol2 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.5, 6), folMat);
-                fol2.position.y = trunkHeight + 2.2;
+                const fol2 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.8, 8), folMat);
+                fol2.position.y = trunkHeight + 0.8;
                 fol2.castShadow = true;
                 group.add(fol2);
+                const fol3 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.5, 8), folMat);
+                fol3.position.y = trunkHeight + 2.0;
+                fol3.castShadow = true;
+                group.add(fol3);
             } else {
                 // broadleaf tree
                 const foliageMat1 = new THREE.MeshStandardMaterial({ color: green1 });
-                const fol1 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 5), foliageMat1);
-                fol1.position.y = trunkHeight + 0.5;
+                const fol1 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 6), foliageMat1);
+                fol1.position.y = trunkHeight;
                 fol1.castShadow = true;
                 fol1.receiveShadow = true;
                 group.add(fol1);
                 const foliageMat2 = new THREE.MeshStandardMaterial({ color: green2 });
-                const fol2 = new THREE.Mesh(new THREE.SphereGeometry(0.8, 5), foliageMat2);
-                fol2.position.set(0.7, trunkHeight + 1.0, 0.5);
+                const fol2 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 6), foliageMat2);
+                fol2.position.set(0.8, trunkHeight + 0.5, 0.6);
                 fol2.castShadow = true;
                 group.add(fol2);
-                const fol3 = new THREE.Mesh(new THREE.SphereGeometry(0.7, 5), foliageMat2);
-                fol3.position.set(-0.6, trunkHeight + 1.2, -0.4);
+                const fol3 = new THREE.Mesh(new THREE.SphereGeometry(0.9, 6), foliageMat2);
+                fol3.position.set(-0.7, trunkHeight + 0.7, -0.5);
                 fol3.castShadow = true;
                 group.add(fol3);
             }
 
             // add some random small bushes around base
             const bushMat = new THREE.MeshStandardMaterial({ color: 0x3D8C40 });
-            for (let j = 0; j < 3; j++) {
-                const bush = new THREE.Mesh(new THREE.SphereGeometry(0.3 + Math.random()*0.2, 4), bushMat);
-                bush.position.set((Math.random()-0.5)*1.2, 0.2, (Math.random()-0.5)*1.2);
+            for (let j = 0; j < 4; j++) {
+                const bush = new THREE.Mesh(new THREE.SphereGeometry(0.3 + Math.random()*0.3, 5), bushMat);
+                bush.position.set((Math.random()-0.5)*1.5, 0.2, (Math.random()-0.5)*1.5);
                 bush.castShadow = true;
                 bush.receiveShadow = true;
                 group.add(bush);
@@ -379,28 +433,28 @@
             return group;
         }
 
-        // place many trees with variety
+        // place many trees with variety (increased to 300)
         const treePositions = [];
-        for (let i = 0; i < 120; i++) {
+        for (let i = 0; i < 300; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const radius = 12 + Math.random() * 35;
+            const radius = 18 + Math.random() * 45;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
             // keep central area clear for portals and character
-            if (Math.abs(x) < 20 && Math.abs(z) < 15) continue;
+            if (Math.abs(x) < 25 && Math.abs(z) < 20) continue;
             const variant = Math.random() > 0.6 ? 'pine' : (Math.random() > 0.5 ? 'tall' : 'normal');
             const tree = createTree(x, z, variant);
             scene.add(tree);
             treePositions.push({ x, z });
         }
 
-        // additional random rocks and mushrooms for detail
-        for (let i = 0; i < 50; i++) {
-            const rockGeom = new THREE.DodecahedronGeometry(0.3 + Math.random()*0.4);
+        // additional random rocks and mushrooms (more)
+        for (let i = 0; i < 150; i++) {
+            const rockGeom = new THREE.DodecahedronGeometry(0.4 + Math.random()*0.5);
             const rockMat = new THREE.MeshStandardMaterial({ color: 0x7A6A5A, roughness: 0.9 });
             const rock = new THREE.Mesh(rockGeom, rockMat);
             const angle = Math.random() * Math.PI * 2;
-            const rad = 6 + Math.random() * 30;
+            const rad = 8 + Math.random() * 40;
             rock.position.set(Math.cos(angle)*rad, 0.1, Math.sin(angle)*rad);
             rock.rotation.set(Math.random(), Math.random(), Math.random());
             rock.castShadow = true;
@@ -408,77 +462,148 @@
             scene.add(rock);
         }
 
+        // --- add glowing flowers and crystals ---
+        function createFlower(x, z, color) {
+            const group = new THREE.Group();
+            const stemGeom = new THREE.CylinderGeometry(0.05, 0.08, 0.5);
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x3c8d3c });
+            const stem = new THREE.Mesh(stemGeom, stemMat);
+            stem.position.y = 0.25;
+            stem.castShadow = true;
+            stem.receiveShadow = true;
+            group.add(stem);
+            
+            const headGeom = new THREE.SphereGeometry(0.15, 6);
+            const headMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
+            const head = new THREE.Mesh(headGeom, headMat);
+            head.position.y = 0.55;
+            head.castShadow = true;
+            group.add(head);
+            
+            group.position.set(x, 0, z);
+            return group;
+        }
+
+        for (let i = 0; i < 200; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 6 + Math.random() * 35;
+            const x = Math.cos(angle) * rad;
+            const z = Math.sin(angle) * rad;
+            const hue = Math.random() * 0.2 + 0.8; // pink/purple range
+            const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
+            const flower = createFlower(x, z, color);
+            scene.add(flower);
+        }
+
+        // --- floating crystals around portals ---
+        function createCrystal(x, y, z, color) {
+            const geom = new THREE.OctahedronGeometry(0.4);
+            const mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.8, transparent: true, opacity: 0.9 });
+            const crystal = new THREE.Mesh(geom, mat);
+            crystal.position.set(x, y, z);
+            crystal.castShadow = true;
+            return crystal;
+        }
+
+        // add crystals around left portal
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const rad = 4.5;
+            const x = -18 + Math.cos(angle) * rad;
+            const z = Math.sin(angle) * rad;
+            const y = 2.5 + Math.sin(angle * 2) * 1.5;
+            const crystal = createCrystal(x, y, z, 0x667eea);
+            scene.add(crystal);
+        }
+        // around right portal
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const rad = 4.5;
+            const x = 18 + Math.cos(angle) * rad;
+            const z = Math.sin(angle) * rad;
+            const y = 2.5 + Math.sin(angle * 2) * 1.5;
+            const crystal = createCrystal(x, y, z, 0x9f7aea);
+            scene.add(crystal);
+        }
+
         // --- floating particles (fireflies) increased count ---
-        const particleCount = 800;
+        const particleCount = 1500;
         const particleGeom = new THREE.BufferGeometry();
         const particlePositions = new Float32Array(particleCount * 3);
+        const particleColors = new Float32Array(particleCount * 3);
         for (let i = 0; i < particleCount; i++) {
-            const r = 8 + Math.random() * 40;
+            const r = 10 + Math.random() * 50;
             const theta = Math.random() * Math.PI * 2;
-            const y = 1.5 + Math.random() * 12;
+            const y = 1.0 + Math.random() * 18;
             particlePositions[i*3] = Math.cos(theta) * r;
             particlePositions[i*3+1] = y;
             particlePositions[i*3+2] = Math.sin(theta) * r;
+            
+            const color = new THREE.Color().setHSL(0.65 + Math.random()*0.2, 0.8, 0.6);
+            particleColors[i*3] = color.r;
+            particleColors[i*3+1] = color.g;
+            particleColors[i*3+2] = color.b;
         }
         particleGeom.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-        const particleMat = new THREE.PointsMaterial({ color: 0xaaccff, size: 0.2, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.8 });
+        particleGeom.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.25, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.9 });
         const particles = new THREE.Points(particleGeom, particleMat);
         scene.add(particles);
 
-        // swirling star field above
-        const starCount = 300;
+        // swirling star field above (more stars)
+        const starCount = 600;
         const starGeom = new THREE.BufferGeometry();
         const starPos = new Float32Array(starCount * 3);
         for (let i = 0; i < starCount; i++) {
-            const r = 45 + Math.random() * 20;
+            const r = 60 + Math.random() * 40;
             const theta = Math.random() * Math.PI * 2;
-            const phi = Math.random() * Math.PI - Math.PI/2;
-            starPos[i*3] = Math.cos(theta) * Math.cos(phi) * r;
-            starPos[i*3+1] = Math.sin(phi) * r + 20;
-            starPos[i*3+2] = Math.sin(theta) * Math.cos(phi) * r;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPos[i*3] = Math.sin(phi) * Math.cos(theta) * r;
+            starPos[i*3+1] = Math.sin(phi) * Math.sin(theta) * r * 0.4 + 30; // flatten
+            starPos[i*3+2] = Math.cos(phi) * r;
         }
         starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, transparent: true, blending: THREE.AdditiveBlending });
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.4, transparent: true, blending: THREE.AdditiveBlending });
         const stars = new THREE.Points(starGeom, starMat);
         scene.add(stars);
 
-        // --- create two portals (enhanced) ---
+        // --- create two portals (enhanced) with more detail ---
         function createPortal(x, color, labelText, url) {
             const group = new THREE.Group();
             group.position.set(x, 2.5, 0);
 
             // outer ring (torus knot for extra detail)
-            const ringMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 1.0, transparent: true, opacity: 0.8 });
-            const ring = new THREE.Mesh(new THREE.TorusKnotGeometry(2.0, 0.4, 64, 8), ringMat);
+            const ringMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 1.2, transparent: true, opacity: 0.9 });
+            const ring = new THREE.Mesh(new THREE.TorusKnotGeometry(2.2, 0.45, 80, 12), ringMat);
             ring.rotation.x = Math.PI / 2;
             ring.rotation.z = 0.3;
             ring.castShadow = true;
             ring.receiveShadow = true;
             group.add(ring);
 
-            // inner swirling particles (small spheres rotating) - two layers
+            // inner swirling particles (more layers)
             const swirlGroup1 = new THREE.Group();
             const swirlGroup2 = new THREE.Group();
-            for (let i = 0; i < 24; i++) {
+            for (let i = 0; i < 36; i++) {
                 const sphereMat = new THREE.MeshStandardMaterial({ color: color, emissive: color });
                 const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8), sphereMat);
-                const angle = (i / 24) * Math.PI * 2;
-                sphere.position.set(Math.cos(angle) * 1.8, Math.sin(angle) * 0.5, Math.sin(angle) * 1.5);
+                const angle = (i / 36) * Math.PI * 2;
+                sphere.position.set(Math.cos(angle) * 2.0, Math.sin(angle) * 0.8, Math.sin(angle) * 1.8);
                 swirlGroup1.add(sphere);
                 
-                const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6), sphereMat);
-                sphere2.position.set(Math.cos(angle+0.5) * 1.2, 0, Math.sin(angle+0.5) * 1.2);
+                const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6), sphereMat);
+                sphere2.position.set(Math.cos(angle+0.3) * 1.3, 0, Math.sin(angle+0.3) * 1.3);
                 swirlGroup2.add(sphere2);
             }
             group.add(swirlGroup1);
             group.add(swirlGroup2);
 
             // glowing center
-            const centerGlow = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.2 }));
+            const centerGlow = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.25 }));
             centerGlow.position.y = 0;
             group.add(centerGlow);
 
-            group.userData = { type: 'portal', url: url, radius: 3.5 };
+            group.userData = { type: 'portal', url: url, radius: 4.0 };
 
             // add CSS2D label above portal
             const labelDiv = document.createElement('div');
@@ -495,125 +620,125 @@
             labelDiv.style.whiteSpace = 'nowrap';
             labelDiv.style.letterSpacing = '2px';
             const label = new CSS2DObject(labelDiv);
-            label.position.set(x, 6.8, 0);
+            label.position.set(x, 7.2, 0);
             scene.add(label);
 
             return group;
         }
 
-        const portalLeft = createPortal(-18, 0x667eea, '📦 CREATE PACK', 'Pages/Editor/editor.html');
-        const portalRight = createPortal(18, 0x9f7aea, '🔍 EXPLORE PACKS', 'Pages/Explore/explore.html');
+        const portalLeft = createPortal(-20, 0x667eea, '📦 CREATE PACK', 'Pages/Editor/editor.html');
+        const portalRight = createPortal(20, 0x9f7aea, '🔍 EXPLORE PACKS', 'Pages/Explore/explore.html');
         scene.add(portalLeft);
         scene.add(portalRight);
 
-        // --- character (more detailed) ---
+        // --- character (more detailed) with subtle glow ---
         const character = new THREE.Group();
         
         // body with armor-like look
-        const bodyGeom = new THREE.CylinderGeometry(0.9, 0.9, 2.0);
+        const bodyGeom = new THREE.CylinderGeometry(1.0, 1.0, 2.2);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5f6b8a, emissive: 0x1a1f3a });
         const body = new THREE.Mesh(bodyGeom, bodyMat);
-        body.position.y = 1.0;
+        body.position.y = 1.1;
         body.castShadow = true;
         body.receiveShadow = true;
         character.add(body);
         
         // head with face
-        const headGeom = new THREE.SphereGeometry(0.7);
+        const headGeom = new THREE.SphereGeometry(0.8);
         const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbb5 });
         const head = new THREE.Mesh(headGeom, headMat);
-        head.position.y = 2.1;
+        head.position.y = 2.4;
         head.castShadow = true;
         head.receiveShadow = true;
         character.add(head);
         
         // eyes with glow
         const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x4466aa });
-        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.12), eyeMat);
-        leftEye.position.set(-0.25, 2.25, 0.6);
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.15), eyeMat);
+        leftEye.position.set(-0.3, 2.55, 0.7);
         character.add(leftEye);
-        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.12), eyeMat);
-        rightEye.position.set(0.25, 2.25, 0.6);
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.15), eyeMat);
+        rightEye.position.set(0.3, 2.55, 0.7);
         character.add(rightEye);
         
         // pupils
         const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.05), pupilMat);
-        leftPupil.position.set(-0.25, 2.22, 0.73);
+        const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.07), pupilMat);
+        leftPupil.position.set(-0.3, 2.52, 0.85);
         character.add(leftPupil);
-        const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.05), pupilMat);
-        rightPupil.position.set(0.25, 2.22, 0.73);
+        const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.07), pupilMat);
+        rightPupil.position.set(0.3, 2.52, 0.85);
         character.add(rightPupil);
         
         // armor details
-        const shoulderGeom = new THREE.SphereGeometry(0.5);
+        const shoulderGeom = new THREE.SphereGeometry(0.6);
         const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x3f4d7a });
         const leftShoulder = new THREE.Mesh(shoulderGeom, shoulderMat);
-        leftShoulder.position.set(-1.1, 1.8, 0);
+        leftShoulder.position.set(-1.3, 2.0, 0);
         leftShoulder.scale.set(0.5, 0.4, 0.4);
         leftShoulder.castShadow = true;
         character.add(leftShoulder);
         const rightShoulder = new THREE.Mesh(shoulderGeom, shoulderMat);
-        rightShoulder.position.set(1.1, 1.8, 0);
+        rightShoulder.position.set(1.3, 2.0, 0);
         rightShoulder.scale.set(0.5, 0.4, 0.4);
         rightShoulder.castShadow = true;
         character.add(rightShoulder);
         
         // arms
-        const armGeom = new THREE.CylinderGeometry(0.25, 0.25, 1.4);
+        const armGeom = new THREE.CylinderGeometry(0.3, 0.3, 1.6);
         const armMat = new THREE.MeshStandardMaterial({ color: 0x3f4d7a });
         const leftArm = new THREE.Mesh(armGeom, armMat);
-        leftArm.position.set(-1.4, 1.1, 0);
+        leftArm.position.set(-1.6, 1.2, 0);
         leftArm.rotation.z = 0.4;
         leftArm.rotation.x = 0.2;
         leftArm.castShadow = true;
         character.add(leftArm);
         const rightArm = new THREE.Mesh(armGeom, armMat);
-        rightArm.position.set(1.4, 1.1, 0);
+        rightArm.position.set(1.6, 1.2, 0);
         rightArm.rotation.z = -0.4;
         rightArm.rotation.x = -0.2;
         rightArm.castShadow = true;
         character.add(rightArm);
         
         // legs
-        const legGeom = new THREE.CylinderGeometry(0.4, 0.4, 1.2);
+        const legGeom = new THREE.CylinderGeometry(0.45, 0.45, 1.4);
         const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3a60 });
         const leftLeg = new THREE.Mesh(legGeom, legMat);
-        leftLeg.position.set(-0.5, 0.6, 0);
+        leftLeg.position.set(-0.6, 0.7, 0);
         leftLeg.castShadow = true;
         character.add(leftLeg);
         const rightLeg = new THREE.Mesh(legGeom, legMat);
-        rightLeg.position.set(0.5, 0.6, 0);
+        rightLeg.position.set(0.6, 0.7, 0);
         rightLeg.castShadow = true;
         character.add(rightLeg);
 
-        character.position.set(0, 0.3, 15);
+        character.position.set(0, 0.3, 20);
         character.castShadow = true;
         character.receiveShadow = true;
         scene.add(character);
 
-        // character label
+        // character label with glow
         const nameDiv = document.createElement('div');
         nameDiv.textContent = '✦ YOU ✦';
         nameDiv.style.color = '#d4dcff';
         nameDiv.style.fontSize = '18px';
         nameDiv.style.fontWeight = 'bold';
         nameDiv.style.textShadow = '0 0 20px #667eea';
-        nameDiv.style.background = 'rgba(20,20,40,0.5)';
+        nameDiv.style.background = 'rgba(20,20,40,0.6)';
         nameDiv.style.padding = '4px 16px';
         nameDiv.style.borderRadius = '30px';
         nameDiv.style.border = '1px solid #667eea';
         nameDiv.style.backdropFilter = 'blur(4px)';
         const nameLabel = new CSS2DObject(nameDiv);
-        nameLabel.position.set(0, 3.8, 0);
+        nameLabel.position.set(0, 4.2, 0);
         character.add(nameLabel);
 
-        // --- controls with fixed keyboard and mobile joystick ---
+        // --- controls with fixed keyboard (capture) and mobile joystick ---
         const clock = new THREE.Clock();
         const keyState = { w: false, a: false, s: false, d: false };
-        const moveSpeed = 10;
+        const moveSpeed = 12;
 
-        // keyboard event listeners with proper propagation
+        // keyboard event listeners with capture to ensure they fire
         window.addEventListener('keydown', (e) => {
             switch(e.code) {
                 case 'KeyW': keyState.w = true; e.preventDefault(); e.stopPropagation(); break;
@@ -622,7 +747,8 @@
                 case 'KeyD': keyState.d = true; e.preventDefault(); e.stopPropagation(); break;
                 default: break;
             }
-        });
+        }, { capture: true });
+        
         window.addEventListener('keyup', (e) => {
             switch(e.code) {
                 case 'KeyW': keyState.w = false; e.preventDefault(); e.stopPropagation(); break;
@@ -631,15 +757,15 @@
                 case 'KeyD': keyState.d = false; e.preventDefault(); e.stopPropagation(); break;
                 default: break;
             }
-        });
+        }, { capture: true });
 
         // mouse look (OrbitControls)
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enablePan = false;
         controls.enableZoom = true;
         controls.maxPolarAngle = Math.PI / 2.2;
-        controls.minDistance = 10;
-        controls.maxDistance = 30;
+        controls.minDistance = 12;
+        controls.maxDistance = 40;
         controls.target.copy(character.position);
         controls.update();
 
@@ -663,8 +789,8 @@
             });
         }
 
-        // collision spheres for trees
-        const treeBoundSpheres = treePositions.map(p => new THREE.Sphere(new THREE.Vector3(p.x, 1, p.z), 2.8));
+        // collision spheres for trees (updated with more trees)
+        const treeBoundSpheres = treePositions.map(p => new THREE.Sphere(new THREE.Vector3(p.x, 1.5, p.z), 3.2));
 
         // portal trigger
         let portalTriggered = false;
@@ -675,7 +801,7 @@
             setTimeout(() => {
                 document.getElementById('loading').style.display = 'none';
             }, 1000);
-        }, 2000);
+        }, 2500);
 
         // --- animation loop ---
         function animate() {
@@ -689,19 +815,17 @@
             if (keyState.a) moveX -= 1;
             if (keyState.d) moveX += 1;
 
-            // joystick contribution (only if active)
+            // joystick contribution
             if (joystickVector.length() > 0.1) {
                 moveX += joystickVector.x;
-                moveZ -= joystickVector.y; // because y is up in nipple
+                moveZ -= joystickVector.y;
             }
 
             if (Math.abs(moveX) > 0 || Math.abs(moveZ) > 0) {
-                // normalize to maintain speed in diagonal
                 const len = Math.sqrt(moveX*moveX + moveZ*moveZ);
                 moveX /= len;
                 moveZ /= len;
 
-                // camera direction based movement
                 const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
                 forward.y = 0;
                 forward.normalize();
@@ -717,48 +841,53 @@
                     moveDir.normalize();
                     const newPos = character.position.clone().add(moveDir.multiplyScalar(moveSpeed * delta));
 
-                    // collision detection
                     let collides = false;
                     for (let sphere of treeBoundSpheres) {
-                        if (sphere.distanceToPoint(newPos) < 2.8) {
+                        if (sphere.distanceToPoint(newPos) < 3.2) {
                             collides = true;
                             break;
                         }
                     }
-                    if (!collides && newPos.length() < 55) {
+                    if (!collides && newPos.length() < 70) {
                         character.position.copy(newPos);
                     }
                 }
             }
 
-            // update controls target
             controls.target.copy(character.position);
 
             // animate portal swirls and particles
-            portalLeft.children[1].rotation.y += 0.02;
-            portalLeft.children[2].rotation.y -= 0.03;
-            portalRight.children[1].rotation.y -= 0.02;
-            portalRight.children[2].rotation.y += 0.03;
+            portalLeft.children[1].rotation.y += 0.025;
+            portalLeft.children[2].rotation.y -= 0.035;
+            portalRight.children[1].rotation.y -= 0.025;
+            portalRight.children[2].rotation.y += 0.035;
 
-            particles.rotation.y += 0.0005;
-            stars.rotation.y += 0.0002;
+            particles.rotation.y += 0.0008;
+            stars.rotation.y += 0.0003;
+
+            // animate extra lights
+            extraLights.forEach((light, i) => {
+                const angle = time * 0.2 + i;
+                light.position.x = Math.cos(angle) * 28;
+                light.position.z = Math.sin(angle) * 28;
+            });
 
             // portal collision
             if (!portalTriggered) {
                 const charPos = character.position;
-                const distLeft = charPos.distanceTo(new THREE.Vector3(-18, 2.5, 0));
-                const distRight = charPos.distanceTo(new THREE.Vector3(18, 2.5, 0));
-                if (distLeft < 4.5) {
+                const distLeft = charPos.distanceTo(new THREE.Vector3(-20, 2.5, 0));
+                const distRight = charPos.distanceTo(new THREE.Vector3(20, 2.5, 0));
+                if (distLeft < 5.0) {
                     portalTriggered = true;
                     window.location.href = portalLeft.userData.url;
-                } else if (distRight < 4.5) {
+                } else if (distRight < 5.0) {
                     portalTriggered = true;
                     window.location.href = portalRight.userData.url;
                 }
             }
 
             // subtle character bob
-            character.position.y = 0.3 + Math.sin(time * 5) * 0.03;
+            character.position.y = 0.3 + Math.sin(time * 5) * 0.04;
 
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
@@ -777,7 +906,7 @@
         }
 
         window.addEventListener('contextmenu', e => e.preventDefault());
-        console.log('Immersive PackCDN world loaded. Keyboard & mobile ready!');
+        console.log('Enhanced PackCDN world loaded. Keyboard fixed, more assets, advanced graphics!');
     </script>
 </body>
 </html>
