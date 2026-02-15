@@ -1,0 +1,326 @@
+name: Critical Bug Detector
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  detect-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- DETECTION LOGIC (only Supabase + optional health checks) ---
+      - name: Detect critical bugs
+        id: detect
+        uses: actions/github-script@v7
+        env:
+          # Required for Supabase check
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Optional: comma-separated health check endpoints (can be a regular variable, not secret)
+          HEALTH_CHECK_URLS: ${{ vars.HEALTH_CHECK_URLS }}
+        with:
+          script: |
+            const supabaseUrl = process.env.SUPABASE_URL;
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            const healthCheckUrls = (process.env.HEALTH_CHECK_URLS || '').split(',').filter(Boolean);
+
+            const bugInfo = {
+              message: '',
+              estimatedFixTime: '',
+              detectedAt: new Date().toISOString(),
+              criticalBugs: []
+            };
+            let siteDown = false;
+
+            const addBug = (title, description, severity = 'high', impact = '', workaround = '') => {
+              bugInfo.criticalBugs.push({ title, description, severity, impact, workaround });
+            };
+
+            // --- 1. Supabase database connectivity check ---
+            if (supabaseUrl && supabaseKey) {
+              try {
+                const { createClient } = require('@supabase/supabase-js');
+                const supabase = createClient(supabaseUrl, supabaseKey);
+                // Perform a simple query against a table that should exist (e.g., 'health' or any public table)
+                // We'll use a raw SQL query to check connection without relying on a specific table.
+                const { error } = await supabase.rpc('health_check'); // You need to create this function, or use a simple select
+                // Alternatively, try to select from a known table (if you have one)
+                // const { error } = await supabase.from('your_table').select('*').limit(1);
+                if (error) {
+                  addBug(
+                    'Database connection failed',
+                    error.message,
+                    'critical',
+                    'All database-dependent services are unavailable',
+                    'Check Supabase status and network connectivity'
+                  );
+                  siteDown = true;
+                }
+              } catch (err) {
+                addBug(
+                  'Supabase client error',
+                  err.message,
+                  'critical',
+                  'Cannot initialize database connection',
+                  'Verify Supabase URL and service role key'
+                );
+                siteDown = true;
+              }
+            } else {
+              console.log('Supabase credentials not provided – skipping database check.');
+            }
+
+            // --- 2. Optional HTTP health checks ---
+            if (healthCheckUrls.length > 0) {
+              for (const url of healthCheckUrls) {
+                try {
+                  const res = await fetch(url.trim(), { timeout: 10000 });
+                  if (!res.ok) {
+                    addBug(
+                      `Health check failed: ${url}`,
+                      `HTTP ${res.status} returned`,
+                      'high',
+                      'Service endpoint may be degraded',
+                      'Investigate the specific service'
+                    );
+                    // You may decide to set siteDown = true if critical endpoints fail
+                    // For now, we only mark site down if database fails, but you can adjust.
+                    // siteDown = true;
+                  }
+                } catch (err) {
+                  addBug(
+                    `Health check error: ${url}`,
+                    err.message,
+                    'high',
+                    'Service endpoint unreachable',
+                    'Check network/firewall or service status'
+                  );
+                  // siteDown = true;
+                }
+              }
+            }
+
+            // --- 3. Determine final status and message ---
+            if (siteDown) {
+              bugInfo.message = 'Critical system failure detected. Our team is investigating.';
+              // Estimate based on severity
+              if (bugInfo.criticalBugs.some(b => b.severity === 'critical')) {
+                bugInfo.estimatedFixTime = '30 minutes';
+              } else {
+                bugInfo.estimatedFixTime = '1 hour';
+              }
+            } else {
+              bugInfo.message = '';
+              bugInfo.estimatedFixTime = '';
+            }
+
+            const result = { site_down: siteDown, bugInfo: siteDown ? bugInfo : null };
+            console.log('Detection result:', JSON.stringify(result, null, 2));
+            core.setOutput('detection', JSON.stringify(result));
+
+      # --- STEP 2: Generate down.html and down-docs.html ---
+      - name: Generate static down pages
+        id: generate
+        uses: actions/github-script@v7
+        env:
+          DETECTION: ${{ steps.detect.outputs.detection }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const detection = JSON.parse(process.env.DETECTION || '{"site_down":false,"bugInfo":null}');
+            const { site_down, bugInfo } = detection;
+
+            const escapeHtml = (text) => {
+              if (!text) return '';
+              return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            };
+
+            // --- down.html ---
+            const bugsHtml = bugInfo?.criticalBugs?.map(bug => `
+              <div class="bug">
+                <h3>${escapeHtml(bug.title)}</h3>
+                <p>${escapeHtml(bug.description)}</p>
+                <span class="severity ${escapeHtml(bug.severity)}">${escapeHtml(bug.severity)}</span>
+              </div>
+            `).join('') || '';
+
+            const downHtml = `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Site Down – Maintenance</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #0b1120; color: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; }
+                    .container { max-width: 700px; background: #1e293b; border-radius: 1rem; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid #334155; }
+                    h1 { font-size: 2.5rem; margin-top: 0; color: #f87171; display: flex; align-items: center; gap: 0.5rem; }
+                    .icon { font-size: 2rem; }
+                    .message { font-size: 1.2rem; color: #94a3b8; }
+                    .bugs { margin: 2rem 0; }
+                    .bug { background: #0f172a; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+                    .bug h3 { margin: 0 0 0.5rem; color: #fca5a5; }
+                    .bug p { margin: 0; color: #cbd5e1; }
+                    .severity { display: inline-block; margin-top: 0.5rem; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+                    .severity.high { background: #f59e0b; color: #000; }
+                    .severity.critical { background: #dc2626; color: #fff; }
+                    .eta { background: #2d3748; padding: 1rem; border-radius: 0.5rem; margin: 1.5rem 0; }
+                    .eta strong { color: #4ade80; }
+                    a { color: #60a5fa; text-decoration: none; }
+                    a:hover { text-decoration: underline; }
+                    footer { margin-top: 2rem; font-size: 0.9rem; color: #64748b; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1><span class="icon">⚠️</span> We’ll Be Back Soon</h1>
+                    <div class="message">${escapeHtml(bugInfo?.message) || 'The site is currently down due to critical issues.'}</div>
+                    
+                    ${bugInfo?.criticalBugs?.length ? `
+                    <div class="bugs">
+                        <h2>🔍 Detected Issues</h2>
+                        ${bugsHtml}
+                    </div>
+                    ` : ''}
+                    
+                    <div class="eta">
+                        ⏱️ <strong>Estimated fix time:</strong> ${escapeHtml(bugInfo?.estimatedFixTime) || 'Unknown'}
+                    </div>
+                    
+                    <p>For detailed technical information, visit <a href="/down-docs">/down-docs</a>.</p>
+                    <footer>Last updated: ${bugInfo?.detectedAt ? new Date(bugInfo.detectedAt).toLocaleString() : new Date().toLocaleString()}</footer>
+                </div>
+            </body>
+            </html>`;
+
+            // --- down-docs.html ---
+            const bugsDetail = bugInfo?.criticalBugs?.map(bug => `
+              <div class="bug-detail">
+                <h3>${escapeHtml(bug.title)}</h3>
+                <p><strong>Description:</strong> ${escapeHtml(bug.description)}</p>
+                <p><strong>Severity:</strong> <span class="severity ${escapeHtml(bug.severity)}">${escapeHtml(bug.severity)}</span></p>
+                <p><strong>Impact:</strong> ${escapeHtml(bug.impact) || 'Unknown'}</p>
+                <p><strong>Workaround:</strong> ${escapeHtml(bug.workaround) || 'None'}</p>
+              </div>
+            `).join('') || '<p>No detailed bug information available.</p>';
+
+            const docsHtml = `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Down Status – Technical Details</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #0b1120; color: #e2e8f0; padding: 2rem; margin: 0; }
+                    .container { max-width: 900px; margin: 0 auto; }
+                    h1 { color: #f87171; }
+                    .metadata { background: #1e293b; padding: 1rem; border-radius: 0.5rem; margin: 1.5rem 0; }
+                    .bug-detail { background: #0f172a; border: 1px solid #334155; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+                    .severity { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+                    .severity.high { background: #f59e0b; color: #000; }
+                    .severity.critical { background: #dc2626; color: #fff; }
+                    a { color: #60a5fa; }
+                    footer { margin-top: 2rem; color: #64748b; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>📋 Site Down – Technical Details</h1>
+                    <div class="metadata">
+                        <p><strong>Message:</strong> ${escapeHtml(bugInfo?.message) || 'No message'}</p>
+                        <p><strong>Estimated fix time:</strong> ${escapeHtml(bugInfo?.estimatedFixTime) || 'Unknown'}</p>
+                        <p><strong>Last detection:</strong> ${bugInfo?.detectedAt ? new Date(bugInfo.detectedAt).toLocaleString() : new Date().toLocaleString()}</p>
+                    </div>
+                    
+                    <h2>Critical Bugs</h2>
+                    ${bugsDetail}
+                    
+                    <p><a href="/">← Back to main page</a></p>
+                    <footer>This page is automatically updated by our monitoring system.</footer>
+                </div>
+            </body>
+            </html>`;
+
+            const publicDir = path.join(process.cwd(), 'public');
+            if (!fs.existsSync(publicDir)) {
+              fs.mkdirSync(publicDir, { recursive: true });
+            }
+
+            fs.writeFileSync(path.join(publicDir, 'down.html'), downHtml);
+            fs.writeFileSync(path.join(publicDir, 'down-docs.html'), docsHtml);
+
+            console.log('✅ down.html and down-docs.html generated.');
+
+      # --- STEP 3: Commit generated files (if changed) ---
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/down.html public/down-docs.html
+          git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update down pages [skip ci]"
+          git push
+
+      # --- STEP 4: Update Vercel Edge Config ---
+      - name: Update Edge Config
+        uses: actions/github-script@v7
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          EDGE_CONFIG_ID: ${{ secrets.EDGE_CONFIG_ID }}
+          DETECTION: ${{ steps.detect.outputs.detection }}
+        with:
+          script: |
+            const detection = JSON.parse(process.env.DETECTION || '{"site_down":false,"bugInfo":null}');
+
+            const response = await fetch(
+              `https://api.vercel.com/v1/edge-config/${process.env.EDGE_CONFIG_ID}/items`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'Authorization': `Bearer ${process.env.VERCEL_TOKEN}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  items: [
+                    {
+                      operation: 'upsert',
+                      key: 'site_down',
+                      value: detection.site_down,
+                    },
+                    {
+                      operation: 'upsert',
+                      key: 'bugInfo',
+                      value: detection.bugInfo,
+                    },
+                  ],
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              const error = await response.text();
+              core.setFailed(`Failed to update Edge Config: ${error}`);
+            } else {
+              console.log('✅ Edge Config updated successfully');
+            }
