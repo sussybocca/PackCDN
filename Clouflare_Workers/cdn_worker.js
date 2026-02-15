@@ -1559,21 +1559,37 @@ async function handleCDN(request, match, hostname, url, clientIp, userAgent, env
       }
     }
     
-    // If we have a direct cdn_url from Supabase, use it
-    if (pack.cdn_url) {
-      const cdnResponse = await fetch(pack.cdn_url);
-      const cdnHeaders = new Headers(cdnResponse.headers);
-      cdnHeaders.set('X-Pack-ID', pack.id);
-      cdnHeaders.set('X-Pack-Name', pack.name || pack.id);
-      cdnHeaders.set('X-Pack-Version', pack.version || '1.0.0');
-      cdnHeaders.set('X-Pack-Cache-Status', 'HIT');
-      
-      return new Response(cdnResponse.body, {
-        status: cdnResponse.status,
-        statusText: cdnResponse.statusText,
-        headers: cdnHeaders
+      // Use url_id to construct the external CDN URL (ignores stored cdn_url)
+    const cdnBase = env.EXTERNAL_CDN_BASE || 'https://pack-cdn.vercel.app/cdn';
+    const externalUrl = `${cdnBase}/${pack.url_id}/${filePath}`;
+    
+    try {
+      const cdnResponse = await fetch(externalUrl, {
+        headers: {
+          'User-Agent': 'PackCDN-Worker/8.0',
+          'Accept': '*/*'
+        }
       });
+
+      if (cdnResponse.ok) {
+        const cdnHeaders = new Headers(cdnResponse.headers);
+        cdnHeaders.set('X-Pack-ID', pack.id);
+        cdnHeaders.set('X-Pack-Name', pack.name || pack.id);
+        cdnHeaders.set('X-Pack-Version', pack.version || '1.0.0');
+        cdnHeaders.set('X-Pack-Cache-Status', 'HIT');
+
+        return new Response(cdnResponse.body, {
+          status: cdnResponse.status,
+          statusText: cdnResponse.statusText,
+          headers: cdnHeaders
+        });
+      } else {
+        console.log(`External CDN fetch failed with status ${cdnResponse.status}, falling back to files`);
+      }
+    } catch (fetchError) {
+      console.error('External CDN fetch error:', fetchError.message);
     }
+    // If external fetch fails, continue to fallback to files (code below)
     
     // Fallback to files object if no cdn_url
     let fileContent = pack.files?.[filePath];
