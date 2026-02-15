@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Fetch all history for full file context
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # --- DETECTION LOGIC (only Supabase + optional health checks) ---
+      # --- ADVANCED DETECTION LOGIC (Repo Scan + External Checks) ---
       - name: Detect critical bugs
         id: detect
         uses: actions/github-script@v7
@@ -36,6 +37,9 @@ jobs:
           HEALTH_CHECK_URLS: ${{ vars.HEALTH_CHECK_URLS }}
         with:
           script: |
+            const fs = require('fs').promises;
+            const path = require('path');
+
             const supabaseUrl = process.env.SUPABASE_URL;
             const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
             const healthCheckUrls = (process.env.HEALTH_CHECK_URLS || '').split(',').filter(Boolean);
@@ -52,7 +56,154 @@ jobs:
               bugInfo.criticalBugs.push({ title, description, severity, impact, workaround });
             };
 
-            // --- 1. Supabase database connectivity check ---
+            // ========== 1. REPO FILE SCANNING ==========
+            console.log('🔍 Scanning repository files for issues...');
+
+            // Helper to recursively get all files
+            async function getAllFiles(dir, fileList = []) {
+              const entries = await fs.readdir(dir, { withFileTypes: true });
+              for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                  if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                    await getAllFiles(fullPath, fileList);
+                  }
+                } else {
+                  fileList.push(fullPath);
+                }
+              }
+              return fileList;
+            }
+
+            const files = await getAllFiles(process.cwd());
+            console.log(`📄 Found ${files.length} files to check.`);
+
+            // Track broken links (for HTML files)
+            const allFilesSet = new Set(files.map(f => path.relative(process.cwd(), f)));
+
+            for (const file of files) {
+              const ext = path.extname(file).toLowerCase();
+              const relativePath = path.relative(process.cwd(), file);
+
+              // ---- HTML checks ----
+              if (ext === '.html') {
+                try {
+                  const content = await fs.readFile(file, 'utf8');
+
+                  // Basic HTML structure check (presence of <html>, <body> etc.)
+                  if (!content.includes('<html') || !content.includes('<body')) {
+                    addBug(
+                      `Incomplete HTML structure`,
+                      `${relativePath} missing <html> or <body> tags`,
+                      'high',
+                      'Page may not render correctly',
+                      'Add proper HTML structure'
+                    );
+                  }
+
+                  // Find all href and src attributes
+                  const linkRegex = /(?:href|src)=["']([^"']+)["']/g;
+                  let match;
+                  while ((match = linkRegex.exec(content)) !== null) {
+                    let link = match[1];
+                    // Ignore external links (http://, https://, //, mailto:, tel:)
+                    if (link.startsWith('http') || link.startsWith('//') || link.startsWith('mailto:') || link.startsWith('tel:')) continue;
+
+                    // Remove query string and hash
+                    link = link.split('?')[0].split('#')[0];
+                    if (!link) continue;
+
+                    // Resolve relative path from the HTML file's directory
+                    const baseDir = path.dirname(relativePath);
+                    const targetPath = path.join(baseDir, link);
+                    const normalized = path.normalize(targetPath).replace(/\\/g, '/');
+
+                    // Check if the target file exists in the repo
+                    if (!allFilesSet.has(normalized) && !allFilesSet.has(normalized + '.html') && !allFilesSet.has(normalized + '/index.html')) {
+                      addBug(
+                        `Broken link in ${relativePath}`,
+                        `Link "${match[1]}" points to missing file`,
+                        'medium',
+                        'Users may encounter 404 errors',
+                        `Update the link to point to an existing file`
+                      );
+                    }
+                  }
+                } catch (err) {
+                  addBug(
+                    `Unreadable HTML file`,
+                    `${relativePath}: ${err.message}`,
+                    'high',
+                    'Page cannot be served',
+                    'Check file permissions and encoding'
+                  );
+                }
+              }
+
+              // ---- JavaScript checks ----
+              if (ext === '.js') {
+                try {
+                  const content = await fs.readFile(file, 'utf8');
+                  // Very basic syntax check: try to parse as a module
+                  new Function(content); // throws if syntax error
+                } catch (err) {
+                  addBug(
+                    `JavaScript syntax error`,
+                    `${relativePath}: ${err.message}`,
+                    'critical',
+                    'JS will fail to execute, breaking functionality',
+                    'Fix the syntax error'
+                  );
+                  siteDown = true; // JS errors can break site completely
+                }
+              }
+
+              // ---- CSS checks ----
+              if (ext === '.css') {
+                try {
+                  const content = await fs.readFile(file, 'utf8');
+                  // Very basic: check for unbalanced braces
+                  const openBraces = (content.match(/{/g) || []).length;
+                  const closeBraces = (content.match(/}/g) || []).length;
+                  if (openBraces !== closeBraces) {
+                    addBug(
+                      `CSS brace mismatch`,
+                      `${relativePath}: ${openBraces} { but ${closeBraces} }`,
+                      'medium',
+                      'Styles may not apply correctly',
+                      'Check for missing or extra braces'
+                    );
+                  }
+                } catch (err) {
+                  addBug(
+                    `Unreadable CSS file`,
+                    `${relativePath}: ${err.message}`,
+                    'medium',
+                    'Styles may be missing',
+                    'Check file permissions'
+                  );
+                }
+              }
+
+              // ---- JSON checks ----
+              if (ext === '.json') {
+                try {
+                  const content = await fs.readFile(file, 'utf8');
+                  JSON.parse(content);
+                } catch (err) {
+                  addBug(
+                    `Invalid JSON`,
+                    `${relativePath}: ${err.message}`,
+                    'critical',
+                    'Config or data files will fail to load',
+                    'Fix JSON syntax'
+                  );
+                  siteDown = true;
+                }
+              }
+            }
+
+            // ========== 2. SUPABASE CONNECTIVITY (optional) ==========
             if (supabaseUrl && supabaseKey) {
               try {
                 const { createClient } = require('@supabase/supabase-js');
@@ -82,7 +233,7 @@ jobs:
               console.log('Supabase credentials not provided – skipping database check.');
             }
 
-            // --- 2. Optional HTTP health checks ---
+            // ========== 3. OPTIONAL HTTP HEALTH CHECKS ==========
             if (healthCheckUrls.length > 0) {
               for (const url of healthCheckUrls) {
                 try {
@@ -108,9 +259,11 @@ jobs:
               }
             }
 
-            // --- 3. Determine final status and message ---
-            if (siteDown) {
-              bugInfo.message = 'Critical system failure detected. Our team is investigating.';
+            // ========== 4. DETERMINE FINAL STATUS ==========
+            if (siteDown || bugInfo.criticalBugs.length > 0) {
+              // If any bug exists, we consider site down. You can adjust logic.
+              siteDown = true;
+              bugInfo.message = 'Critical issues detected in the codebase or infrastructure.';
               bugInfo.estimatedFixTime = bugInfo.criticalBugs.some(b => b.severity === 'critical')
                 ? '30 minutes'
                 : '1 hour';
