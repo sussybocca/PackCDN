@@ -1,238 +1,623 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>PackCDN - Instant Package Publishing</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PackCDN · immersive pack publishing</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Three.js for immersive background -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #333; }
-    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a14;
+      color: #fff;
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* 3D canvas background */
+    #bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    /* main container with glass effect */
+    .content {
+      position: relative;
+      z-index: 10;
+      backdrop-filter: blur(2px);
+    }
+
+    /* hero section with animated gradient overlay */
     .hero {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
       text-align: center;
-      padding: 80px 20px;
-      clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+      padding: 120px 20px 140px;
+      position: relative;
+      isolation: isolate;
     }
-    
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 30% 30%, rgba(102, 126, 234, 0.3), transparent 60%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
     .hero h1 {
-      font-size: 3.5rem;
-      margin-bottom: 20px;
+      font-size: 5rem;
       font-weight: 800;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #fff, #c0d0ff, #a58aff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 50px rgba(102, 126, 234, 0.7);
+      animation: floatTitle 6s ease-in-out infinite;
     }
-    
+
+    @keyframes floatTitle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+
     .hero p {
-      font-size: 1.2rem;
-      max-width: 600px;
-      margin: 0 auto 40px;
-      opacity: 0.9;
+      font-size: 1.5rem;
+      max-width: 700px;
+      margin: 0 auto 50px;
+      color: rgba(220, 235, 255, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 15px 30px;
+      border-radius: 60px;
+      background: rgba(10, 10, 30, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
-    
+
     .cta-buttons {
       display: flex;
-      gap: 15px;
+      gap: 25px;
       justify-content: center;
       flex-wrap: wrap;
     }
-    
+
     .btn {
-      padding: 15px 30px;
-      border-radius: 50px;
+      padding: 18px 45px;
+      border-radius: 60px;
       text-decoration: none;
       font-weight: 600;
-      font-size: 1rem;
-      transition: all 0.3s ease;
+      font-size: 1.2rem;
+      transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.5px;
     }
-    
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
     .btn-primary {
-      background: white;
-      color: #667eea;
+      background: linear-gradient(145deg, #ffffff, #f0f4ff);
+      color: #2d2d6c;
+      box-shadow: 0 15px 30px -5px #3f2e8c;
     }
-    
+
+    .btn-primary:hover {
+      transform: translateY(-7px) scale(1.05);
+      box-shadow: 0 25px 40px -5px #5f4a9e;
+    }
+
     .btn-secondary {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
       color: white;
-      border: 2px solid white;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 15px 30px -5px rgba(0,0,0,0.5);
     }
-    
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+
+    .btn-secondary:hover {
+      background: rgba(102, 126, 234, 0.4);
+      border-color: #a0b0ff;
+      transform: translateY(-7px) scale(1.05);
+      box-shadow: 0 25px 40px -5px #4a2f8c;
     }
-    
+
+    /* features grid with glass cards */
     .features {
-      max-width: 1200px;
-      margin: -50px auto 100px;
-      padding: 0 20px;
+      max-width: 1300px;
+      margin: -80px auto 120px;
+      padding: 0 30px;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 30px;
+      gap: 40px;
     }
-    
+
     .feature-card {
-      background: white;
-      padding: 40px 30px;
-      border-radius: 15px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      background: rgba(20, 20, 40, 0.6);
+      backdrop-filter: blur(16px);
+      border-radius: 40px;
+      padding: 50px 30px;
       text-align: center;
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.8);
+      transition: transform 0.3s, box-shadow 0.4s, border-color 0.3s;
+      position: relative;
+      overflow: hidden;
     }
-    
+
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 40px;
+      padding: 2px;
+      background: linear-gradient(145deg, #667eea, transparent, #764ba2);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .feature-card:hover::after {
+      opacity: 1;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-15px) scale(1.02);
+      box-shadow: 0 40px 70px rgba(102, 126, 234, 0.5);
+      border-color: transparent;
+    }
+
     .feature-icon {
-      font-size: 3rem;
-      margin-bottom: 20px;
+      font-size: 4rem;
+      margin-bottom: 25px;
+      filter: drop-shadow(0 0 15px #667eea);
     }
-    
+
     .feature-card h3 {
+      font-size: 2rem;
       margin-bottom: 15px;
-      color: #2d3748;
+      background: linear-gradient(to right, #f0f0ff, #d6d6ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-    
+
+    .feature-card p {
+      color: #b5c2e0;
+      font-size: 1.1rem;
+    }
+
+    /* how it works section */
     .how-it-works {
-      background: #f8f9fa;
-      padding: 100px 20px;
+      padding: 120px 20px;
       text-align: center;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid rgba(102, 126, 234, 0.3);
+      border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+      box-shadow: 0 0 80px rgba(102, 126, 234, 0.2) inset;
     }
-    
+
+    .how-it-works h2 {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      text-shadow: 0 0 25px #667eea;
+    }
+
+    .how-it-works > p {
+      max-width: 700px;
+      margin: 0 auto 60px;
+      color: #b5c2e0;
+      font-size: 1.3rem;
+    }
+
     .steps {
-      max-width: 800px;
-      margin: 60px auto 0;
+      max-width: 1100px;
+      margin: 0 auto;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 40px;
+      gap: 60px;
     }
-    
+
     .step {
       flex: 1;
       min-width: 200px;
       text-align: center;
+      background: rgba(15, 15, 30, 0.5);
+      backdrop-filter: blur(12px);
+      padding: 40px 30px;
+      border-radius: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      transition: transform 0.3s;
     }
-    
+
+    .step:hover {
+      transform: scale(1.05);
+    }
+
     .step-number {
-      width: 60px;
-      height: 60px;
-      background: #667eea;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(145deg, #667eea, #8650d6);
       color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin: 0 auto 20px;
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin: 0 auto 25px;
+      box-shadow: 0 0 40px #667eea;
     }
-    
+
+    .step h3 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      color: #e0e5ff;
+    }
+
+    .step p {
+      color: #a5b2d9;
+      font-size: 1.1rem;
+    }
+
+    /* terminal with glow */
+    .terminal-wrapper {
+      max-width: 1000px;
+      margin: 80px auto 0;
+      padding: 0 20px;
+    }
+
     .terminal {
-      background: #1a1a1a;
-      color: #00ff9d;
-      padding: 20px;
-      border-radius: 10px;
-      font-family: monospace;
-      max-width: 800px;
-      margin: 40px auto;
+      background: #0b0b1a;
+      border-radius: 30px;
+      padding: 30px;
+      font-family: 'Fira Code', monospace;
+      font-size: 1rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.8), 0 0 0 2px #667eea inset, 0 0 30px #667eea;
+      border: 1px solid rgba(255,255,255,0.05);
+      backdrop-filter: blur(4px);
       text-align: left;
       overflow-x: auto;
     }
-    
-    .terminal .comment { color: #666; }
-    .terminal .command { color: white; }
-    
-    footer {
-      background: #2d3748;
-      color: white;
-      text-align: center;
-      padding: 40px 20px;
-      margin-top: 100px;
+
+    .terminal .comment {
+      color: #6c7994;
+      font-style: italic;
     }
-    
+
+    .terminal .command {
+      color: #b3f0ff;
+      font-weight: 500;
+    }
+
+    .terminal .url {
+      color: #ffb86b;
+      text-decoration: underline;
+    }
+
+    /* footer immersive */
+    footer {
+      background: rgba(8, 8, 20, 0.9);
+      backdrop-filter: blur(16px);
+      text-align: center;
+      padding: 70px 20px 40px;
+      margin-top: 120px;
+      border-top: 1px solid rgba(102, 126, 234, 0.3);
+      position: relative;
+    }
+
+    footer p {
+      margin-bottom: 20px;
+      font-size: 1.3rem;
+    }
+
+    footer .footer-links a {
+      color: #b5c2e0;
+      margin: 0 20px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: 0.2s;
+      font-size: 1.1rem;
+    }
+
+    footer .footer-links a:hover {
+      color: white;
+      text-shadow: 0 0 20px #667eea;
+    }
+
+    /* floating glow that follows mouse */
+    #glow {
+      position: fixed;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle at center, rgba(102, 126, 234, 0.2), transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: screen;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.2s;
+    }
+
+    /* responsive */
     @media (max-width: 768px) {
-      .hero h1 { font-size: 2.5rem; }
-      .hero { padding: 60px 20px; }
-      .features { margin-top: -30px; }
+      .hero h1 { font-size: 3rem; }
+      .hero p { font-size: 1.2rem; }
+      .features { margin-top: -40px; }
+      .how-it-works h2 { font-size: 2.5rem; }
     }
   </style>
 </head>
 <body>
-  <section class="hero">
-    <h1>🚀 PackCDN</h1>
-    <p>Instantly publish and share custom packages. No registration required. Anonymous and free.</p>
-    <div class="cta-buttons">
-      <a href="editor.html" class="btn btn-primary">Create a Pack</a>
-      <a href="explore.html" class="btn btn-secondary">Explore Packs</a>
-    </div>
-  </section>
+  <div id="bg-canvas"></div>
+  <div class="glow-point" id="glow"></div>
 
-  <div class="features">
-    <div class="feature-card">
-      <div class="feature-icon">📦</div>
-      <h3>NPM Packages</h3>
-      <p>Publish JavaScript/TypeScript packages that can be imported directly in browsers or Node.js</p>
+  <div class="content">
+    <section class="hero">
+      <h1>🚀 PackCDN</h1>
+      <p>Instantly publish and share custom packs. No registration required. Anonymous and free.</p>
+      <div class="cta-buttons">
+        <a href="editor.html" class="btn btn-primary">Create a Pack</a>
+        <a href="explore.html" class="btn btn-secondary">Explore Packs</a>
+      </div>
+    </section>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h3>NPM Packs</h3>
+        <p>Publish JavaScript/TypeScript packs that can be imported directly in browsers or Node.js</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🐍</div>
+        <h3>Python Packs</h3>
+        <p>Share Python code as importable modules with automatic dependency analysis</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>WASM Packs</h3>
+        <p>Upload and serve WebAssembly modules for high-performance applications</p>
+      </div>
     </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">🐍</div>
-      <h3>Python Modules</h3>
-      <p>Share Python code as importable modules with automatic dependency analysis</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">⚡</div>
-      <h3>WASM Modules</h3>
-      <p>Upload and serve WebAssembly modules for high-performance applications</p>
-    </div>
+
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>Three simple steps to publish and share your code</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Write Code</h3>
+          <p>Use our built-in editor or upload existing files</p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Publish</h3>
+          <p>Get instant CDN URLs and installation commands</p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Share & Use</h3>
+          <p>Share your pack URL or install directly</p>
+        </div>
+      </div>
+
+      <div class="terminal-wrapper">
+        <div class="terminal">
+          <span class="comment"># Create and publish a pack</span><br>
+          <span class="command">$ pack install my-utils <span class="url">https://packcdn.firefly-worker.workers.dev/cdn/abc123</span></span><br><br>
+
+          <span class="comment"># Use in JavaScript</span><br>
+          <span class="command">import utils from '<span class="url">https://packcdn.firefly-worker.workers.dev/cdn/abc123/index.js</span>';</span><br><br>
+
+          <span class="comment"># Use in HTML</span><br>
+          <span class="command">&lt;script src="<span class="url">https://packcdn.firefly-worker.workers.dev/cdn/abc123/index.js</span>"&gt;&lt;/script&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p style="font-size: 2rem; font-weight: 600; background: linear-gradient(145deg, #fff, #b5c2ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PackCDN · instant pack publishing</p>
+      <p style="color: #a0b0d0; max-width: 700px; margin: 20px auto;">
+        Built with Vercel, Cloudflare Workers, and Supabase.<br>
+        All users are anonymous. No registration required. Free forever.
+      </p>
+      <div class="footer-links" style="margin-top: 40px;">
+        <a href="editor.html">Create</a>
+        <a href="explore.html">Explore</a>
+        <a href="https://github.com/sussybocca/PackCDN/tree/main">GitHub</a>
+      </div>
+    </footer>
   </div>
 
-  <section class="how-it-works">
-    <h2 style="font-size: 2.5rem; margin-bottom: 20px;">How It Works</h2>
-    <p style="max-width: 600px; margin: 0 auto 40px; color: #666;">
-      Three simple steps to publish and share your code
-    </p>
-    
-    <div class="steps">
-      <div class="step">
-        <div class="step-number">1</div>
-        <h3>Write Code</h3>
-        <p>Use our built-in editor or upload existing files</p>
-      </div>
-      
-      <div class="step">
-        <div class="step-number">2</div>
-        <h3>Publish</h3>
-        <p>Get instant CDN URLs and installation commands</p>
-      </div>
-      
-      <div class="step">
-        <div class="step-number">3</div>
-        <h3>Share & Use</h3>
-        <p>Share your pack URL or install directly</p>
-      </div>
-    </div>
-  </section>
+  <script>
+    (function() {
+      // --- THREE.JS IMMERSIVE BACKGROUND (particle network) ---
+      const container = document.getElementById('bg-canvas');
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-  <div style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
-    <div class="terminal">
-      <span class="comment"># Create and publish a package</span><br>
-      <span class="command">$ pack install my-utils https://packcdn.firefly-worker.workers.dev/cdn/abc123</span><br><br>
-      
-      <span class="comment"># Use in JavaScript</span><br>
-      <span class="command">import utils from 'https://packcdn.firefly-worker.workers.dev/cdn/abc123/index.js';</span><br><br>
-      
-      <span class="comment"># Use in HTML</span><br>
-      <span class="command">&lt;script src="https://packcdn.firefly-worker.workers.dev/cdn/abc123/index.js"&gt;&lt;/script&gt;</span>
-    </div>
-  </div>
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a14);
 
-  <footer>
-    <p style="margin-bottom: 20px; font-size: 1.2rem;">PackCDN - Instant Package Publishing</p>
-    <p style="color: #a0aec0; max-width: 600px; margin: 0 auto;">
-      Built with Vercel, Cloudflare Workers, and Supabase.<br>
-      All users are anonymous. No registration required. Free forever.
-    </p>
-    <div style="margin-top: 30px;">
-      <a href="editor.html" style="color: white; margin: 0 15px;">Create</a>
-      <a href="explore.html" style="color: white; margin: 0 15px;">Explore</a>
-      <a href="https://github.com/sussybocca/PackCDN/tree/main" style="color: white; margin: 0 15px;">GitHub</a>
-    </div>
-  </footer>
+      const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+      camera.position.z = 35;
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // particles
+      const particlesGeometry = new THREE.BufferGeometry();
+      const particlesCount = 1800;
+      const posArray = new Float32Array(particlesCount * 3);
+      const colorArray = new Float32Array(particlesCount * 3);
+
+      for (let i = 0; i < particlesCount * 3; i += 3) {
+        const radius = 20 + Math.random() * 18;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi) * Math.sin(theta);
+        const z = radius * Math.cos(phi);
+
+        posArray[i] = x;
+        posArray[i+1] = y;
+        posArray[i+2] = z;
+
+        // blue/purple tint
+        const r = 0.5 + 0.4 * Math.random();
+        const g = 0.4 + 0.6 * Math.random();
+        const b = 1.0;
+        colorArray[i] = r;
+        colorArray[i+1] = g;
+        colorArray[i+2] = b;
+      }
+
+      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+      const particlesMaterial = new THREE.PointsMaterial({
+        size: 0.25,
+        vertexColors: true,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+      scene.add(particlesMesh);
+
+      // lines between close particles
+      const linesPositions = [];
+      const positions = particlesGeometry.attributes.position.array;
+      const count = particlesCount;
+
+      for (let i = 0; i < count; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const ix = i*3, iy = i*3+1, iz = i*3+2;
+          const jx = j*3, jy = j*3+1, jz = j*3+2;
+          const dx = positions[ix] - positions[jx];
+          const dy = positions[iy] - positions[jy];
+          const dz = positions[iz] - positions[jz];
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+          if (dist < 7) {
+            linesPositions.push(positions[ix], positions[iy], positions[iz]);
+            linesPositions.push(positions[jx], positions[jy], positions[jz]);
+          }
+        }
+      }
+
+      const linesGeometry = new THREE.BufferGeometry();
+      linesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linesPositions, 3));
+      const linesMaterial = new THREE.LineBasicMaterial({ color: 0x667eea, opacity: 0.12, transparent: true });
+      const linesMesh = new THREE.LineSegments(linesGeometry, linesMaterial);
+      scene.add(linesMesh);
+
+      // animation
+      let time = 0;
+      function animate() {
+        requestAnimationFrame(animate);
+        time += 0.0004;
+
+        particlesMesh.rotation.y += 0.00015;
+        particlesMesh.rotation.x += 0.00005;
+        linesMesh.rotation.y += 0.00015;
+        linesMesh.rotation.x += 0.00005;
+
+        // subtle camera movement
+        camera.position.x = Math.sin(time * 0.5) * 2;
+        camera.position.y = Math.cos(time * 0.3) * 2;
+        camera.lookAt(0, 0, 0);
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // --- MOUSE GLOW ---
+      const glow = document.getElementById('glow');
+      document.addEventListener('mousemove', (e) => {
+        glow.style.left = e.clientX + 'px';
+        glow.style.top = e.clientY + 'px';
+      });
+
+      // --- subtle tilt on feature cards (optional) ---
+      const cards = document.querySelectorAll('.feature-card');
+      cards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const rotateX = ((y - centerY) / centerY) * 4;
+          const rotateY = ((centerX - x) / centerX) * 4;
+          card.style.transform = `translateY(-5px) scale(1.02) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = '';
+        });
+      });
+
+      // keyboard shortcuts (immersion)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'c' || e.key === 'C') window.location.href = 'editor.html';
+        if (e.key === 'e' || e.key === 'E') window.location.href = 'explore.html';
+      });
+
+      console.log(`
+╔══════════════════════════════════════╗
+║    PACKCDN · IMMERSIVE DIMENSION     ║
+╠══════════════════════════════════════╣
+║  • press C : create a pack           ║
+║  • press E : explore packs           ║
+╚══════════════════════════════════════╝
+      `);
+    })();
+  </script>
 </body>
 </html>
