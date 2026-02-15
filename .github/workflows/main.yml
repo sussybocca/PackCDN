@@ -6,6 +6,9 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch: # Manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   detect-and-update:
     runs-on: ubuntu-latest
@@ -28,10 +31,8 @@ jobs:
         id: detect
         uses: actions/github-script@v7
         env:
-          # Required for Supabase check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Optional: comma-separated health check endpoints (can be a regular variable, not secret)
           HEALTH_CHECK_URLS: ${{ vars.HEALTH_CHECK_URLS }}
         with:
           script: |
@@ -56,11 +57,7 @@ jobs:
               try {
                 const { createClient } = require('@supabase/supabase-js');
                 const supabase = createClient(supabaseUrl, supabaseKey);
-                // Perform a simple query against a table that should exist (e.g., 'health' or any public table)
-                // We'll use a raw SQL query to check connection without relying on a specific table.
-                const { error } = await supabase.rpc('health_check'); // You need to create this function, or use a simple select
-                // Alternatively, try to select from a known table (if you have one)
-                // const { error } = await supabase.from('your_table').select('*').limit(1);
+                const { error } = await supabase.rpc('health_check');
                 if (error) {
                   addBug(
                     'Database connection failed',
@@ -98,9 +95,6 @@ jobs:
                       'Service endpoint may be degraded',
                       'Investigate the specific service'
                     );
-                    // You may decide to set siteDown = true if critical endpoints fail
-                    // For now, we only mark site down if database fails, but you can adjust.
-                    // siteDown = true;
                   }
                 } catch (err) {
                   addBug(
@@ -110,7 +104,6 @@ jobs:
                     'Service endpoint unreachable',
                     'Check network/firewall or service status'
                   );
-                  // siteDown = true;
                 }
               }
             }
@@ -118,12 +111,9 @@ jobs:
             // --- 3. Determine final status and message ---
             if (siteDown) {
               bugInfo.message = 'Critical system failure detected. Our team is investigating.';
-              // Estimate based on severity
-              if (bugInfo.criticalBugs.some(b => b.severity === 'critical')) {
-                bugInfo.estimatedFixTime = '30 minutes';
-              } else {
-                bugInfo.estimatedFixTime = '1 hour';
-              }
+              bugInfo.estimatedFixTime = bugInfo.criticalBugs.some(b => b.severity === 'critical')
+                ? '30 minutes'
+                : '1 hour';
             } else {
               bugInfo.message = '';
               bugInfo.estimatedFixTime = '';
@@ -279,7 +269,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/down.html public/down-docs.html
           git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update down pages [skip ci]"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
       # --- STEP 4: Update Vercel Edge Config ---
       - name: Update Edge Config
