@@ -1,304 +1,587 @@
-<!-- selector.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PackCDN - Select Experience</title>
+    <title>PackCDN · select your dimension</title>
+    <!-- Three.js for immersive background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
+        /* reset & base */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #f0f0f0;
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+            background: #0a0a14; /* fallback */
         }
-        
+
+        /* canvas – immersive 3D background */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none; /* allow interaction with content */
+            opacity: 0.9;
+        }
+
+        /* main container with glass effect */
         .container {
-            max-width: 1200px;
-            padding: 40px;
+            max-width: 1300px;
+            padding: 30px 40px;
             text-align: center;
+            position: relative;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+            border-radius: 60px;
+            margin: 20px;
+            background: rgba(5, 5, 15, 0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(102, 126, 234, 0.2) inset;
         }
-        
+
+        /* animated neon glow for logo */
         .logo {
-            font-size: 4rem;
+            font-size: 5rem;
             font-weight: 800;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #a0b0ff, #c084fc, #f0a6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(160, 176, 255, 0.7);
+            animation: pulseGlow 4s ease-in-out infinite;
+            letter-spacing: -2px;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 15px #667eea); }
+            50% { filter: drop-shadow(0 0 40px #c084fc); }
+        }
+
+        .tagline {
+            font-size: 1.3rem;
+            color: rgba(220, 230, 255, 0.9);
+            margin-bottom: 50px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            background: rgba(10, 10, 25, 0.4);
+            padding: 12px 30px;
+            border-radius: 60px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        /* grid – cards with depth */
+        .selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 40px;
+            margin: 50px 0;
+            perspective: 1200px;
+        }
+
+        .experience-card {
+            background: rgba(20, 20, 35, 0.7);
+            backdrop-filter: blur(16px);
+            border-radius: 40px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), border-color 0.3s, box-shadow 0.4s;
+            border: 2px solid rgba(140, 160, 255, 0.2);
+            box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+            transform-style: preserve-3d;
+            transform: rotateX(2deg) rotateY(0deg) translateZ(20px);
+            will-change: transform;
+            position: relative;
+        }
+
+        .experience-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 40px;
+            padding: 2px;
+            background: linear-gradient(145deg, rgba(102, 126, 234, 0.6), rgba(118, 75, 162, 0.6));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .experience-card:hover::before {
+            opacity: 1;
+        }
+
+        .experience-card:hover {
+            border-color: transparent;
+            box-shadow: 0 40px 70px rgba(102, 126, 234, 0.5), 0 0 30px rgba(160, 130, 255, 0.4);
+            transform: rotateX(0deg) rotateY(0deg) translateZ(40px) scale(1.02);
+        }
+
+        .experience-card.highlight {
+            background: linear-gradient(145deg, rgba(30, 25, 50, 0.9), rgba(20, 15, 45, 0.9));
+            border-color: rgba(102, 126, 234, 0.6);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-icon {
+            font-size: 4rem;
             margin-bottom: 20px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            filter: drop-shadow(0 0 15px currentColor);
+            color: #a6c1ff;
+        }
+
+        .card-title {
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+            background: linear-gradient(to right, #f0f0ff, #d6daff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
-        .tagline {
-            font-size: 1.2rem;
-            color: #a0aec0;
-            margin-bottom: 60px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .selector-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin: 40px 0;
-        }
-        
-        .experience-card {
-            background: rgba(30, 30, 40, 0.8);
-            border-radius: 20px;
-            padding: 40px 30px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-            backdrop-filter: blur(10px);
-        }
-        
-        .experience-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            border-color: #667eea;
-            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
-        }
-        
-        .experience-card.highlight {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-            border-color: #667eea;
-        }
-        
-        .card-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-        
-        .card-title {
-            font-size: 1.8rem;
-            margin-bottom: 15px;
-            color: #f0f0f0;
-        }
-        
+
         .card-description {
-            color: #a0aec0;
-            line-height: 1.6;
-            margin-bottom: 20px;
+            color: #b0bedd;
+            line-height: 1.7;
+            margin-bottom: 25px;
+            font-size: 1.1rem;
         }
-        
+
         .card-features {
             list-style: none;
             text-align: left;
-            margin-top: 20px;
+            margin: 25px 0;
         }
-        
+
         .card-features li {
-            padding: 8px 0;
-            color: #a0aec0;
+            padding: 8px 0 8px 30px;
+            color: #ccd6f0;
             position: relative;
-            padding-left: 25px;
+            font-weight: 400;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         }
-        
+
         .card-features li:before {
-            content: "✓";
+            content: "✦";
             position: absolute;
             left: 0;
-            color: #667eea;
+            color: #a678ff;
             font-weight: bold;
+            font-size: 1.3rem;
+            top: 4px;
         }
-        
+
         .select-btn {
-            margin-top: 20px;
-            padding: 12px 30px;
-            background: #667eea;
+            margin-top: 15px;
+            padding: 15px 30px;
+            background: linear-gradient(145deg, #667eea, #8650d6);
             color: white;
             border: none;
-            border-radius: 50px;
-            font-size: 1rem;
+            border-radius: 60px;
+            font-size: 1.2rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s;
             width: 100%;
+            letter-spacing: 0.5px;
+            box-shadow: 0 10px 20px -5px #4a2b7a;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .select-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -20%;
+            width: 150%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(25deg);
+            transition: 0.4s;
+        }
+
+        .select-btn:hover::after {
+            left: 100%;
+        }
+
         .select-btn:hover {
-            background: #764ba2;
-            transform: translateY(-2px);
+            background: linear-gradient(145deg, #7b93ff, #9f6be6);
+            transform: scale(1.02) translateY(-3px);
+            box-shadow: 0 20px 30px -2px #5a3a9a;
         }
-        
+
         .quick-links {
-            margin-top: 50px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(102, 126, 234, 0.3);
+            margin-top: 70px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(160, 180, 255, 0.2);
+            position: relative;
         }
-        
+
         .quick-links h3 {
-            margin-bottom: 20px;
-            color: #667eea;
+            margin-bottom: 25px;
+            color: #b7c7ff;
+            font-size: 1.8rem;
+            text-shadow: 0 0 15px #667eea;
         }
-        
+
         .link-buttons {
             display: flex;
-            gap: 15px;
+            gap: 20px;
             justify-content: center;
             flex-wrap: wrap;
         }
-        
+
         .link-btn {
-            padding: 10px 25px;
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
-            border: 1px solid #667eea;
-            border-radius: 50px;
+            padding: 12px 32px;
+            background: rgba(20, 25, 50, 0.7);
+            backdrop-filter: blur(12px);
+            color: #d3dcff;
+            border: 1.5px solid rgba(130, 160, 255, 0.5);
+            border-radius: 60px;
             text-decoration: none;
-            transition: all 0.3s ease;
+            font-weight: 600;
+            transition: 0.2s;
+            font-size: 1.1rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
         }
-        
+
         .link-btn:hover {
             background: #667eea;
-            color: white;
+            color: #fff;
+            border-color: #ffffff80;
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 20px 30px #3f2e77;
         }
-        
+
         footer {
-            margin-top: 40px;
-            color: #666;
-            font-size: 0.9rem;
+            margin-top: 60px;
+            color: rgba(180, 190, 220, 0.6);
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-            
-            .logo {
-                font-size: 2.5rem;
-            }
-            
-            .selector-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
+
+        /* floating animation for extra depth */
         .floating {
-            animation: floating 6s ease-in-out infinite;
+            animation: float 7s ease-in-out infinite;
         }
-        
-        @keyframes floating {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotateX(2deg); }
+            50% { transform: translateY(-12px) rotateX(0deg); }
+        }
+
+        /* responsive */
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .logo { font-size: 3.5rem; }
+            .selector-grid { gap: 25px; }
+        }
+
+        /* custom mouse trail glow */
+        .glow-point {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle at 30% 30%, rgba(130, 160, 255, 0.15), transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            mix-blend-mode: screen;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
         }
     </style>
 </head>
 <body>
+
+    <!-- 3D canvas injected here -->
+    <div id="bg-canvas"></div>
+
+    <!-- subtle glow that follows mouse -->
+    <div class="glow-point" id="glow"></div>
+
     <div class="container">
-        <h1 class="logo floating">PackCDN</h1>
-        <p class="tagline">Choose your experience - Instant package publishing and distribution platform</p>
-        
+        <h1 class="logo">PackCDN</h1>
+        <p class="tagline">✦ choose your dimension — instant pack publishing & distribution ✦</p>
+
         <div class="selector-grid">
-            <div class="experience-card highlight">
-                <div class="card-icon">✨</div>
+            <!-- immersive docs card (highlight) -->
+            <div class="experience-card highlight" id="card-immersive">
+                <div class="card-icon">🌀</div>
                 <h2 class="card-title">Immersive Docs</h2>
                 <p class="card-description">
-                    Interactive 3D documentation with animated examples, live demos, 
-                    and visual architecture diagrams.
+                    Step into a living 3D documentation with animated examples, live demos, 
+                    and visual architecture.
                 </p>
                 <ul class="card-features">
-                    <li>Three.js powered 3D background</li>
-                    <li>GSAP animations throughout</li>
-                    <li>Interactive code demos</li>
-                    <li>Visual flow diagrams</li>
-                    <li>Smooth scroll animations</li>
+                    <li>Three.js powered 3D environment</li>
+                    <li>GSAP cinematic transitions</li>
+                    <li>Interactive code playgrounds</li>
+                    <li>Real-time flow visualizer</li>
+                    <li>Holographic diagrams</li>
                 </ul>
                 <button class="select-btn" onclick="window.location.href='Docs/docs.html'">
-                    Enter Immersive Experience
+                    enter immersive realm
                 </button>
             </div>
-            
-            <div class="experience-card">
-                <div class="card-icon">🚀</div>
+
+            <!-- classic website card -->
+            <div class="experience-card" id="card-classic">
+                <div class="card-icon">🌐</div>
                 <h2 class="card-title">Classic Website</h2>
                 <p class="card-description">
-                    Fast, lightweight landing page with quick access to all features 
-                    and straightforward navigation.
+                    Fast, lightweight landing with straightforward navigation and instant access to all tools.
                 </p>
                 <ul class="card-features">
-                    <li>Lightweight & fast loading</li>
+                    <li>Lightning fast load</li>
                     <li>Traditional navigation</li>
-                    <li>Quick access to features</li>
-                    <li>Mobile optimized</li>
-                    <li>Simple and clean</li>
+                    <li>One-click to all features</li>
+                    <li>Perfectly responsive</li>
+                    <li>Clean minimal design</li>
                 </ul>
                 <button class="select-btn" onclick="window.location.href='home/index.html'">
-                    Go to Classic Website
+                    go to classic
                 </button>
             </div>
         </div>
-        
+
         <div class="quick-links">
-            <h3>Quick Access</h3>
+            <h3>⚡ quick access ⚡</h3>
             <div class="link-buttons">
-                <a href="Editor/editor.html" class="link-btn">Create Package</a>
-                <a href="Explore/explore.html" class="link-btn">Explore Packs</a>
-                <a href="/api/search" class="link-btn">API Search</a>
-                <a href="https://github.com/sussybocca/PackCDN/tree/main" class="link-btn">GitHub</a>
+                <a href="Editor/editor.html" class="link-btn">📦 create pack</a>                <!-- package → pack -->
+                <a href="Explore/explore.html" class="link-btn">🔍 explore packs</a>
+                <a href="/api/search" class="link-btn">🌀 api search</a>
+                <a href="https://github.com/sussybocca/PackCDN/tree/main" class="link-btn">⌨️ github</a>
             </div>
         </div>
-        
+
         <footer>
-            PackCDN © 2024 | Anonymous Package Publishing | Built with Cloudflare Workers & Vercel
+            PackCDN © 2024 — anonymous pack publishing — built with cloudflare & vercel   <!-- package → pack -->
         </footer>
     </div>
 
     <script>
-        // Add floating animation to cards
-        document.querySelectorAll('.experience-card').forEach((card, index) => {
-            card.style.animationDelay = `${index * 0.2}s`;
-            card.classList.add('floating');
-        });
-        
-        // Add click effects
-        document.querySelectorAll('.experience-card').forEach(card => {
-            card.addEventListener('click', function(e) {
-                if (!e.target.classList.contains('select-btn')) {
-                    const btn = this.querySelector('.select-btn');
-                    if (btn) {
-                        btn.style.transform = 'scale(0.95)';
-                        setTimeout(() => {
-                            btn.style.transform = '';
-                            btn.click();
-                        }, 150);
+        (function() {
+            // --------------------------------------------------------------
+            // 1. THREE.JS IMMERSIVE BACKGROUND (particle network)
+            // --------------------------------------------------------------
+            const container = document.getElementById('bg-canvas');
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a14);
+
+            const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            camera.position.z = 30;
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // particles
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 1500;
+            const posArray = new Float32Array(particlesCount * 3);
+            const colorArray = new Float32Array(particlesCount * 3);
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                // positions in a sphere-ish distribution
+                const radius = 20 + Math.random() * 15;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+
+                posArray[i] = x;
+                posArray[i+1] = y;
+                posArray[i+2] = z;
+
+                // colors: purple/blue/cyan hues
+                const r = 0.4 + 0.5 * Math.random();      // 0.4–0.9
+                const g = 0.3 + 0.6 * Math.random();      // 0.3–0.9
+                const b = 1.0;
+                colorArray[i] = r;
+                colorArray[i+1] = g;
+                colorArray[i+2] = b;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.3,
+                vertexColors: true,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // lines connecting close particles
+            const linesGeometry = new THREE.BufferGeometry();
+            const linesPositions = [];
+
+            // find pairs within distance
+            const positions = particlesGeometry.attributes.position.array;
+            for (let i = 0; i < particlesCount; i++) {
+                for (let j = i + 1; j < particlesCount; j++) {
+                    const ix = i*3, iy = i*3+1, iz = i*3+2;
+                    const jx = j*3, jy = j*3+1, jz = j*3+2;
+                    const dx = positions[ix] - positions[jx];
+                    const dy = positions[iy] - positions[jy];
+                    const dz = positions[iz] - positions[jz];
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    if (dist < 7) {
+                        linesPositions.push(positions[ix], positions[iy], positions[iz]);
+                        linesPositions.push(positions[jx], positions[jy], positions[jz]);
                     }
                 }
-            });
-        });
-        
-        // Add keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === '1') {
-                window.location.href = 'docs.html';
-            } else if (e.key === '2') {
-                window.location.href = 'home/index.html';
-            } else if (e.key === 'e') {
-                window.location.href = 'editor.html';
             }
-        });
-        
-        // Add welcome message
-        console.log(`
-🚀 Welcome to PackCDN!
-=====================
-Quick Navigation:
-• Press 1 for Immersive Docs
-• Press 2 for Classic Website
-• Press E for Editor
 
-Choose your experience above!
-        `);
+            linesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linesPositions, 3));
+            const linesMaterial = new THREE.LineBasicMaterial({ color: 0x667eea, opacity: 0.15, transparent: true });
+            const linesMesh = new THREE.LineSegments(linesGeometry, linesMaterial);
+            scene.add(linesMesh);
+
+            // ambient animation
+            let time = 0;
+            function animate() {
+                requestAnimationFrame(animate);
+                time += 0.0005;
+
+                // gentle rotation
+                particlesMesh.rotation.y += 0.0001;
+                particlesMesh.rotation.x += 0.00005;
+                linesMesh.rotation.y += 0.0001;
+                linesMesh.rotation.x += 0.00005;
+
+                // slight camera oscillation
+                camera.position.x = Math.sin(time * 0.5) * 3;
+                camera.position.y = Math.cos(time * 0.3) * 2;
+                camera.lookAt(0, 0, 0);
+
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // resize handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // --------------------------------------------------------------
+            // 2. INTERACTIVE CARD TILT (immersive)
+            // --------------------------------------------------------------
+            const cards = document.querySelectorAll('.experience-card');
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotateX = ((y - centerY) / centerY) * 6;  // max 6deg
+                    const rotateY = ((centerX - x) / centerX) * 6;
+                    card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px) scale(1.02)`;
+                    card.style.transition = 'transform 0.1s';
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'rotateX(2deg) rotateY(0deg) translateZ(20px) scale(1)';
+                    card.style.transition = 'transform 0.4s';
+                });
+            });
+
+            // --------------------------------------------------------------
+            // 3. MOUSE GLOW (follow)
+            // --------------------------------------------------------------
+            const glow = document.getElementById('glow');
+            document.addEventListener('mousemove', (e) => {
+                glow.style.left = e.clientX + 'px';
+                glow.style.top = e.clientY + 'px';
+            });
+
+            // --------------------------------------------------------------
+            // 4. CLICK CARD (if not button)
+            // --------------------------------------------------------------
+            cards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('select-btn')) {
+                        const btn = this.querySelector('.select-btn');
+                        if (btn) {
+                            btn.style.transform = 'scale(0.95)';
+                            setTimeout(() => {
+                                btn.style.transform = '';
+                                btn.click();
+                            }, 150);
+                        }
+                    }
+                });
+            });
+
+            // --------------------------------------------------------------
+            // 5. KEYBOARD NAV (immersive shortcuts)
+            // --------------------------------------------------------------
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '1') {
+                    window.location.href = 'Docs/docs.html';
+                } else if (e.key === '2') {
+                    window.location.href = 'home/index.html';
+                } else if (e.key === 'e') {
+                    window.location.href = 'Editor/editor.html';
+                } else if (e.key === 'x') {
+                    window.location.href = 'Explore/explore.html';
+                }
+            });
+
+            // --------------------------------------------------------------
+            // 6. REPLACE ALL "PACKAGE" WITH "PACK" (in case any generated text)
+            //    but we already manually changed. also console welcome
+            // --------------------------------------------------------------
+            console.log(`
+╔══════════════════════════════════════╗
+║         🚀  PACKCDN  DIMENSION       ║
+╠══════════════════════════════════════╣
+║  • press 1 : immersive docs          ║
+║  • press 2 : classic website         ║
+║  • press e : create pack              ║
+║  • press x : explore packs            ║
+╚══════════════════════════════════════╝
+            `);
+
+            // add floating class with delay
+            cards.forEach((card, idx) => {
+                card.style.animationDelay = `${idx * 0.2}s`;
+                card.classList.add('floating');
+            });
+        })();
     </script>
 </body>
 </html>
