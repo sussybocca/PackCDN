@@ -94,10 +94,10 @@
                 0 20px 30px black;
             image-rendering: crisp-edges;
             cursor: none;
-            transition: filter 0.1s ease; /* for hue shifts */
+            transition: filter 0.1s ease;
         }
 
-        /* Scanlines & CRT glow (on the container) */
+        /* Scanlines & CRT glow */
         .crt::after {
             content: " ";
             display: block;
@@ -138,7 +138,7 @@
             100% { background-position: 0 10px; }
         }
 
-        /* Static overlay – now more aggressive */
+        /* Static overlay */
         .static-overlay {
             position: absolute;
             top: 0;
@@ -158,7 +158,7 @@
             opacity: 0.3 !important;
         }
 
-        /* Color fringing overlay (simulates mis-convergence) */
+        /* Color fringing */
         .color-fringe {
             position: absolute;
             top: 0;
@@ -180,7 +180,7 @@
             transform: translate(-2px, -1px);
         }
 
-        /* Rolling vertical lines effect */
+        /* Rolling vertical lines */
         .vertical-roll {
             position: absolute;
             top: -100%;
@@ -208,7 +208,7 @@
             100% { transform: translateY(50%); }
         }
 
-        /* Hue rotation (occasional color shift) */
+        /* Hue rotation */
         .hue-shift {
             animation: hueRotate 0.5s ease;
         }
@@ -218,7 +218,7 @@
             100% { filter: hue-rotate(0deg); }
         }
 
-        /* Out-of-service glitch overlay */
+        /* Out-of-service glitch */
         .glitch-overlay {
             position: absolute;
             top: 0;
@@ -399,6 +399,13 @@
         .arcade-button.green:active { box-shadow: 0 2px 0 #282; }
         .arcade-button.blue:active { box-shadow: 0 2px 0 #228; }
 
+        /* New ASSETS button (small style) */
+        .arcade-button.small {
+            width: 50px;
+            height: 50px;
+            font-size: 10px;
+        }
+
         .room-display {
             background: #111;
             color: #0f0;
@@ -441,6 +448,58 @@
         }
         .instructions span { color: #ffb347; }
         .instructions .multi { color: #8af; text-shadow: 0 0 8px blue; }
+
+        /* Asset selection modal */
+        .asset-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            background: #111d2f;
+            border: 6px solid #3f78b0;
+            border-radius: 30px;
+            padding: 30px;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 0 50px #003366, inset 0 0 20px #0ff;
+            font-family: 'Press Start 2P', monospace;
+            color: #c0e4ff;
+        }
+        .asset-modal.active { display: block; }
+        .asset-modal h2 {
+            color: #ffd966;
+            text-align: center;
+            margin-top: 0;
+        }
+        .asset-modal select {
+            width: 100%;
+            margin: 10px 0 20px;
+            padding: 10px;
+            background: #000;
+            color: #0ff;
+            border: 2px solid #3a6ea5;
+            font-family: inherit;
+        }
+        .asset-modal .btn-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .asset-modal button {
+            background: #3e2a18;
+            border: 3px solid #b68b54;
+            color: white;
+            font-size: 18px;
+            padding: 10px 25px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+        }
+        .asset-modal button:hover {
+            background: #62482c;
+        }
     </style>
 </head>
 <body>
@@ -452,12 +511,12 @@
                 <canvas id="gameCanvas" width="1024" height="768"></canvas>
                 <!-- Static overlay -->
                 <div class="static-overlay" id="staticOverlay"></div>
-                <!-- Color fringing (always on low opacity) -->
+                <!-- Color fringing -->
                 <div class="color-fringe red"></div>
                 <div class="color-fringe blue"></div>
                 <!-- Rolling vertical lines -->
                 <div class="vertical-roll" id="verticalRoll"></div>
-                <!-- Glitch overlay (out of service) -->
+                <!-- Glitch overlay -->
                 <div class="glitch-overlay" id="glitchOverlay">📺 SIGNAL LOST<br><span style="font-size:1.5rem;">⏚ TUNE CHANNEL</span></div>
             </div>
         </div>
@@ -468,6 +527,7 @@
             <button class="arcade-button green" id="joinBtn">JOIN<br>GAME</button>
             <div class="room-display" id="roomCode">---</div>
             <div class="status-led" id="connLed"></div>
+            <button class="arcade-button small" id="assetsBtn">ASSETS</button>
             <button class="arcade-button blue" id="disconnectBtn">QUIT</button>
         </div>
     </div>
@@ -492,6 +552,23 @@
         <button onclick="window.location.href='menu.html'">MENU</button>
     </div>
 
+    <!-- Asset selection modal -->
+    <div class="asset-modal" id="assetModal">
+        <h2>🎮 SELECT ASSETS</h2>
+        <label>🎬 Background</label>
+        <select id="bgSelect"></select>
+        <label>🔫 Laser Sound</label>
+        <select id="laserSelect"></select>
+        <label>💥 Explosion Sound</label>
+        <select id="explodeSelect"></select>
+        <label>🎵 Background Music</label>
+        <select id="bgmSelect"></select>
+        <div class="btn-group">
+            <button id="applyAssets">APPLY</button>
+            <button id="closeAssets">CANCEL</button>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="assets.js"></script>
@@ -499,10 +576,11 @@
     <script src="network.js"></script>
     <script src="game.js"></script>
     <script src="cheats.js"></script>
+    <script src="userAssets.js"></script>
 
     <script>
         (function() {
-            // ===== Multiplayer UI Controls (unchanged) =====
+            // ===== Multiplayer UI Controls =====
             const hostBtn = document.getElementById('hostBtn');
             const joinBtn = document.getElementById('joinBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
@@ -555,43 +633,37 @@
                 }
             });
 
-            // ===== RETRO TV EFFECTS – MAXIMUM NOSTALGIA =====
+            // ===== RETRO TV EFFECTS =====
             const staticOverlay = document.getElementById('staticOverlay');
             const glitchOverlay = document.getElementById('glitchOverlay');
             const verticalRoll = document.getElementById('verticalRoll');
             const canvas = document.getElementById('gameCanvas');
 
-            // Frequent static bursts (every 2-5 seconds)
             setInterval(() => {
                 staticOverlay.classList.add('active');
                 setTimeout(() => staticOverlay.classList.remove('active'), 100 + Math.random() * 200);
             }, 2000 + Math.random() * 3000);
 
-            // Occasional longer static (like heavy interference)
             setInterval(() => {
                 staticOverlay.classList.add('active');
                 setTimeout(() => staticOverlay.classList.remove('active'), 500 + Math.random() * 1000);
             }, 8000 + Math.random() * 5000);
 
-            // Vertical roll effect (every 10 seconds or so)
             setInterval(() => {
                 verticalRoll.classList.add('active');
                 setTimeout(() => verticalRoll.classList.remove('active'), 800 + Math.random() * 1200);
             }, 10000 + Math.random() * 7000);
 
-            // "OUT OF SERVICE" glitches (more frequent)
             setInterval(() => {
                 glitchOverlay.classList.add('active');
                 setTimeout(() => glitchOverlay.classList.remove('active'), 800 + Math.random() * 1500);
-            }, 15000 + Math.random() * 10000); // about every 15-25 seconds
+            }, 15000 + Math.random() * 10000);
 
-            // Random hue shifts on canvas (color TV misadjustment)
             setInterval(() => {
                 canvas.classList.add('hue-shift');
                 setTimeout(() => canvas.classList.remove('hue-shift'), 500);
             }, 12000 + Math.random() * 8000);
 
-            // Occasional quick blackout + static
             setInterval(() => {
                 canvas.style.filter = 'brightness(0)';
                 staticOverlay.style.opacity = '0.5';
@@ -603,7 +675,108 @@
                 }, 150);
             }, 25000 + Math.random() * 15000);
 
-            // Subtle color fringe is always present via CSS overlays
+            // ===== ASSET SELECTOR =====
+            const assetsBtn = document.getElementById('assetsBtn');
+            const assetModal = document.getElementById('assetModal');
+            const closeAssets = document.getElementById('closeAssets');
+            const applyAssets = document.getElementById('applyAssets');
+
+            const bgSelect = document.getElementById('bgSelect');
+            const laserSelect = document.getElementById('laserSelect');
+            const explodeSelect = document.getElementById('explodeSelect');
+            const bgmSelect = document.getElementById('bgmSelect');
+
+            // Built‑in asset lists (copy from assets.js)
+            const builtInVideos = [
+                { name: 'nebula1', label: 'Nebula' }
+                // Add more as you have them
+            ];
+            const builtInLasers = [
+                { name: 'laser1', label: 'Classic Laser' },
+                { name: 'laser2', label: 'Phaser' },
+                { name: 'laser3', label: 'Blaster' }
+            ];
+            const builtInExplodes = [
+                { name: 'explode1', label: 'Big Boom' },
+                { name: 'explode2', label: 'Small Pop' }
+            ];
+            const builtInBgm = [
+                { name: 'bgm1', label: 'Horror Atmosphere' },
+                { name: 'bgm2', label: 'Space Ambient' }
+            ];
+
+            // Populate dropdowns with built‑ins + user assets (from IndexedDB)
+            async function populateDropdowns() {
+                // Clear
+                bgSelect.innerHTML = '';
+                laserSelect.innerHTML = '';
+                explodeSelect.innerHTML = '';
+                bgmSelect.innerHTML = '';
+
+                // Add built‑ins
+                builtInVideos.forEach(v => {
+                    const opt = new Option(v.label, v.name);
+                    bgSelect.appendChild(opt);
+                });
+                builtInLasers.forEach(v => {
+                    const opt = new Option(v.label, v.name);
+                    laserSelect.appendChild(opt);
+                });
+                builtInExplodes.forEach(v => {
+                    const opt = new Option(v.label, v.name);
+                    explodeSelect.appendChild(opt);
+                });
+                builtInBgm.forEach(v => {
+                    const opt = new Option(v.label, v.name);
+                    bgmSelect.appendChild(opt);
+                });
+
+                // Add user assets (if any)
+                if (window.userAssets) {
+                    const all = await window.userAssets.getAll();
+                    all.forEach(asset => {
+                        const id = asset.id;
+                        const name = asset.name;
+                        if (id.startsWith('user_bg_')) {
+                            bgSelect.appendChild(new Option(`📁 ${name}`, id));
+                        } else if (id.startsWith('user_laser_')) {
+                            laserSelect.appendChild(new Option(`📁 ${name}`, id));
+                        } else if (id.startsWith('user_explode_')) {
+                            explodeSelect.appendChild(new Option(`📁 ${name}`, id));
+                        } else if (id.startsWith('user_bgm_')) {
+                            bgmSelect.appendChild(new Option(`📁 ${name}`, id));
+                        }
+                    });
+                }
+
+                // Set selected values from localStorage
+                const saved = JSON.parse(localStorage.getItem('spaceShooters_assetChoices') || '{}');
+                if (saved.background) bgSelect.value = saved.background;
+                if (saved.laser) laserSelect.value = saved.laser;
+                if (saved.explode) explodeSelect.value = saved.explode;
+                if (saved.bgm) bgmSelect.value = saved.bgm;
+            }
+
+            assetsBtn.addEventListener('click', () => {
+                populateDropdowns();
+                assetModal.classList.add('active');
+            });
+
+            closeAssets.addEventListener('click', () => {
+                assetModal.classList.remove('active');
+            });
+
+            applyAssets.addEventListener('click', () => {
+                const choices = {
+                    background: bgSelect.value,
+                    laser: laserSelect.value,
+                    explode: explodeSelect.value,
+                    bgm: bgmSelect.value
+                };
+                localStorage.setItem('spaceShooters_assetChoices', JSON.stringify(choices));
+                assetModal.classList.remove('active');
+                location.reload(); // Reload to apply new assets
+            });
         })();
     </script>
 </body>
