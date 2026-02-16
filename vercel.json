@@ -193,6 +193,10 @@
       "destination": "/@random"
     },
     {
+      "source": "/imagine/:path*",
+      "destination": "/imagine/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api/wildcard-redirect"
     }
