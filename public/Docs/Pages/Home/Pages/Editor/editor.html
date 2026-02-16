@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Pack Studio · BLOCK JUMP + PUBLISH</title>
+    <title>⚡ Pack Studio · BLOCK JUMP (FINAL)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
@@ -20,13 +20,13 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(20, 20, 30, 0.8);
+            background: rgba(20, 20, 30, 0.85);
             backdrop-filter: blur(4px);
             color: white;
             padding: 12px 24px;
             border-radius: 40px;
-            border: 1px solid #007acc;
-            box-shadow: 0 0 20px rgba(0,122,204,0.3);
+            border: 2px solid #007acc;
+            box-shadow: 0 0 20px #007acc;
             display: flex;
             align-items: center;
             gap: 20px;
@@ -66,7 +66,7 @@
             padding: 20px;
             color: white;
             width: 280px;
-            box-shadow: 0 0 30px rgba(0,122,204,0.5);
+            box-shadow: 0 0 30px #007acc;
             z-index: 200;
             pointer-events: auto;
         }
@@ -123,6 +123,61 @@
             justify-content: center;
             margin-bottom: 15px;
         }
+        /* Code editor modal */
+        .code-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30,30,40,0.95);
+            border: 2px solid #007acc;
+            border-radius: 16px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 0 40px #007acc;
+            display: none;
+        }
+        .code-modal.active {
+            display: block;
+        }
+        .code-modal h3 {
+            margin: 0 0 15px 0;
+            color: #007acc;
+        }
+        .code-modal textarea {
+            width: 100%;
+            height: 150px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #3e3e42;
+            color: #fff;
+            padding: 10px;
+            font-family: monospace;
+            border-radius: 8px;
+            resize: vertical;
+        }
+        .code-modal button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #007acc, #68217a);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .code-modal .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        /* Publish modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -286,10 +341,10 @@
         <span id="score">0</span>
     </div>
     <div class="controls">
-        <i class="fas fa-keyboard"></i> WASD move | SPACE jump | [C] create block at camera
+        <i class="fas fa-keyboard"></i> WASD move | SPACE jump | [E] edit block | [C] create block
     </div>
 
-    <!-- Block Creator + Publish UI -->
+    <!-- Block Creator Panel -->
     <div class="creator-panel">
         <h3><i class="fas fa-cube"></i> Create Block</h3>
         <input type="text" id="block-snippet" placeholder="JavaScript snippet" value="🚀 new block">
@@ -305,7 +360,16 @@
         <button id="publish-btn"><i class="fas fa-rocket"></i> Publish Pack</button>
     </div>
 
-    <!-- Publish Modal (hidden initially) -->
+    <!-- Code Editor Modal (for editing block snippet) -->
+    <div id="code-editor-modal" class="code-modal">
+        <button class="close-btn" id="code-editor-close">&times;</button>
+        <h3><i class="fas fa-code"></i> Edit Block Code</h3>
+        <textarea id="block-code-textarea" placeholder="Enter JavaScript code..."></textarea>
+        <button id="save-block-code">Save</button>
+        <button id="cancel-block-code">Cancel</button>
+    </div>
+
+    <!-- Publish Modal -->
     <div class="modal-overlay" id="publish-modal">
         <div class="modal">
             <button class="close-btn" id="modal-close">&times;</button>
@@ -327,7 +391,6 @@
                 </div>
             </div>
 
-            <!-- Advanced options (simplified) -->
             <div class="advanced-options" id="advanced-options">
                 <div class="advanced-header" id="advanced-toggle">
                     <i class="fas fa-chevron-right"></i> <span>Advanced Options</span>
@@ -398,10 +461,10 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- GAME SETUP (same as before) ---
+        // --- Setup scene, camera, renderer ---
         const canvas = document.getElementById('game-canvas');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0e15);
+        scene.background = new THREE.Color(0x0a0e15); // deep space
 
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(5, 5, 15);
@@ -411,10 +474,11 @@
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        // Lighting
+        // --- Lighting ---
         const ambientLight = new THREE.AmbientLight(0x404060);
         scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight.position.set(5, 10, 7);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 1024;
@@ -427,23 +491,136 @@
         dirLight.shadow.camera.bottom = -10;
         scene.add(dirLight);
 
-        // Ground
-        const groundGeo = new THREE.PlaneGeometry(30, 30);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, side: THREE.DoubleSide });
+        const fillLight = new THREE.PointLight(0x4466ff, 0.5, 20);
+        fillLight.position.set(0, 5, 5);
+        scene.add(fillLight);
+
+        // --- Ground with reflective appearance ---
+        const groundGeo = new THREE.CircleGeometry(40, 32);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.3, metalness: 0.3, emissive: 0x050510 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = 0;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        const gridHelper = new THREE.GridHelper(30, 20, 0x3399ff, 0x224466);
+        // Decorative grid
+        const gridHelper = new THREE.GridHelper(40, 20, 0x3399ff, 0x224466);
         gridHelper.position.y = 0.01;
         scene.add(gridHelper);
 
-        // --- Blocks array (global for publishing) ---
+        // --- Advanced Player Model (stylized robot) ---
+        const playerGroup = new THREE.Group();
+
+        // Body (torso) with armor plates
+        const bodyGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.4, 8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x113355, roughness: 0.3, metalness: 0.7 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.castShadow = true;
+        body.receiveShadow = true;
+        body.position.y = 0.7;
+        playerGroup.add(body);
+
+        // Shoulder pads
+        const padGeo = new THREE.SphereGeometry(0.4, 8);
+        const padMat = new THREE.MeshStandardMaterial({ color: 0xaa44aa, emissive: 0x220022 });
+        const leftPad = new THREE.Mesh(padGeo, padMat);
+        leftPad.position.set(-0.8, 1.1, 0);
+        leftPad.scale.set(0.6, 0.3, 0.4);
+        leftPad.castShadow = true;
+        playerGroup.add(leftPad);
+        const rightPad = new THREE.Mesh(padGeo, padMat);
+        rightPad.position.set(0.8, 1.1, 0);
+        rightPad.scale.set(0.6, 0.3, 0.4);
+        rightPad.castShadow = true;
+        playerGroup.add(rightPad);
+
+        // Head with visor
+        const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffaa33, emissive: 0x331100 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.castShadow = true;
+        head.receiveShadow = true;
+        head.position.y = 1.7;
+        playerGroup.add(head);
+
+        // Visor (glowing)
+        const visorGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8);
+        const visorMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x004444 });
+        const visor = new THREE.Mesh(visorGeo, visorMat);
+        visor.rotation.x = Math.PI / 2;
+        visor.rotation.z = Math.PI / 2;
+        visor.position.set(0, 1.7, 0.4);
+        visor.castShadow = true;
+        playerGroup.add(visor);
+
+        // Arms
+        const armGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 6);
+        const armMat = new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x113355 });
+        
+        const leftArm = new THREE.Mesh(armGeo, armMat);
+        leftArm.castShadow = true;
+        leftArm.receiveShadow = true;
+        leftArm.position.set(-1.0, 1.2, 0);
+        leftArm.rotation.z = 0.3;
+        leftArm.rotation.x = 0.2;
+        playerGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeo, armMat);
+        rightArm.castShadow = true;
+        rightArm.receiveShadow = true;
+        rightArm.position.set(1.0, 1.2, 0);
+        rightArm.rotation.z = -0.3;
+        rightArm.rotation.x = -0.2;
+        playerGroup.add(rightArm);
+
+        // Legs
+        const legGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.2, 6);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x113355 });
+        
+        const leftLeg = new THREE.Mesh(legGeo, legMat);
+        leftLeg.castShadow = true;
+        leftLeg.receiveShadow = true;
+        leftLeg.position.set(-0.4, 0.0, 0);
+        playerGroup.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(legGeo, legMat);
+        rightLeg.castShadow = true;
+        rightLeg.receiveShadow = true;
+        rightLeg.position.set(0.4, 0.0, 0);
+        playerGroup.add(rightLeg);
+
+        // Jetpack
+        const jetGeo = new THREE.BoxGeometry(0.6, 1.0, 0.4);
+        const jetMat = new THREE.MeshStandardMaterial({ color: 0xaa44aa, emissive: 0x220022 });
+        const jet = new THREE.Mesh(jetGeo, jetMat);
+        jet.castShadow = true;
+        jet.receiveShadow = true;
+        jet.position.set(0, 1.0, -0.7);
+        playerGroup.add(jet);
+
+        // Thrusters (small spheres)
+        const thrusterGeo = new THREE.SphereGeometry(0.2, 6);
+        const thrusterMat = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0x441100 });
+        const leftThrust = new THREE.Mesh(thrusterGeo, thrusterMat);
+        leftThrust.position.set(-0.2, 0.5, -0.9);
+        playerGroup.add(leftThrust);
+        const rightThrust = new THREE.Mesh(thrusterGeo, thrusterMat);
+        rightThrust.position.set(0.2, 0.5, -0.9);
+        playerGroup.add(rightThrust);
+
+        scene.add(playerGroup);
+        playerGroup.position.set(0, 1.2, 0); // adjusted for leg length
+        playerGroup.castShadow = true;
+        playerGroup.receiveShadow = true;
+
+        // Player light
+        const playerLight = new THREE.PointLight(0x44aaff, 1, 12);
+        playerGroup.add(playerLight);
+
+        // --- Blocks (with glowing edges) ---
         const blocks = []; // each: { group, snippet, color }
 
-        // Predefined snippets
         const snippets = [
             "function hello()", "import wasm", "console.log", "3D =>", "pack.publish", 
             "<div>", "{}", "=>", "WASM!", "git push", "npm install", "three.js"
@@ -452,6 +629,7 @@
         function createBlock(snippet, color, pos) {
             const group = new THREE.Group();
             
+            // Main cube
             const geometry = new THREE.BoxGeometry(1.2, 0.6, 1.2);
             const material = new THREE.MeshStandardMaterial({ color, emissive: 0x222222 });
             const cube = new THREE.Mesh(geometry, material);
@@ -460,12 +638,19 @@
             cube.position.y = 0.3;
             group.add(cube);
 
+            // Glowing edges (wireframe)
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+            line.position.y = 0.3;
+            group.add(line);
+
+            // Text label (canvas sprite)
             const canvas = document.createElement('canvas');
             canvas.width = 128;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 16px "Segoe UI", monospace';
+            ctx.font = 'bold 14px "Segoe UI", monospace';
             ctx.textAlign = 'center';
             ctx.fillText(snippet, 64, 30);
             const texture = new THREE.CanvasTexture(canvas);
@@ -481,20 +666,20 @@
             return group;
         }
 
-        // Create initial blocks
+        // Initial blocks
         for (let i = 0; i < 12; i++) {
             const angle = (i / 12) * Math.PI * 2;
-            const radius = 5 + Math.random() * 3;
+            const radius = 6 + Math.random() * 4;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
-            const y = 1 + Math.random() * 2;
+            const y = 1 + Math.random() * 2.5;
             const snippet = snippets[i % snippets.length];
             const hue = (i * 30) % 360;
             const color = new THREE.Color(`hsl(${hue}, 80%, 60%)`).getStyle();
             createBlock(snippet, color, new THREE.Vector3(x, y, z));
         }
 
-        // Collectibles
+        // --- Collectibles (stars) with animation ---
         const collectibles = [];
         function createCollectible(pos, color) {
             const geom = new THREE.OctahedronGeometry(0.4);
@@ -510,34 +695,22 @@
 
         for (let i = 0; i < 20; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const radius = 3 + Math.random() * 8;
+            const radius = 4 + Math.random() * 8;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
-            const y = 1.5 + Math.random() * 3;
+            const y = 1.8 + Math.random() * 4;
             const color = new THREE.Color(`hsl(${Math.random()*360}, 100%, 60%)`);
             createCollectible(new THREE.Vector3(x, y, z), color);
         }
 
-        // Player
-        const playerGeo = new THREE.SphereGeometry(0.6, 32, 16);
-        const playerMat = new THREE.MeshStandardMaterial({ color: 0x00aaff, emissive: 0x004466 });
-        const player = new THREE.Mesh(playerGeo, playerMat);
-        player.castShadow = true;
-        player.receiveShadow = true;
-        player.position.set(0, 1.5, 0);
-        scene.add(player);
-
-        const playerLight = new THREE.PointLight(0x44aaff, 1, 10);
-        player.add(playerLight);
-
-        // Physics
+        // --- Physics state ---
         const velocity = new THREE.Vector3(0, 0, 0);
-        const gravity = -0.02;
-        const moveSpeed = 0.15;
-        const jumpPower = 0.4;
+        const gravity = -0.018;
+        const moveSpeed = 0.12;
+        const jumpPower = 0.32;
         let onGround = false;
 
-        const keyState = { w: false, a: false, s: false, d: false, space: false };
+        const keyState = { w: false, a: false, s: false, d: false, space: false, e: false };
 
         window.addEventListener('keydown', (e) => {
             switch(e.code) {
@@ -546,6 +719,7 @@
                 case 'KeyS': keyState.s = true; e.preventDefault(); break;
                 case 'KeyD': keyState.d = true; e.preventDefault(); break;
                 case 'Space': keyState.space = true; e.preventDefault(); break;
+                case 'KeyE': keyState.e = true; e.preventDefault(); break;
                 case 'KeyC': createBlockAtCamera(); e.preventDefault(); break;
                 default: break;
             }
@@ -557,11 +731,75 @@
                 case 'KeyS': keyState.s = false; e.preventDefault(); break;
                 case 'KeyD': keyState.d = false; e.preventDefault(); break;
                 case 'Space': keyState.space = false; e.preventDefault(); break;
+                case 'KeyE': keyState.e = false; e.preventDefault(); break;
                 default: break;
             }
         });
 
-        // UI Block creation
+        // --- Block editing system ---
+        let currentEditingBlock = null;
+        const codeModal = document.getElementById('code-editor-modal');
+        const codeTextarea = document.getElementById('block-code-textarea');
+        const saveCodeBtn = document.getElementById('save-block-code');
+        const cancelCodeBtn = document.getElementById('cancel-block-code');
+        const closeCodeBtn = document.getElementById('code-editor-close');
+
+        function openEditor(block) {
+            currentEditingBlock = block;
+            codeTextarea.value = block.snippet;
+            codeModal.classList.add('active');
+        }
+
+        function closeEditor() {
+            codeModal.classList.remove('active');
+            currentEditingBlock = null;
+        }
+
+        saveCodeBtn.addEventListener('click', () => {
+            if (currentEditingBlock) {
+                const newSnippet = codeTextarea.value;
+                currentEditingBlock.snippet = newSnippet;
+                // Update label texture
+                const group = currentEditingBlock.group;
+                // Remove old label and create new one
+                const oldLabel = group.children.find(child => child.isSprite);
+                if (oldLabel) group.remove(oldLabel);
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px "Segoe UI", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(newSnippet, 64, 30);
+                const texture = new THREE.CanvasTexture(canvas);
+                const labelMat = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
+                const label = new THREE.Sprite(labelMat);
+                label.scale.set(1.2, 0.6, 1);
+                label.position.y = 0.9;
+                group.add(label);
+            }
+            closeEditor();
+        });
+
+        cancelCodeBtn.addEventListener('click', closeEditor);
+        closeCodeBtn.addEventListener('click', closeEditor);
+
+        // Check for nearby block to edit (E key)
+        function checkEdit() {
+            if (!keyState.e) return;
+            const editRange = 2.5;
+            for (let block of blocks) {
+                const dist = playerGroup.position.distanceTo(block.group.position);
+                if (dist < editRange) {
+                    openEditor(block);
+                    break;
+                }
+            }
+        }
+
+        // --- Block creation from UI and C key ---
         let selectedColor = '#ff5555';
         document.querySelectorAll('.color-option').forEach(opt => {
             opt.addEventListener('click', () => {
@@ -580,74 +818,105 @@
             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
             dir.y = 0;
             dir.normalize();
-            const pos = player.position.clone().add(dir.multiplyScalar(3));
-            pos.y = Math.max(1, player.position.y);
+            const pos = playerGroup.position.clone().add(dir.multiplyScalar(3));
+            pos.y = Math.max(1, playerGroup.position.y);
             createBlock(snippet, color, pos);
         }
 
-        // Scoring
+        // --- Scoring ---
         let score = 0;
         const scoreElement = document.getElementById('score');
 
+        // --- Collision and physics (robust AABB) ---
         function checkCollisions() {
-            if (player.position.y < 0.6) {
-                player.position.y = 0.6;
+            // Ground collision
+            if (playerGroup.position.y < 0.6) {
+                playerGroup.position.y = 0.6;
                 velocity.y = 0;
                 onGround = true;
             } else {
                 onGround = false;
             }
 
-            const playerBox = new THREE.Box3().setFromObject(player);
+            const playerBox = new THREE.Box3().setFromObject(playerGroup);
             for (let block of blocks) {
                 const blockBox = new THREE.Box3().setFromObject(block.group);
                 if (playerBox.intersectsBox(blockBox)) {
-                    const playerBottom = player.position.y - 0.6;
-                    const blockTop = block.group.position.y + 0.6;
-                    if (velocity.y < 0 && playerBottom < blockTop && player.position.y > block.group.position.y) {
-                        player.position.y = blockTop + 0.6;
-                        velocity.y = 0;
-                        onGround = true;
+                    // Compute overlap
+                    const playerMin = playerBox.min;
+                    const playerMax = playerBox.max;
+                    const blockMin = blockBox.min;
+                    const blockMax = blockBox.max;
+
+                    const overlapX = Math.min(playerMax.x, blockMax.x) - Math.max(playerMin.x, blockMin.x);
+                    const overlapY = Math.min(playerMax.y, blockMax.y) - Math.max(playerMin.y, blockMin.y);
+                    const overlapZ = Math.min(playerMax.z, blockMax.z) - Math.max(playerMin.z, blockMin.z);
+
+                    // Resolve smallest overlap axis
+                    if (overlapX < overlapY && overlapX < overlapZ) {
+                        // X axis
+                        if (playerMin.x < blockMin.x) {
+                            playerGroup.position.x = blockMin.x - 0.6; // player half-width
+                        } else {
+                            playerGroup.position.x = blockMax.x + 0.6;
+                        }
+                        velocity.x = 0;
+                    } else if (overlapY < overlapX && overlapY < overlapZ) {
+                        // Y axis
+                        if (playerMin.y < blockMin.y) {
+                            playerGroup.position.y = blockMin.y - 0.6; // player half-height
+                            velocity.y = 0;
+                            onGround = true;
+                        } else {
+                            playerGroup.position.y = blockMax.y + 0.6;
+                            velocity.y = 0;
+                        }
                     } else {
-                        const dir = player.position.clone().sub(block.group.position);
-                        dir.y = 0;
-                        if (dir.length() < 0.001) dir.x = 1;
-                        dir.normalize();
-                        player.position.add(dir.multiplyScalar(0.1));
+                        // Z axis
+                        if (playerMin.z < blockMin.z) {
+                            playerGroup.position.z = blockMin.z - 0.6;
+                        } else {
+                            playerGroup.position.z = blockMax.z + 0.6;
+                        }
+                        velocity.z = 0;
                     }
                 }
             }
 
+            // Collectibles
             for (let i = collectibles.length - 1; i >= 0; i--) {
                 const item = collectibles[i];
-                const dist = player.position.distanceTo(item.position);
-                if (dist < 1.0) {
+                const dist = playerGroup.position.distanceTo(item.position);
+                if (dist < 1.2) {
                     scene.remove(item);
                     collectibles.splice(i, 1);
                     score += 10;
                     scoreElement.textContent = score;
                     
                     const angle = Math.random() * Math.PI * 2;
-                    const radius = 4 + Math.random() * 8;
+                    const radius = 5 + Math.random() * 8;
                     const x = Math.cos(angle) * radius;
                     const z = Math.sin(angle) * radius;
-                    const y = 1.5 + Math.random() * 4;
+                    const y = 2 + Math.random() * 4;
                     const color = new THREE.Color(`hsl(${Math.random()*360}, 100%, 60%)`);
                     createCollectible(new THREE.Vector3(x, y, z), color);
                 }
             }
         }
 
+        // --- Camera follow (third person) ---
         function updateCamera() {
             const targetOffset = new THREE.Vector3(-5, 3, 5);
-            const desiredPos = player.position.clone().add(targetOffset);
+            const desiredPos = playerGroup.position.clone().add(targetOffset);
             camera.position.lerp(desiredPos, 0.05);
-            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1, 0)));
+            camera.lookAt(playerGroup.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
         }
 
+        // --- Animation loop ---
         function animate() {
             requestAnimationFrame(animate);
 
+            // Movement
             const moveX = (keyState.d ? 1 : 0) - (keyState.a ? 1 : 0);
             const moveZ = (keyState.s ? 1 : 0) - (keyState.w ? 1 : 0);
             if (moveX !== 0 || moveZ !== 0) {
@@ -656,16 +925,21 @@
                 velocity.z += Math.cos(angle) * moveSpeed;
             }
 
+            // Jump
             if (keyState.space && onGround) {
                 velocity.y = jumpPower;
                 onGround = false;
             }
 
+            // Gravity
             velocity.y += gravity;
-            player.position.x += velocity.x;
-            player.position.y += velocity.y;
-            player.position.z += velocity.z;
 
+            // Update position
+            playerGroup.position.x += velocity.x;
+            playerGroup.position.y += velocity.y;
+            playerGroup.position.z += velocity.z;
+
+            // Damping
             velocity.x *= 0.9;
             velocity.z *= 0.9;
             if (!onGround) {
@@ -673,14 +947,23 @@
                 velocity.z *= 0.98;
             }
 
-            player.position.x = Math.max(-12, Math.min(12, player.position.x));
-            player.position.z = Math.max(-12, Math.min(12, player.position.z));
+            // Bounds
+            playerGroup.position.x = Math.max(-18, Math.min(18, playerGroup.position.x));
+            playerGroup.position.z = Math.max(-18, Math.min(18, playerGroup.position.z));
 
+            // Collisions
             checkCollisions();
 
+            // Rotate player to face movement direction
             if (velocity.length() > 0.1) {
-                player.rotation.y = Math.atan2(velocity.x, velocity.z);
+                playerGroup.rotation.y = Math.atan2(velocity.x, velocity.z);
             }
+
+            // Check for edit key
+            checkEdit();
+
+            // Animate collectibles (spin)
+            collectibles.forEach(c => c.rotation.y += 0.02);
 
             updateCamera();
             renderer.render(scene, camera);
@@ -693,7 +976,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // --- PUBLISH FUNCTIONALITY (using original /api/publish.mjs) ---
+        // --- PUBLISH FUNCTIONALITY (original /api/publish.mjs) ---
         const publishModal = document.getElementById('publish-modal');
         const modalClose = document.getElementById('modal-close');
         const cancelPublish = document.getElementById('cancel-publish');
@@ -739,12 +1022,10 @@
             alert('Success: ' + message);
         }
 
-        // Validation (based on original)
         function validatePackage() {
             const errors = [];
             if (!packageNameInput.value.trim()) errors.push('Package name required');
             if (!packageVersionInput.value.trim()) errors.push('Version required');
-            // Could add more checks
             return { errors, warnings: [], info: [] };
         }
 
@@ -768,16 +1049,16 @@
             validationSummary.innerHTML = '';
 
             try {
-                // Build files object (as in original: includes package.json and all block files)
+                // Build files object
                 const files = {};
 
-                // Add package.json as a file (as original)
+                // package.json
                 const packageJson = {
                     name: packageNameInput.value,
                     version: packageVersionInput.value,
                     description: 'A pack of code blocks from Block Jump',
                     type: 'module',
-                    main: 'index.js', // not really needed but keeps structure
+                    main: 'index.js',
                     pack: {
                         type: 'basic',
                         sandbox: { level: 'strict' }
@@ -785,28 +1066,26 @@
                 };
                 files['package.json'] = JSON.stringify(packageJson, null, 2);
 
-                // Add each block as a separate .js file
+                // Each block as a .js file
                 blocks.forEach((block, index) => {
                     const filename = `block_${index+1}.js`;
                     files[filename] = block.snippet;
                 });
 
-                // Optionally add an index.js (if you want)
+                // index.js that exports all blocks
                 files['index.js'] = '// Entry point generated from blocks\n' + 
                     blocks.map((b, i) => `export { default as block${i+1} } from './block_${i+1}.js';`).join('\n');
 
-                // Parse collaborators
                 const collaborators = collaboratorsInput.value
                     ? collaboratorsInput.value.split(',').map(s => s.trim()).filter(s => s)
                     : [];
 
-                // Prepare request body exactly as in original publishPackage
                 const requestBody = {
                     name: packageNameInput.value,
-                    packJson: JSON.stringify(packageJson),  // separate packJson string
+                    packJson: JSON.stringify(packageJson),
                     files: files,
                     isPublic: isPublicCheckbox.checked,
-                    packageType: 'basic', // or could be dynamic
+                    packageType: 'basic',
                     version: packageVersionInput.value,
                     isNewVersion: isNewVersion,
                     basePackId: isNewVersion ? basePackId : null,
@@ -814,13 +1093,9 @@
                     editToken: editTokenInput.value.trim() || null,
                     collaborators: collaborators,
                     compileToWasm: compileWasmCheckbox.checked,
-                    wasmConfig: {
-                        initialMemory: 1,
-                        maxMemory: 65536
-                    }
+                    wasmConfig: { initialMemory: 1, maxMemory: 65536 }
                 };
 
-                // Make the actual API call
                 const response = await fetch('/api/publish.mjs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -841,13 +1116,12 @@
                     <div class="result-item"><strong>Install:</strong> <code>${result.installCommand}</code></div>
                 `;
 
-                // Show edit token if anonymous
                 if (!userIdInput.value.trim() && result.editToken) {
                     securityWarning.style.display = 'block';
                     editTokenDisplay.textContent = result.editToken;
                     copyTokenBtn.onclick = () => {
                         navigator.clipboard.writeText(result.editToken).then(() => {
-                            copyTokenBtn.textContent = 'Copied!';
+                            copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
                             setTimeout(() => { copyTokenBtn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000);
                         });
                     };
@@ -861,7 +1135,6 @@
             }
         }
 
-        // Open modal with validation summary
         publishBtn.addEventListener('click', () => {
             const validation = validatePackage();
             validationSummary.innerHTML = '';
@@ -880,7 +1153,6 @@
         cancelPublish.addEventListener('click', () => publishModal.classList.remove('active'));
         confirmPublish.addEventListener('click', publishPackage);
 
-        // Close modal on outside click
         publishModal.addEventListener('click', (e) => {
             if (e.target === publishModal) publishModal.classList.remove('active');
         });
