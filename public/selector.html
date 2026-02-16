@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PackCDN · select your dimension</title>
-    <!-- Three.js for immersive background -->
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         /* reset & base */
@@ -314,10 +314,10 @@
 </head>
 <body>
 
-    <!-- 3D canvas injected here -->
+    
     <div id="bg-canvas"></div>
 
-    <!-- subtle glow that follows mouse -->
+    
     <div class="glow-point" id="glow"></div>
 
     <div class="container">
@@ -325,7 +325,7 @@
         <p class="tagline">✦ choose your dimension — instant pack publishing & distribution ✦</p>
 
         <div class="selector-grid">
-            <!-- immersive docs card (highlight) -->
+            
             <div class="experience-card highlight" id="card-immersive">
                 <div class="card-icon">🌀</div>
                 <h2 class="card-title">Immersive Docs</h2>
@@ -345,7 +345,7 @@
                 </button>
             </div>
 
-            <!-- classic website card -->
+            
             <div class="experience-card" id="card-classic">
                 <div class="card-icon">🌐</div>
                 <h2 class="card-title">Classic Website</h2>
@@ -363,12 +363,26 @@
                     go to classic
                 </button>
             </div>
-        </div>
+        
+    <div class="experience-card floating" style="animation-delay: 0s;">
+      <div class="card-icon">📄</div>
+      <h2 class="card-title">JavaMods</h2>
+      <p class="card-description">Explore this immersive experience.</p>
+      <ul class="card-features">
+        <li>Immersive experience</li>
+        <li>New dimension</li>
+        <li>Interactive content</li>
+      </ul>
+      <button class="select-btn" onclick="window.location.href='../imagine/index.html'">
+        explore
+      </button>
+    </div>
+  </div>
 
         <div class="quick-links">
             <h3>⚡ quick access ⚡</h3>
             <div class="link-buttons">
-                <a href="Editor/editor.html" class="link-btn">📦 create pack</a>                <!-- package → pack -->
+                <a href="Editor/editor.html" class="link-btn">📦 create pack</a>                
                 <a href="Explore/explore.html" class="link-btn">🔍 explore packs</a>
                 <a href="/api/search" class="link-btn">🌀 api search</a>
                 <a href="https://github.com/sussybocca/PackCDN/tree/main" class="link-btn">⌨️ github</a>
@@ -376,7 +390,7 @@
         </div>
 
         <footer>
-            PackCDN © 2024 — anonymous pack publishing — built with cloudflare & vercel   <!-- package → pack -->
+            PackCDN © 2024 — anonymous pack publishing — built with cloudflare & vercel   
         </footer>
     </div>
 
