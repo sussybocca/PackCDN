@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROAD CHASE · just run them down</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #0a2f1f;
+            background: linear-gradient(145deg, #0e3d28, #0b2b1b);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .game-wrapper {
+            background: #1e4d3a;
+            padding: 25px 30px 30px;
+            border-radius: 40px 40px 20px 20px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.6), inset 0 0 10px #7e9f8c;
+            border: 3px solid #c9b381;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 18px;
+            background: #2a5942;
+            box-shadow: 0 0 0 4px #7f6140, 0 12px 25px black;
+            cursor: none;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin: 15px 8px 5px 8px;
+            color: #faeac6;
+            text-shadow: 3px 3px 0 #3d2b13;
+            font-weight: bold;
+            font-size: 26px;
+            letter-spacing: 2px;
+        }
+        .score-label {
+            background: #312717;
+            padding: 8px 20px;
+            border-radius: 50px;
+            border: 2px solid #dbb679;
+            box-shadow: inset 0 2px 5px #0f0f0f;
+        }
+        .instruction {
+            color: #ffe1a3;
+            font-size: 18px;
+            background: #2b462b;
+            padding: 6px 18px;
+            border-radius: 40px;
+            border: 1px solid #b99e5d;
+            font-weight: bold;
+        }
+        button {
+            background: #dab066;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 25px;
+            font-family: inherit;
+            font-size: 22px;
+            font-weight: bold;
+            color: #222;
+            box-shadow: 0 6px 0 #7a5f33, 0 8px 12px black;
+            cursor: pointer;
+            transition: 0.06s linear;
+            border: 1px solid #ffdd99;
+        }
+        button:active {
+            transform: translateY(6px);
+            box-shadow: 0 2px 0 #7a5f33, 0 5px 12px black;
+        }
+        footer {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="700" height="450"></canvas>
+
+    <div class="info-panel">
+        <span class="score-label">🛞 <span id="scoreDisplay">0</span></span>
+        <span class="instruction">← →  chase</span>
+    </div>
+
+    <footer>
+        <button id="resetButton">💥 AGAIN</button>
+    </footer>
+</div>
+
+<script>
+    (function() {
+        // ----- canvas & context -----
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreDisplay');
+
+        // ----- fixed dimensions -----
+        const LANE_COUNT = 4;           // just for visual dashes
+        const ROAD_Y_TOP = 30;
+        const ROAD_Y_BOTTOM = canvas.height - 40;
+
+        // ----- player (the chaser) -----
+        const player = {
+            width: 52,
+            height: 68,
+            x: canvas.width / 2 - 26,   // centered initially
+            y: canvas.height - 85,       // near bottom, above road edge
+            speed: 7.5,
+            color: '#D63A2C'             // mean red
+        };
+
+        // ----- pedestrians (prey) -----
+        let pedestrians = [];
+        const PED_SIZE = 36;              // square size
+        const PED_SPEED = 2.6;             // falling speed
+
+        // ----- score -----
+        let score = 0;
+
+        // ----- spawn control -----
+        const SPAWN_FRAME_INTERVAL = 24;   // frames between spawns
+        let frameCounter = 0;
+
+        // ----- input handling -----
+        let leftPressed = false;
+        let rightPressed = false;
+
+        // ----- game loop -----
+        let animationId = null;
+
+        // ----- helper: reset whole game -----
+        function resetGame() {
+            score = 0;
+            updateScore();
+            pedestrians = [];
+            player.x = canvas.width / 2 - player.width / 2;
+            frameCounter = 0;
+            // keep keys state, but that's fine
+        }
+
+        // ----- update score display -----
+        function updateScore() {
+            scoreSpan.textContent = score;
+        }
+
+        // ----- collision (AABB) -----
+        function rectCollide(r1, r2) {
+            return !(r2.x >= r1.x + r1.width ||
+                r2.x + r2.width <= r1.x ||
+                r2.y >= r1.y + r1.height ||
+                r2.y + r2.height <= r1.y);
+        }
+
+        // ----- spawn new pedestrian (random x) -----
+        function spawnPedestrian() {
+            const maxX = canvas.width - PED_SIZE;
+            const x = Math.floor(Math.random() * (maxX + 1));
+            pedestrians.push({
+                x: x,
+                y: ROAD_Y_TOP,
+                width: PED_SIZE,
+                height: PED_SIZE,
+                color: `hsl(${Math.random() * 40 + 200}, 75%, 55%)` // blue-ish / cold tones
+            });
+        }
+
+        // ----- update positions, collisions, removal -----
+        function updateGame() {
+            // 1. move player (left/right)
+            if (leftPressed) {
+                player.x = Math.max(4, player.x - player.speed);
+            }
+            if (rightPressed) {
+                player.x = Math.min(canvas.width - player.width - 4, player.x + player.speed);
+            }
+
+            // 2. move pedestrians downwards
+            for (let i = pedestrians.length - 1; i >= 0; i--) {
+                const p = pedestrians[i];
+                p.y += PED_SPEED;
+
+                // remove if completely off the bottom (below canvas + margin)
+                if (p.y > canvas.height + 40) {
+                    pedestrians.splice(i, 1);
+                    continue;
+                }
+
+                // collision detection with player
+                if (rectCollide(player, p)) {
+                    // caught !
+                    score++;
+                    updateScore();
+                    pedestrians.splice(i, 1);
+                }
+            }
+
+            // 3. spawn new victim based on frame counter
+            frameCounter++;
+            if (frameCounter >= SPAWN_FRAME_INTERVAL) {
+                spawnPedestrian();
+                frameCounter = 0;
+                // sometimes spawn two for more chaos (30% chance)
+                if (Math.random() < 0.3) {
+                    spawnPedestrian();
+                }
+            }
+        }
+
+        // ----- drawing the road & objects -----
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ---- ROAD base ----
+            ctx.fillStyle = '#263f2c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // asphalt with texture
+            ctx.fillStyle = '#1f3623';
+            ctx.fillRect(0, ROAD_Y_TOP, canvas.width, ROAD_Y_BOTTOM - ROAD_Y_TOP);
+
+            // lane markings (dashed)
+            ctx.strokeStyle = '#ede7c9';
+            ctx.lineWidth = 5;
+            ctx.setLineDash([20, 30]);
+            ctx.beginPath();
+            for (let i = 1; i < LANE_COUNT; i++) {
+                let laneY = ROAD_Y_TOP + (i * (ROAD_Y_BOTTOM - ROAD_Y_TOP) / LANE_COUNT);
+                ctx.moveTo(30, laneY);
+                ctx.lineTo(canvas.width - 30, laneY);
+            }
+            ctx.stroke();
+
+            // side lines
+            ctx.setLineDash([]);
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#c89f60';
+            ctx.beginPath();
+            ctx.moveTo(10, ROAD_Y_TOP - 2);
+            ctx.lineTo(10, ROAD_Y_BOTTOM + 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(canvas.width - 10, ROAD_Y_TOP - 2);
+            ctx.lineTo(canvas.width - 10, ROAD_Y_BOTTOM + 2);
+            ctx.stroke();
+
+            // road shoulders
+            ctx.fillStyle = '#5f794b';
+            ctx.fillRect(0, 0, canvas.width, ROAD_Y_TOP - 2);
+            ctx.fillRect(0, ROAD_Y_BOTTOM + 4, canvas.width, 40);
+
+            // ---- draw pedestrians (poor souls) ----
+            for (let p of pedestrians) {
+                // body
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.roundRect(p.x, p.y, p.width, p.height, 8);
+                ctx.fill();
+
+                // face / eyes (distressed)
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.arc(p.x + 10, p.y + 12, 5, 0, 2 * Math.PI);
+                ctx.arc(p.x + 26, p.y + 12, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(p.x + 8, p.y + 10, 2, 0, 2 * Math.PI);
+                ctx.arc(p.x + 24, p.y + 10, 2, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // mouth
+                ctx.beginPath();
+                ctx.strokeStyle = '#420e0e';
+                ctx.lineWidth = 2;
+                ctx.moveTo(p.x + 12, p.y + 24);
+                ctx.lineTo(p.x + 24, p.y + 24);
+                ctx.stroke();
+            }
+
+            // ---- draw player (the chaser) ----
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = '#2d0a05';
+            // car body
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.roundRect(player.x, player.y, player.width, player.height, 12);
+            ctx.fill();
+
+            // windscreen
+            ctx.fillStyle = '#353130';
+            ctx.beginPath();
+            ctx.roundRect(player.x + 8, player.y + 8, 14, 18, 5);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.roundRect(player.x + player.width - 22, player.y + 8, 14, 18, 5);
+            ctx.fill();
+
+            // headlights (angry)
+            ctx.fillStyle = '#f5e56b';
+            ctx.shadowColor = '#ffcc00';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(player.x + 8, player.y + player.height - 10, 8, 0, 2 * Math.PI);
+            ctx.arc(player.x + player.width - 8, player.y + player.height - 10, 8, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // red lights rear
+            ctx.fillStyle = '#c02020';
+            ctx.shadowColor = '#ff3300';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(player.x + 10, player.y + 12, 6, 0, 2 * Math.PI);
+            ctx.arc(player.x + player.width - 10, player.y + 12, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // reset shadow
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+        }
+
+        // helper canvas rounding (Chrome, Firefox, etc)
+        CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            this.moveTo(x + r, y);
+            this.lineTo(x + w - r, y);
+            this.quadraticCurveTo(x + w, y, x + w, y + r);
+            this.lineTo(x + w, y + h - r);
+            this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            this.lineTo(x + r, y + h);
+            this.quadraticCurveTo(x, y + h, x, y + h - r);
+            this.lineTo(x, y + r);
+            this.quadraticCurveTo(x, y, x + r, y);
+            return this;
+        };
+
+        // ----- main loop -----
+        function gameLoop() {
+            updateGame();
+            drawScene();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ----- keyboard events -----
+        function keydownHandler(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'Left' || e.key === 'ArrowRight' || e.key === 'Right') {
+                e.preventDefault();  // stop page scrolling
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                leftPressed = true;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'Right') {
+                rightPressed = true;
+            }
+        }
+
+        function keyupHandler(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                leftPressed = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'Right') {
+                rightPressed = false;
+            }
+            // prevent default for arrow keys on keyup as well (just in case)
+            if (e.key.startsWith('Arrow')) {
+                e.preventDefault();
+            }
+        }
+
+        // block page moving with arrows (also for Firefox / edge)
+        window.addEventListener('keydown', keydownHandler);
+        window.addEventListener('keyup', keyupHandler);
+
+        // reset button
+        document.getElementById('resetButton').addEventListener('click', () => {
+            resetGame();
+        });
+
+        // optional: disable context menu on canvas (avoid right-click popup)
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // start the game
+        resetGame();          // fresh start
+        animationId = requestAnimationFrame(gameLoop);
+
+        // clean up on page unload (optional but good)
+        window.addEventListener('beforeunload', () => {
+            if (animationId) cancelAnimationFrame(animationId);
+            window.removeEventListener('keydown', keydownHandler);
+            window.removeEventListener('keyup', keyupHandler);
+        });
+
+        // also stop movement if window loses focus (optional)
+        window.addEventListener('blur', () => {
+            leftPressed = false;
+            rightPressed = false;
+        });
+
+        // a little extra: touch not supported, but we can hint
+        // (the game is designed for keyboard arrows)
+    })();
+</script>
+</body>
+</html>
