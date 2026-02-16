@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install HTML parser
-        run: npm install node-html-parser
+      - name: Install HTML parser (without touching package files)
+        run: npm install --no-save --no-package-lock node-html-parser
 
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
@@ -35,9 +35,8 @@ jobs:
             const path = require('path');
             const { parse } = require('node-html-parser');
 
-            // selector.html is inside /public
             const selectorPath = 'public/selector.html';
-            const imagineDir = 'public/imagine';   // imagine folder now inside public/
+            const imagineDir = 'public/imagine';
 
             // 1. Read the main selector page
             const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
@@ -93,10 +92,9 @@ jobs:
             // 4. Loop through each HTML file
             for (const file of files) {
               const filePath = path.join(imagineDir, file);
-              // Relative path from selector.html (inside public/) to imagine/ (also inside public/)
               const relativeLink = `imagine/${file}`;
 
-              // Skip if a button with this link already exists (prevents duplicates)
+              // Skip if a button with this link already exists
               const existing = root.querySelector(`.select-btn[onclick*="${relativeLink}"]`);
               if (existing) {
                 console.log(`Link for ${file} already present – skipping.`);
@@ -139,10 +137,14 @@ jobs:
             fs.writeFileSync(selectorPath, root.toString());
             console.log('selector.html updated successfully.');
 
-      - name: Commit and push changes
+      - name: Commit and push changes (only if selector.html changed)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/selector.html
-          git diff --quiet && git diff --staged --quiet || git commit -m "Auto‑add imagine file links [skip ci]"
-          git push
+          if ! git diff --staged --quiet; then
+            git commit -m "Auto‑add imagine file links [skip ci]"
+            git push
+          else
+            echo "No changes to selector.html; skipping commit."
+          fi
