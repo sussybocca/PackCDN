@@ -3,7 +3,7 @@ name: Auto‑link Imagine Files
 on:
   push:
     paths:
-      - 'public/imagine/**'          # triggers when files inside public/imagine change
+      - 'public/imagine/**'          # triggers for any change inside imagine/
   workflow_dispatch:
 
 permissions:
@@ -49,16 +49,37 @@ jobs:
               return;
             }
 
-            // 3. Get all HTML files inside the imagine folder
+            // 3. Recursively get all HTML files inside imagine/ (including subfolders)
+            function getAllHtmlFiles(dir, baseDir = dir) {
+              let results = [];
+              const list = fs.readdirSync(dir);
+              for (const item of list) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                  results = results.concat(getAllHtmlFiles(fullPath, baseDir));
+                } else if (item.endsWith('.html')) {
+                  // Store the file path and its relative path from imagineDir
+                  const relativePath = path.relative(baseDir, fullPath);
+                  results.push({ fullPath, relativePath });
+                }
+              }
+              return results;
+            }
+
             if (!fs.existsSync(imagineDir)) {
               console.log('⚠️  imagine/ folder not found – nothing to do.');
               return;
             }
-            const files = fs.readdirSync(imagineDir).filter(f => f.endsWith('.html'));
+
+            const files = getAllHtmlFiles(imagineDir);
             if (files.length === 0) {
               console.log('No HTML files found in imagine/ – nothing to do.');
               return;
             }
+
+            // Sort files by relative path for consistent order
+            files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
             // Helper: extract <title> from an HTML file
             function extractTitle(filePath) {
@@ -90,30 +111,30 @@ jobs:
             }
 
             // 4. Loop through each HTML file
-            for (const file of files) {
-              const filePath = path.join(imagineDir, file);
-              const relativeLink = `imagine/${file}`;
+            for (const { fullPath, relativePath } of files) {
+              // The link from selector.html to the file (both inside public/)
+              const link = `imagine/${relativePath.replace(/\\/g, '/')}`;
 
               // Skip if a button with this link already exists
-              const existing = root.querySelector(`.select-btn[onclick*="${relativeLink}"]`);
+              const existing = root.querySelector(`.select-btn[onclick*="${link}"]`);
               if (existing) {
-                console.log(`Link for ${file} already present – skipping.`);
+                console.log(`Link for ${relativePath} already present – skipping.`);
                 continue;
               }
 
               // Extract or generate a title
-              let title = extractTitle(filePath);
+              let title = extractTitle(fullPath);
               if (!title) {
-                title = path.basename(file, '.html').replace(/[-_]/g, ' ');
+                title = path.basename(relativePath, '.html').replace(/[-_]/g, ' ');
                 title = title.charAt(0).toUpperCase() + title.slice(1);
               }
 
               // Get a short description
-              const description = extractDescription(filePath);
+              const description = extractDescription(fullPath);
 
               // Create a new card that matches your existing design
               const cardHtml = `
-                <div class="experience-card floating" style="animation-delay: ${files.indexOf(file) * 0.2}s;">
+                <div class="experience-card floating" style="animation-delay: ${files.indexOf({fullPath,relativePath}) * 0.2}s;">
                   <div class="card-icon">📄</div>
                   <h2 class="card-title">${title}</h2>
                   <p class="card-description">${description}</p>
@@ -122,7 +143,7 @@ jobs:
                     <li>New dimension</li>
                     <li>Interactive content</li>
                   </ul>
-                  <button class="select-btn" onclick="window.location.href='${relativeLink}'">
+                  <button class="select-btn" onclick="window.location.href='${link}'">
                     explore
                   </button>
                 </div>
@@ -130,7 +151,7 @@ jobs:
 
               // Append the new card to the grid
               grid.appendChild(parse(cardHtml));
-              console.log(`✅ Added card for ${file}`);
+              console.log(`✅ Added card for ${relativePath}`);
             }
 
             // 5. Write the updated HTML back to disk
