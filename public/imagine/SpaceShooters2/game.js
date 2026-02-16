@@ -28,19 +28,14 @@ function startGame() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ========== BACKGROUND MUSIC - FIXED ==========
+    // ========== BACKGROUND MUSIC ==========
     function startBackgroundMusic() {
         if (assets.sounds && assets.sounds.bgm) {
-            // Check if already playing
-            if (!assets.sounds.bgm.playing) {
-                assets.sounds.bgm.loop = true;
-                let vol = localStorage.getItem('spaceShooters_volume');
-                if (vol === null) vol = 70;
-                assets.sounds.bgm.volume = (vol / 100) * 0.5;
-                assets.sounds.bgm.play()
-                    .then(() => { assets.sounds.bgm.playing = true; })
-                    .catch(e => console.log('BGM play failed:', e));
-            }
+            assets.sounds.bgm.loop = true;
+            let vol = localStorage.getItem('spaceShooters_volume');
+            if (vol === null) vol = 70;
+            assets.sounds.bgm.volume = (vol / 100) * 0.5;
+            assets.sounds.bgm.play().catch(e => console.log('BGM play failed:', e));
         }
     }
 
@@ -59,11 +54,11 @@ function startGame() {
     document.addEventListener('touchstart', userInteraction);
 
     // Play background video if available
-    if (assets.videos && assets.videos.nebula) {
-        assets.videos.nebula.play().catch(e => {
+    if (assets.videos && assets.videos.background) {
+        assets.videos.background.play().catch(e => {
             console.log('Background video autoplay failed:', e);
             const playVideoOnGesture = () => {
-                assets.videos.nebula.play().catch(() => {});
+                assets.videos.background.play().catch(() => {});
                 document.removeEventListener('click', playVideoOnGesture);
                 document.removeEventListener('keydown', playVideoOnGesture);
             };
@@ -446,8 +441,8 @@ function startGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw background (video or starfield)
-        if (assets.videos && assets.videos.nebula && assets.videos.nebula.readyState >= 2) {
-            ctx.drawImage(assets.videos.nebula, 0, 0, canvas.width, canvas.height);
+        if (assets.videos && assets.videos.background && assets.videos.background.readyState >= 2) {
+            ctx.drawImage(assets.videos.background, 0, 0, canvas.width, canvas.height);
         } else {
             ctx.fillStyle = 'white';
             for (let i = 0; i < 100; i++) {
