@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PARCORE · maze rush · fly & upgrade</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(45deg, #0b0f1a, #1a1f2f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .game-container {
+            background: #0f1322;
+            border-radius: 2rem;
+            padding: 2rem 2rem 2rem 2rem;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.7), inset 0 0 10px #2f3b6b;
+            border: 1px solid #4e5b8e;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 24px;
+            box-shadow: 0 0 0 3px #2e3a5e, 0 15px 25px black;
+            background: #101624;
+            cursor: none;
+        }
+        .stats-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.2rem;
+            color: #c6d0f5;
+            text-shadow: 0 2px 3px black;
+            font-weight: bold;
+            background: #1a2140b0;
+            padding: 0.8rem 1.5rem;
+            border-radius: 60px;
+            backdrop-filter: blur(4px);
+            border: 1px solid #6575b9;
+        }
+        .stat {
+            background: #0b0f1f;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #4d66cc;
+            box-shadow: inset 0 2px 5px #00000060;
+        }
+        .stat span {
+            color: #b3c7ff;
+            font-size: 1.2rem;
+        }
+        .badge {
+            background: #2f4080;
+            color: white;
+            border-radius: 30px;
+            padding: 4px 14px;
+            font-size: 0.9rem;
+            border: 1px solid #98abff;
+        }
+        button {
+            background: #31478a;
+            border: none;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 0.4rem 1.8rem;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #121b3b, 0 6px 10px black;
+            transition: 0.08s linear;
+            letter-spacing: 1px;
+            border: 1px solid #8095e6;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #121b3b, 0 6px 10px black;
+        }
+        .upgrade-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .upgrade-card {
+            background: #202949;
+            border-radius: 30px;
+            padding: 12px 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            border: 2px solid #6a7ed6;
+            box-shadow: 0 7px 0 #0f142c;
+            min-width: 140px;
+            cursor: pointer;
+            transition: 0.1s;
+            color: #eef3ff;
+        }
+        .upgrade-card:active {
+            transform: translateY(5px);
+            box-shadow: 0 2px 0 #0f142c;
+        }
+        .upgrade-card small {
+            color: #b8cbff;
+            font-size: 0.8rem;
+        }
+        .hidden {
+            display: none;
+        }
+        .danger {
+            color: #ffa098;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="700" height="700"></canvas>
+
+    <div class="stats-panel">
+        <div class="stat">⏱️ <span id="timerDisplay">00.0</span></div>
+        <div class="stat">⚡ <span id="speedMult">1.00x</span></div>
+        <div class="stat">🪙 <span id="coinCount">0</span></div>
+        <div class="stat">🧱 LVL <span id="levelDisplay">1</span></div>
+        <button id="restartBtn">↺ RESTART</button>
+    </div>
+
+    <!-- upgrade selection (appears after level complete) -->
+    <div id="upgradePanel" class="upgrade-container hidden">
+        <div class="upgrade-card" id="upgrade1">
+            <span id="up1Name">???</span>
+            <small id="up1Desc"></small>
+        </div>
+        <div class="upgrade-card" id="upgrade2">
+            <span id="up2Name">???</span>
+            <small id="up2Desc"></small>
+        </div>
+        <div class="upgrade-card" id="upgrade3">
+            <span id="up3Name">???</span>
+            <small id="up3Desc"></small>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ---------- UPGRADE / STATS ----------
+    let upgrade = {
+        speedLevel: 0,        // +0.2 base speed per level
+        timeLevel: 0,         // +2 sec per level (added to base time)
+        armorLevel: 0,        // reduces stun duration by 0.1s per level (min 0.1)
+        flightLevel: 0,       // 0 = locked, 1 = unlocked (duration 2s, cd 5s), 2 = +1s dur, 3 = -1s cd, etc
+    };
+
+    let baseSpeed = 3.2;          // base movement speed (pixels per frame)
+    const BASE_TIME = 34;          // seconds for level 1
+    const TIME_DECREASE = 2.2;     // less time each level
+    let currentLevel = 1;
+    let timer = BASE_TIME;          // seconds
+    let timerFatal = false;         // game over if true
+
+    let coinsCollected = 0;         // total points (also speed multiplier)
+    let coinMultiplier = 1.0;        // from collected coins (each coin +0.03)
+    const COIN_BOOST = 0.02;        // per coin
+
+    // player state
+    let player = { x: 100, y: 100, r: 14 };
+    let velocity = { x: 0, y: 0 };
+    let keys = { up: false, down: false, left: false, right: false, fly: false };
+
+    // stun mechanic
+    let stunTimer = 0;               // frames remaining of stun
+    const STUN_DURATION = 0.5;        // seconds (will be reduced by armor)
+    let stunDurationActual = STUN_DURATION;
+
+    // flight mechanic
+    let flightActive = false;
+    let flightCooldown = 0;           // seconds remaining
+    let flightTimer = 0;              // seconds left in flight
+    const FLIGHT_DUR_BASE = 2.0;
+    const FLIGHT_COOLDOWN_BASE = 5.0;
+    let flightDuration = FLIGHT_DUR_BASE;
+    let flightCooldownTotal = FLIGHT_COOLDOWN_BASE;
+
+    // maze
+    const ROWS = 15;
+    const COLS = 15;
+    const CELL_SIZE = 700 / COLS;      // 46.66... but we'll use integer math? better keep float
+    let maze = [];                     // 0 = wall, 1 = floor
+    let startCol = 1, startRow = 1;
+    let exitCol = COLS-2, exitRow = ROWS-2;
+    let coins = [];                    // array of {col, row, collected}
+
+    // game state: 'playing', 'transition' (showing upgrade), 'gameover'
+    let gameState = 'playing';
+
+    // ------------------------------------------------------
+    //  MAZE GENERATOR (DFS)
+    function generateMaze() {
+        // initialize all walls
+        let newMaze = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        const dirs = [[0,2],[0,-2],[2,0],[-2,0]];
+
+        function carve(x, y) {
+            newMaze[y][x] = 1;
+            let order = [...Array(4).keys()];
+            for (let i = order.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [order[i], order[j]] = [order[j], order[i]];
+            }
+            for (let d of order) {
+                let [dx, dy] = dirs[d];
+                let nx = x + dx, ny = y + dy;
+                if (nx > 0 && nx < COLS-1 && ny > 0 && ny < ROWS-1 && newMaze[ny][nx] === 0) {
+                    // remove wall between
+                    newMaze[y + dy/2][x + dx/2] = 1;
+                    carve(nx, ny);
+                }
+            }
+        }
+
+        // start carving from (1,1)
+        carve(1, 1);
+
+        // guarantee start and exit open
+        newMaze[startRow][startCol] = 1;
+        newMaze[exitRow][exitCol] = 1;
+
+        // place random coins (on floor, not start/exit)
+        let coinList = [];
+        for (let r = 1; r < ROWS-1; r++) {
+            for (let c = 1; c < COLS-1; c++) {
+                if (newMaze[r][c] === 1 && !(r === startRow && c === startCol) && !(r === exitRow && c === exitCol)) {
+                    if (Math.random() < 0.15) {   // density
+                        coinList.push({col: c, row: r, collected: false});
+                    }
+                }
+            }
+        }
+        // ensure at least 4 coins
+        while (coinList.length < 5) {
+            let r = Math.floor(Math.random() * (ROWS-2)) + 1;
+            let c = Math.floor(Math.random() * (COLS-2)) + 1;
+            if (newMaze[r][c] === 1 && !(r === startRow && c === startCol) && !(r === exitRow && c === exitCol)) {
+                if (!coinList.some(coin => coin.row === r && coin.col === c)) {
+                    coinList.push({col: c, row: r, collected: false});
+                }
+            }
+        }
+
+        maze = newMaze;
+        coins = coinList;
+    }
+
+    // reset level (called on new game or next level)
+    function resetLevel() {
+        generateMaze();
+
+        // place player at start
+        player.x = startCol * CELL_SIZE + CELL_SIZE/2;
+        player.y = startRow * CELL_SIZE + CELL_SIZE/2;
+        velocity.x = 0; velocity.y = 0;
+        stunTimer = 0;
+        flightActive = false; flightTimer = 0;
+
+        // coins collected this level? we keep total between levels, but per-level coins are fresh
+        // collected status reset
+        coins.forEach(c => c.collected = false);
+
+        // compute timer for this level
+        let timeBonus = upgrade.timeLevel * 2;
+        let calculated = BASE_TIME - (currentLevel-1) * TIME_DECREASE + timeBonus;
+        timer = Math.max(10, calculated);  // never below 10 sec
+
+        // update stun duration based on armor
+        stunDurationActual = Math.max(0.1, STUN_DURATION - upgrade.armorLevel * 0.1);
+    }
+
+    // restart whole game (from level 1)
+    function restartGame() {
+        // reset upgrades
+        upgrade = { speedLevel:0, timeLevel:0, armorLevel:0, flightLevel:0 };
+        coinsCollected = 0;
+        coinMultiplier = 1.0;
+        currentLevel = 1;
+        flightDuration = FLIGHT_DUR_BASE;
+        flightCooldownTotal = FLIGHT_COOLDOWN_BASE;
+        flightCooldown = 0;
+
+        resetLevel();
+        gameState = 'playing';
+        document.getElementById('upgradePanel').classList.add('hidden');
+    }
+
+    // next level
+    function advanceLevel() {
+        currentLevel++;
+        // upgrade flight stats if flightLevel > 1
+        if (upgrade.flightLevel >= 2) {
+            flightDuration = FLIGHT_DUR_BASE + (upgrade.flightLevel-1) * 0.8; // extra duration
+        }
+        if (upgrade.flightLevel >= 3) {
+            flightCooldownTotal = Math.max(1.5, FLIGHT_COOLDOWN_BASE - (upgrade.flightLevel-2) * 1.2);
+        } else {
+            flightCooldownTotal = FLIGHT_COOLDOWN_BASE;
+        }
+
+        resetLevel();
+        gameState = 'playing';
+        document.getElementById('upgradePanel').classList.add('hidden');
+    }
+
+    // ---------- upgrade choices ----------
+    function showUpgrades() {
+        // generate 3 random upgrades (no duplicates simple)
+        let options = [];
+        let names = ['🏃 SPEED', '⏳ TIME', '🛡️ ARMOR', '🪽 FLIGHT'];
+        let descs = [
+            '+0.2 base speed',
+            '+2 sec per level',
+            '−0.1s stun duration',
+            upgrade.flightLevel === 0 ? 'unlock flight (F)' : 'improve flight'
+        ];
+
+        // indices 0,1,2,3
+        let available = [0,1,2,3];
+        for (let i = 0; i < 3; i++) {
+            if (available.length === 0) break;
+            let idx = Math.floor(Math.random() * available.length);
+            let type = available[idx];
+            available.splice(idx, 1);
+            options.push(type);
+        }
+
+        // update DOM
+        for (let i = 0; i < 3; i++) {
+            let type = options[i];
+            let nameEl = document.getElementById(`up${i+1}Name`);
+            let descEl = document.getElementById(`up${i+1}Desc`);
+            if (type === 0) {
+                nameEl.innerText = '🏃 SPEED';
+                descEl.innerText = '+0.2 base speed';
+            } else if (type === 1) {
+                nameEl.innerText = '⏳ TIME';
+                descEl.innerText = '+2 sec per level';
+            } else if (type === 2) {
+                nameEl.innerText = '🛡️ ARMOR';
+                descEl.innerText = '−0.1s stun';
+            } else if (type === 3) {
+                if (upgrade.flightLevel === 0) {
+                    nameEl.innerText = '🪽 FLIGHT';
+                    descEl.innerText = 'unlock (F key)';
+                } else {
+                    nameEl.innerText = '⭐ FLIGHT+';
+                    descEl.innerText = '+0.8s dur / -1.2s cd';
+                }
+            }
+            // store type in dataset
+            document.getElementById(`upgrade${i+1}`).dataset.type = type;
+        }
+
+        document.getElementById('upgradePanel').classList.remove('hidden');
+    }
+
+    function applyUpgrade(type) {
+        type = parseInt(type);
+        if (type === 0) upgrade.speedLevel++;
+        else if (type === 1) upgrade.timeLevel++;
+        else if (type === 2) upgrade.armorLevel++;
+        else if (type === 3) upgrade.flightLevel++;
+
+        advanceLevel();  // go to next level with new upgrades
+    }
+
+    // attach upgrade click
+    document.getElementById('upgrade1').addEventListener('click', e => {
+        if (gameState === 'transition') applyUpgrade(e.currentTarget.dataset.type);
+    });
+    document.getElementById('upgrade2').addEventListener('click', e => {
+        if (gameState === 'transition') applyUpgrade(e.currentTarget.dataset.type);
+    });
+    document.getElementById('upgrade3').addEventListener('click', e => {
+        if (gameState === 'transition') applyUpgrade(e.currentTarget.dataset.type);
+    });
+
+    // restart button
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        restartGame();
+    });
+
+    // ---------- input handling ----------
+    window.addEventListener('keydown', (e) => {
+        if (gameState !== 'playing') return;
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'w') keys.up = true;
+        if (k === 'ArrowDown' || k === 's') keys.down = true;
+        if (k === 'ArrowLeft' || k === 'a') keys.left = true;
+        if (k === 'ArrowRight' || k === 'd') keys.right = true;
+        if (k === 'f' || k === 'F') {
+            if (upgrade.flightLevel > 0 && flightCooldown <= 0 && !flightActive) {
+                flightActive = true;
+                flightTimer = flightDuration;
+            }
+        }
+        // prevent page scrolling
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','f'].includes(k)) e.preventDefault();
+    });
+
+    window.addEventListener('keyup', (e) => {
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'w') keys.up = false;
+        if (k === 'ArrowDown' || k === 's') keys.down = false;
+        if (k === 'ArrowLeft' || k === 'a') keys.left = false;
+        if (k === 'ArrowRight' || k === 'd') keys.right = false;
+        e.preventDefault();
+    });
+
+    // disable context menu
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    // ---------- collision & movement ----------
+    function isWall(col, row) {
+        if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return true;
+        return maze[row][col] === 0;
+    }
+
+    function handleCollision() {
+        if (flightActive) return false; // no collisions while flying
+
+        let rad = player.r;
+        let cells = [
+            [Math.floor((player.x - rad) / CELL_SIZE), Math.floor((player.y - rad) / CELL_SIZE)],
+            [Math.floor((player.x + rad) / CELL_SIZE), Math.floor((player.y - rad) / CELL_SIZE)],
+            [Math.floor((player.x - rad) / CELL_SIZE), Math.floor((player.y + rad) / CELL_SIZE)],
+            [Math.floor((player.x + rad) / CELL_SIZE), Math.floor((player.y + rad) / CELL_SIZE)]
+        ];
+
+        for (let [col, row] of cells) {
+            if (isWall(col, row)) {
+                return true; // collision
+            }
+        }
+        return false;
+    }
+
+    function tryMove(dx, dy) {
+        if (stunTimer > 0) return; // stunned, no control
+
+        let speed = baseSpeed + upgrade.speedLevel * 0.2;
+        speed *= coinMultiplier;   // from collected coins
+
+        let newX = player.x + dx * speed;
+        let newY = player.y + dy * speed;
+        let oldX = player.x, oldY = player.y;
+
+        // try X
+        player.x = newX;
+        if (handleCollision()) {
+            player.x = oldX;
+        }
+        // try Y
+        player.y = newY;
+        if (handleCollision()) {
+            player.y = oldY;
+        }
+
+        // if any collision after move, stun?
+        // we detect collision again at final position (if flight not active)
+        if (!flightActive && handleCollision()) {
+            // stun
+            stunTimer = stunDurationActual * 60; // frames (approx 60fps)
+            // push player out? already resolved, but we can push back a bit
+        }
+    }
+
+    // ---------- update game (frame) ----------
+    let lastTimestamp = 0;
+    function gameLoop(now) {
+        const delta = Math.min(0.03, (now - (lastTimestamp || now)) / 1000); // safe
+        lastTimestamp = now;
+
+        if (gameState === 'playing') {
+            // timer decrease
+            timer -= delta;
+            if (timer <= 0) {
+                gameState = 'gameover';
+                document.getElementById('upgradePanel').classList.add('hidden');
+            }
+
+            // flight timer / cooldown
+            if (flightActive) {
+                flightTimer -= delta;
+                if (flightTimer <= 0) {
+                    flightActive = false;
+                    flightCooldown = flightCooldownTotal;
+                }
+            }
+            if (flightCooldown > 0) {
+                flightCooldown -= delta;
+            }
+
+            // stun timer decrease
+            if (stunTimer > 0) {
+                stunTimer -= delta * 60; // frames approx
+            }
+
+            // handle movement keys
+            let moveX = 0, moveY = 0;
+            if (keys.up) moveY -= 1;
+            if (keys.down) moveY += 1;
+            if (keys.left) moveX -= 1;
+            if (keys.right) moveX += 1;
+            if (moveX !== 0 || moveY !== 0) {
+                let len = Math.hypot(moveX, moveY);
+                moveX /= len;
+                moveY /= len;
+                tryMove(moveX, moveY);
+            }
+
+            // coin collection
+            for (let coin of coins) {
+                if (!coin.collected) {
+                    let cx = coin.col * CELL_SIZE + CELL_SIZE/2;
+                    let cy = coin.row * CELL_SIZE + CELL_SIZE/2;
+                    let dist = Math.hypot(player.x - cx, player.y - cy);
+                    if (dist < player.r + 8) {
+                        coin.collected = true;
+                        coinsCollected++;
+                        coinMultiplier = Math.min(2.0, 1.0 + coinsCollected * COIN_BOOST);
+                    }
+                }
+            }
+
+            // exit condition
+            let exitX = exitCol * CELL_SIZE + CELL_SIZE/2;
+            let exitY = exitRow * CELL_SIZE + CELL_SIZE/2;
+            if (Math.hypot(player.x - exitX, player.y - exitY) < player.r + 10) {
+                // level complete
+                gameState = 'transition';
+                showUpgrades();
+            }
+        }
+
+        // draw everything
+        drawCanvas();
+
+        // game over overlay
+        if (gameState === 'gameover') {
+            ctx.fillStyle = '#000000aa';
+            ctx.fillRect(0,0,700,700);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 42px "Segoe UI"';
+            ctx.shadowColor = '#ff5555';
+            ctx.shadowBlur = 16;
+            ctx.fillText('GAME OVER', 140, 360);
+            ctx.shadowBlur = 0;
+            ctx.font = '24px monospace';
+            ctx.fillStyle = '#ffcaca';
+            ctx.fillText('click restart', 260, 470);
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ---------- drawing ----------
+    function drawCanvas() {
+        ctx.clearRect(0, 0, 700, 700);
+        ctx.shadowBlur = 0;
+
+        // draw maze cells
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let x = c * CELL_SIZE, y = r * CELL_SIZE;
+                if (maze[r][c] === 0) { // wall
+                    ctx.fillStyle = '#2c3858';
+                    ctx.fillRect(x+1, y+1, CELL_SIZE-2, CELL_SIZE-2);
+                    ctx.fillStyle = '#151e30';
+                    ctx.fillRect(x+2, y+2, CELL_SIZE-4, CELL_SIZE-4);
+                } else { // floor
+                    ctx.fillStyle = '#293656';
+                    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                    ctx.fillStyle = '#1f2744';
+                    ctx.fillRect(x+1, y+1, CELL_SIZE-2, CELL_SIZE-2);
+                }
+            }
+        }
+
+        // draw coins
+        ctx.shadowColor = '#f7da90';
+        ctx.shadowBlur = 12;
+        for (let coin of coins) {
+            if (!coin.collected) {
+                let cx = coin.col * CELL_SIZE + CELL_SIZE/2;
+                let cy = coin.row * CELL_SIZE + CELL_SIZE/2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 9, 0, 2*Math.PI);
+                ctx.fillStyle = '#fdde5c';
+                ctx.fill();
+                ctx.fillStyle = '#f0b300';
+                ctx.beginPath();
+                ctx.arc(cx-2, cy-2, 4, 0, 2*Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // draw exit (green glow)
+        ctx.shadowColor = '#a3ff8f';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#33cc66';
+        ctx.beginPath();
+        ctx.arc(exitCol*CELL_SIZE + CELL_SIZE/2, exitRow*CELL_SIZE + CELL_SIZE/2, 18, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff40';
+        ctx.beginPath();
+        ctx.arc(exitCol*CELL_SIZE + CELL_SIZE/2-4, exitRow*CELL_SIZE + CELL_SIZE/2-4, 6, 0, 2*Math.PI);
+        ctx.fill();
+
+        // draw player (with flight effect)
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = flightActive ? '#aad0ff' : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, 2*Math.PI);
+        ctx.fillStyle = flightActive ? '#aad4ff' : '#7c9cff';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        if (stunTimer > 0) {
+            ctx.fillStyle = '#ffb280';
+            ctx.beginPath();
+            ctx.arc(player.x-3, player.y-5, 5, 0, 2*Math.PI);
+            ctx.fill();
+        }
+
+        // UI updates
+        document.getElementById('timerDisplay').innerText = timer.toFixed(1);
+        document.getElementById('speedMult').innerText = coinMultiplier.toFixed(2) + 'x';
+        document.getElementById('coinCount').innerText = coinsCollected;
+        document.getElementById('levelDisplay').innerText = currentLevel;
+
+        // flight cooldown indicator (tiny)
+        if (upgrade.flightLevel > 0) {
+            ctx.shadowBlur = 0;
+            ctx.font = 'bold 14px monospace';
+            ctx.fillStyle = '#b5d0ff';
+            ctx.fillText(`FLIGHT ${flightActive ? '↑' : (flightCooldown>0?'⏳':'✓')}`, 20, 40);
+        }
+    }
+
+    // start game
+    restartGame();
+    requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>
