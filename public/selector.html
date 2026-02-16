@@ -368,7 +368,7 @@
         <h1 class="logo">PackCDN</h1>
         <p class="tagline">✦ choose your dimension — categorized multiverse ✦</p>
 
-        <!-- category filter buttons -->
+        
         <div class="filter-bar" id="categoryFilter">
             <button class="filter-btn active" data-filter="all">🌌 All</button>
             <button class="filter-btn" data-filter="featured">✨ Featured</button>
@@ -377,10 +377,10 @@
             <button class="filter-btn" data-filter="demos">🌀 Demos</button>
         </div>
 
-        <!-- dynamic cards container -->
+        
         <div class="selector-grid" id="cardsContainer"></div>
 
-        <!-- quick links (unchanged) -->
+        
         <div class="quick-links">
             <h3>⚡ quick access ⚡</h3>
             <div class="link-buttons">
@@ -400,86 +400,388 @@
         (function() {
             // ---------- CARD DATA (preserving all original links, icons, descriptions) ----------
             const cardsData = [
-                // featured / main
-                { icon: "🌀", title: "Immersive Docs", description: "Step into a living 3D documentation with animated examples, live demos, and visual architecture.", features: ["Three.js powered 3D environment","GSAP cinematic transitions","Interactive code playgrounds","Real-time flow visualizer","Holographic diagrams"], link: "Docs/docs.html", category: "featured", highlight: true },
-                { icon: "🌐", title: "Classic Website", description: "Fast, lightweight landing with straightforward navigation and instant access to all tools.", features: ["Lightning fast load","Traditional navigation","One-click to all features","Perfectly responsive","Clean minimal design"], link: "home/index.html", category: "featured", highlight: false },
-                
-                // JavaMods (two entries with different paths)
-                { icon: "📄", title: "JavaMods", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "../imagine/index.html", category: "games", highlight: false },
-                { icon: "📄", title: "JavaMods", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/index (1).html", category: "games", highlight: false },
-                
-                // pure three.js game
-                { icon: "📄", title: "PackCDN · PURE THREE.JS GAME · CONTROLS WORK", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/deepseek_html_20260216_42dccb.html", category: "demos", highlight: false },
-                
-                // ghost clicker
-                { icon: "📄", title: "Ghost Clicker 3D - Immersive Spectral Hunting", description: "Enter a spectral dimension where ghosts drift in 3D space. Use your cursor to banish them in this immersive haunting experience!…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ghost.html", category: "games", highlight: false },
-                
-                // road chase
-                { icon: "📄", title: "ROAD CHASE · just run them down", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/RoadChase.html", category: "games", highlight: false },
-                
-                // space shooters
-                { icon: "📄", title: "🚀 SPACE SHOOTERS · upgrade & blast", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/SpaceShooters.html", category: "games", highlight: false },
-                
-                // parcore
-                { icon: "📄", title: "PARCORE · maze rush · fly & upgrade", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ParCoreSim.html", category: "games", highlight: false },
-                
-                // subway surfers
-                { icon: "📄", title: "Subway Surfers", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/index (2).html", category: "games", highlight: false },
-                
-                // brick breaker
-                { icon: "📄", title: "Brick breaker", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/brick-breaker.html", category: "games", highlight: false },
-                
-                // 장기 (Janggi)
-                { icon: "📄", title: "장기", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/janggi.html", category: "games", highlight: false },
-                
-                // 일정관리 (scheduler)
-                { icon: "📄", title: "일정관리", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/kanban.html", category: "utility", highlight: false },
-                
-                // maze
-                { icon: "📄", title: "Maze", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/maze.html", category: "games", highlight: false },
-                
-                // gomoku
-                { icon: "📄", title: "Gomoku", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/omok.html", category: "games", highlight: false },
-                
-                // stack
-                { icon: "📄", title: "Stack", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/stack.html", category: "games", highlight: false },
-                
-                // tetris
-                { icon: "📄", title: "Tetris", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/tetris.html", category: "games", highlight: false },
-                
-                // 2048
-                { icon: "📄", title: "2048", description: "Join the numbers and get to the 2048 tile!…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/2048.html", category: "games", highlight: false },
-                
-                // zombierush
-                { icon: "📄", title: "Zombierush", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/zombierush.html", category: "games", highlight: false },
-                
-                // cookieclicker
-                { icon: "📄", title: "Cookieclicker", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/cookieclicker.html", category: "games", highlight: false },
-                
-                // amongus
-                { icon: "📄", title: "Amongus", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/amongus.html", category: "games", highlight: false },
-                
-                // basketbros
-                { icon: "📄", title: "Basketbros", description: "Loading...…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/basketbros.html", category: "games", highlight: false },
-                
-                // 8ballclassic
-                { icon: "📄", title: "8ballclassic", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/8ballclassic.html", category: "games", highlight: false },
-                
-                // angrybirds
-                { icon: "📄", title: "Angrybirds", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/angrybirds.html", category: "games", highlight: false },
-                
-                // bitlife
-                { icon: "📄", title: "Bitlife", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/bitlife.html", category: "games", highlight: false },
-                
-                // ageofwar
-                { icon: "📄", title: "Ageofwar", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ageofwar.html", category: "games", highlight: false },
-                
-                // bloonsTD
-                { icon: "📄", title: "BloonsTD", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/bloonsTD.html", category: "games", highlight: false },
-                
-                // flappy bird
-                { icon: "📄", title: "Flappy Bird", description: "…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/flappybird.html", category: "games", highlight: false }
-            ];
+  {
+    icon: "🌀",
+    title: "Immersive Docs",
+    description: "Step into a living 3D documentation with animated examples, live demos, and visual architecture.",
+    features: [
+      "Three.js powered 3D environment",
+      "GSAP cinematic transitions",
+      "Interactive code playgrounds",
+      "Real-time flow visualizer",
+      "Holographic diagrams"
+    ],
+    link: "Docs/docs.html",
+    category: "featured",
+    highlight: true
+  },
+  {
+    icon: "🌐",
+    title: "Classic Website",
+    description: "Fast, lightweight landing with straightforward navigation and instant access to all tools.",
+    features: [
+      "Lightning fast load",
+      "Traditional navigation",
+      "One-click to all features",
+      "Perfectly responsive",
+      "Clean minimal design"
+    ],
+    link: "home/index.html",
+    category: "featured",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "JavaMods",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "../imagine/index.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "JavaMods",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/index (1).html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "PackCDN · PURE THREE.JS GAME · CONTROLS WORK",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/deepseek_html_20260216_42dccb.html",
+    category: "demos",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Ghost Clicker 3D - Immersive Spectral Hunting",
+    description: "Enter a spectral dimension where ghosts drift in 3D space. Use your cursor to banish them in this immersive haunting experience!…",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/ghost.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "ROAD CHASE · just run them down",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/RoadChase.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "🚀 SPACE SHOOTERS · upgrade & blast",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/SpaceShooters.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "PARCORE · maze rush · fly & upgrade",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/ParCoreSim.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Subway Surfers",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/index (2).html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Brick breaker",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/brick-breaker.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "장기",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/janggi.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "일정관리",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/kanban.html",
+    category: "utility",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Maze",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/maze.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Gomoku",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/omok.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Stack",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/stack.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Tetris",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/tetris.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "2048",
+    description: "Join the numbers and get to the 2048 tile!…",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/2048.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Zombierush",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/zombierush.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Cookieclicker",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/cookieclicker.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Amongus",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/amongus.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Basketbros",
+    description: "Loading...…",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/basketbros.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "8ballclassic",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/8ballclassic.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Angrybirds",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/angrybirds.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Bitlife",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/bitlife.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Ageofwar",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/ageofwar.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "BloonsTD",
+    description: "Explore this immersive experience.",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/bloonsTD.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "Flappy Bird",
+    description: "…",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/flappybird.html",
+    category: "games",
+    highlight: false
+  },
+  {
+    icon: "📄",
+    title: "fnaf HTML",
+    description: "…",
+    features: [
+      "Immersive experience",
+      "New dimension",
+      "Interactive content"
+    ],
+    link: "imagine/fnaf.html",
+    category: "demos",
+    highlight: false
+  }
+];
 
             // ---------- render cards ----------
             const container = document.getElementById('cardsContainer');
