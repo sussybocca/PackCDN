@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PackCDN · select your dimension</title>
+    <title>PackCDN · dimension catalog</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        /* reset & base */
         * {
             margin: 0;
             padding: 0;
@@ -23,10 +22,9 @@
             color: #fff;
             overflow-x: hidden;
             position: relative;
-            background: #0a0a14; /* fallback */
+            background: #0a0a14;
         }
 
-        /* canvas – immersive 3D background */
         #bg-canvas {
             position: fixed;
             top: 0;
@@ -34,13 +32,12 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            pointer-events: none; /* allow interaction with content */
+            pointer-events: none;
             opacity: 0.9;
         }
 
-        /* main container with glass effect */
         .container {
-            max-width: 1300px;
+            max-width: 1400px;
             padding: 30px 40px;
             text-align: center;
             position: relative;
@@ -52,7 +49,6 @@
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(102, 126, 234, 0.2) inset;
         }
 
-        /* animated neon glow for logo */
         .logo {
             font-size: 5rem;
             font-weight: 800;
@@ -73,7 +69,7 @@
         .tagline {
             font-size: 1.3rem;
             color: rgba(220, 230, 255, 0.9);
-            margin-bottom: 50px;
+            margin-bottom: 30px;
             max-width: 700px;
             margin-left: auto;
             margin-right: auto;
@@ -85,12 +81,45 @@
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
         }
 
-        /* grid – cards with depth */
+        /* category filter bar */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin: 30px 0 40px;
+        }
+        .filter-btn {
+            background: rgba(20, 25, 50, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(130, 160, 255, 0.3);
+            color: #d3dcff;
+            padding: 10px 28px;
+            border-radius: 60px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .filter-btn:hover {
+            background: #3f3f7a;
+            border-color: #a6b9ff;
+            transform: translateY(-3px);
+        }
+        .filter-btn.active {
+            background: linear-gradient(145deg, #667eea, #8650d6);
+            border-color: #ffffff80;
+            color: white;
+            box-shadow: 0 10px 20px #3f2e77;
+        }
+
         .selector-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 40px;
-            margin: 50px 0;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
             perspective: 1200px;
         }
 
@@ -98,15 +127,18 @@
             background: rgba(20, 20, 35, 0.7);
             backdrop-filter: blur(16px);
             border-radius: 40px;
-            padding: 40px 30px;
+            padding: 35px 25px;
             cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), border-color 0.3s, box-shadow 0.4s;
+            transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), border-color 0.3s, box-shadow 0.4s, opacity 0.3s;
             border: 2px solid rgba(140, 160, 255, 0.2);
             box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
             transform-style: preserve-3d;
             transform: rotateX(2deg) rotateY(0deg) translateZ(20px);
             will-change: transform;
             position: relative;
+        }
+        .experience-card.hidden {
+            display: none;
         }
 
         .experience-card::before {
@@ -136,9 +168,9 @@
         }
 
         .experience-card.highlight {
-            background: linear-gradient(145deg, rgba(30, 25, 50, 0.9), rgba(20, 15, 45, 0.9));
-            border-color: rgba(102, 126, 234, 0.6);
-            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+            background: linear-gradient(145deg, rgba(40, 35, 70, 0.9), rgba(30, 25, 60, 0.9));
+            border-color: rgba(102, 126, 234, 0.8);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.5);
         }
 
         .card-icon {
@@ -149,33 +181,35 @@
         }
 
         .card-title {
-            font-size: 2.2rem;
+            font-size: 2rem;
             margin-bottom: 15px;
             font-weight: 700;
             background: linear-gradient(to right, #f0f0ff, #d6daff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            line-height: 1.2;
         }
 
         .card-description {
             color: #b0bedd;
-            line-height: 1.7;
-            margin-bottom: 25px;
-            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1rem;
         }
 
         .card-features {
             list-style: none;
             text-align: left;
-            margin: 25px 0;
+            margin: 20px 0;
         }
 
         .card-features li {
-            padding: 8px 0 8px 30px;
+            padding: 6px 0 6px 28px;
             color: #ccd6f0;
             position: relative;
             font-weight: 400;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.95rem;
         }
 
         .card-features li:before {
@@ -184,18 +218,33 @@
             left: 0;
             color: #a678ff;
             font-weight: bold;
-            font-size: 1.3rem;
-            top: 4px;
+            font-size: 1.2rem;
+            top: 2px;
+        }
+
+        .category-badge {
+            display: inline-block;
+            background: rgba(102, 126, 234, 0.2);
+            backdrop-filter: blur(4px);
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #b7cdff;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 15px;
         }
 
         .select-btn {
             margin-top: 15px;
-            padding: 15px 30px;
+            padding: 14px 25px;
             background: linear-gradient(145deg, #667eea, #8650d6);
             color: white;
             border: none;
             border-radius: 60px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.25s;
@@ -280,24 +329,15 @@
             text-transform: uppercase;
         }
 
-        /* floating animation for extra depth */
         .floating {
             animation: float 7s ease-in-out infinite;
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0) rotateX(2deg); }
-            50% { transform: translateY(-12px) rotateX(0deg); }
+            50% { transform: translateY(-10px) rotateX(0deg); }
         }
 
-        /* responsive */
-        @media (max-width: 768px) {
-            .container { padding: 20px; }
-            .logo { font-size: 3.5rem; }
-            .selector-grid { gap: 25px; }
-        }
-
-        /* custom mouse trail glow */
         .glow-point {
             position: fixed;
             width: 600px;
@@ -310,425 +350,37 @@
             transform: translate(-50%, -50%);
             transition: opacity 0.3s;
         }
+
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .logo { font-size: 3.5rem; }
+            .selector-grid { gap: 20px; }
+            .filter-bar { gap: 8px; }
+            .filter-btn { padding: 8px 18px; font-size: 0.9rem; }
+        }
     </style>
 </head>
 <body>
-
-    
     <div id="bg-canvas"></div>
-
-    
     <div class="glow-point" id="glow"></div>
 
     <div class="container">
         <h1 class="logo">PackCDN</h1>
-        <p class="tagline">✦ choose your dimension — instant pack publishing & distribution ✦</p>
+        <p class="tagline">✦ choose your dimension — categorized multiverse ✦</p>
 
-        <div class="selector-grid">
-            
-            <div class="experience-card highlight" id="card-immersive">
-                <div class="card-icon">🌀</div>
-                <h2 class="card-title">Immersive Docs</h2>
-                <p class="card-description">
-                    Step into a living 3D documentation with animated examples, live demos, 
-                    and visual architecture.
-                </p>
-                <ul class="card-features">
-                    <li>Three.js powered 3D environment</li>
-                    <li>GSAP cinematic transitions</li>
-                    <li>Interactive code playgrounds</li>
-                    <li>Real-time flow visualizer</li>
-                    <li>Holographic diagrams</li>
-                </ul>
-                <button class="select-btn" onclick="window.location.href='Docs/docs.html'">
-                    enter immersive realm
-                </button>
-            </div>
+        <!-- category filter buttons -->
+        <div class="filter-bar" id="categoryFilter">
+            <button class="filter-btn active" data-filter="all">🌌 All</button>
+            <button class="filter-btn" data-filter="featured">✨ Featured</button>
+            <button class="filter-btn" data-filter="games">🎮 Games</button>
+            <button class="filter-btn" data-filter="utility">🛠️ Utilities</button>
+            <button class="filter-btn" data-filter="demos">🌀 Demos</button>
+        </div>
 
-            
-            <div class="experience-card" id="card-classic">
-                <div class="card-icon">🌐</div>
-                <h2 class="card-title">Classic Website</h2>
-                <p class="card-description">
-                    Fast, lightweight landing with straightforward navigation and instant access to all tools.
-                </p>
-                <ul class="card-features">
-                    <li>Lightning fast load</li>
-                    <li>Traditional navigation</li>
-                    <li>One-click to all features</li>
-                    <li>Perfectly responsive</li>
-                    <li>Clean minimal design</li>
-                </ul>
-                <button class="select-btn" onclick="window.location.href='home/index.html'">
-                    go to classic
-                </button>
-            </div>
-        
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">JavaMods</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='../imagine/index.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">JavaMods</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/index (1).html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">PackCDN · PURE THREE.JS GAME · CONTROLS WORK</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/deepseek_html_20260216_42dccb.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Ghost Clicker 3D - Immersive Spectral Hunting</h2>
-      <p class="card-description">Enter a spectral dimension where ghosts drift in 3D space. Use your cursor to banish them in this immersive haunting experience!…</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/ghost.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">ROAD CHASE · just run them down</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/RoadChase.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">🚀 SPACE SHOOTERS · upgrade & blast</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/SpaceShooters.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">PARCORE · maze rush · fly & upgrade</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/ParCoreSim.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 1.2000000000000002s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Subway Surfers</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/index (2).html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0.6000000000000001s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Brick breaker</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/brick-breaker.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 1.6s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">장기</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/janggi.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 1.8s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">일정관리</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/kanban.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Maze</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/maze.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 2.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Gomoku</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/omok.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 2.4000000000000004s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Stack</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/stack.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 2.6s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Tetris</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/tetris.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 0s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">2048</h2>
-      <p class="card-description">Join the numbers and get to the 2048 tile!…</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/2048.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: 3s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Zombierush</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/zombierush.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Cookieclicker</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/cookieclicker.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Amongus</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/amongus.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Basketbros</h2>
-      <p class="card-description">Loading...…</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/basketbros.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">8ballclassic</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/8ballclassic.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Angrybirds</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/angrybirds.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Bitlife</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/bitlife.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Ageofwar</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/ageofwar.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">BloonsTD</h2>
-      <p class="card-description">Explore this immersive experience.</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/bloonsTD.html'">
-        explore
-      </button>
-    </div>
-  
-    <div class="experience-card floating" style="animation-delay: -0.2s;">
-      <div class="card-icon">📄</div>
-      <h2 class="card-title">Flappy Bird</h2>
-      <p class="card-description">…</p>
-      <ul class="card-features">
-        <li>Immersive experience</li>
-        <li>New dimension</li>
-        <li>Interactive content</li>
-      </ul>
-      <button class="select-btn" onclick="window.location.href='imagine/flappybird.html'">
-        explore
-      </button>
-    </div>
-  </div>
+        <!-- dynamic cards container -->
+        <div class="selector-grid" id="cardsContainer"></div>
 
+        <!-- quick links (unchanged) -->
         <div class="quick-links">
             <h3>⚡ quick access ⚡</h3>
             <div class="link-buttons">
@@ -746,10 +398,140 @@
 
     <script>
         (function() {
-            // --------------------------------------------------------------
-            // 1. THREE.JS IMMERSIVE BACKGROUND (particle network)
-            // --------------------------------------------------------------
-            const container = document.getElementById('bg-canvas');
+            // ---------- CARD DATA (preserving all original links, icons, descriptions) ----------
+            const cardsData = [
+                // featured / main
+                { icon: "🌀", title: "Immersive Docs", description: "Step into a living 3D documentation with animated examples, live demos, and visual architecture.", features: ["Three.js powered 3D environment","GSAP cinematic transitions","Interactive code playgrounds","Real-time flow visualizer","Holographic diagrams"], link: "Docs/docs.html", category: "featured", highlight: true },
+                { icon: "🌐", title: "Classic Website", description: "Fast, lightweight landing with straightforward navigation and instant access to all tools.", features: ["Lightning fast load","Traditional navigation","One-click to all features","Perfectly responsive","Clean minimal design"], link: "home/index.html", category: "featured", highlight: false },
+                
+                // JavaMods (two entries with different paths)
+                { icon: "📄", title: "JavaMods", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "../imagine/index.html", category: "games", highlight: false },
+                { icon: "📄", title: "JavaMods", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/index (1).html", category: "games", highlight: false },
+                
+                // pure three.js game
+                { icon: "📄", title: "PackCDN · PURE THREE.JS GAME · CONTROLS WORK", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/deepseek_html_20260216_42dccb.html", category: "demos", highlight: false },
+                
+                // ghost clicker
+                { icon: "📄", title: "Ghost Clicker 3D - Immersive Spectral Hunting", description: "Enter a spectral dimension where ghosts drift in 3D space. Use your cursor to banish them in this immersive haunting experience!…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ghost.html", category: "games", highlight: false },
+                
+                // road chase
+                { icon: "📄", title: "ROAD CHASE · just run them down", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/RoadChase.html", category: "games", highlight: false },
+                
+                // space shooters
+                { icon: "📄", title: "🚀 SPACE SHOOTERS · upgrade & blast", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/SpaceShooters.html", category: "games", highlight: false },
+                
+                // parcore
+                { icon: "📄", title: "PARCORE · maze rush · fly & upgrade", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ParCoreSim.html", category: "games", highlight: false },
+                
+                // subway surfers
+                { icon: "📄", title: "Subway Surfers", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/index (2).html", category: "games", highlight: false },
+                
+                // brick breaker
+                { icon: "📄", title: "Brick breaker", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/brick-breaker.html", category: "games", highlight: false },
+                
+                // 장기 (Janggi)
+                { icon: "📄", title: "장기", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/janggi.html", category: "games", highlight: false },
+                
+                // 일정관리 (scheduler)
+                { icon: "📄", title: "일정관리", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/kanban.html", category: "utility", highlight: false },
+                
+                // maze
+                { icon: "📄", title: "Maze", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/maze.html", category: "games", highlight: false },
+                
+                // gomoku
+                { icon: "📄", title: "Gomoku", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/omok.html", category: "games", highlight: false },
+                
+                // stack
+                { icon: "📄", title: "Stack", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/stack.html", category: "games", highlight: false },
+                
+                // tetris
+                { icon: "📄", title: "Tetris", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/tetris.html", category: "games", highlight: false },
+                
+                // 2048
+                { icon: "📄", title: "2048", description: "Join the numbers and get to the 2048 tile!…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/2048.html", category: "games", highlight: false },
+                
+                // zombierush
+                { icon: "📄", title: "Zombierush", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/zombierush.html", category: "games", highlight: false },
+                
+                // cookieclicker
+                { icon: "📄", title: "Cookieclicker", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/cookieclicker.html", category: "games", highlight: false },
+                
+                // amongus
+                { icon: "📄", title: "Amongus", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/amongus.html", category: "games", highlight: false },
+                
+                // basketbros
+                { icon: "📄", title: "Basketbros", description: "Loading...…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/basketbros.html", category: "games", highlight: false },
+                
+                // 8ballclassic
+                { icon: "📄", title: "8ballclassic", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/8ballclassic.html", category: "games", highlight: false },
+                
+                // angrybirds
+                { icon: "📄", title: "Angrybirds", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/angrybirds.html", category: "games", highlight: false },
+                
+                // bitlife
+                { icon: "📄", title: "Bitlife", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/bitlife.html", category: "games", highlight: false },
+                
+                // ageofwar
+                { icon: "📄", title: "Ageofwar", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/ageofwar.html", category: "games", highlight: false },
+                
+                // bloonsTD
+                { icon: "📄", title: "BloonsTD", description: "Explore this immersive experience.", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/bloonsTD.html", category: "games", highlight: false },
+                
+                // flappy bird
+                { icon: "📄", title: "Flappy Bird", description: "…", features: ["Immersive experience","New dimension","Interactive content"], link: "imagine/flappybird.html", category: "games", highlight: false }
+            ];
+
+            // ---------- render cards ----------
+            const container = document.getElementById('cardsContainer');
+            function renderCards() {
+                let html = '';
+                cardsData.forEach((card, index) => {
+                    const highlightClass = card.highlight ? 'highlight' : '';
+                    const featuresList = card.features.map(f => `<li>${f}</li>`).join('');
+                    html += `
+                        <div class="experience-card ${highlightClass}" data-category="${card.category}" data-index="${index}">
+                            <div class="card-icon">${card.icon}</div>
+                            <div class="category-badge">${card.category}</div>
+                            <h2 class="card-title">${card.title}</h2>
+                            <p class="card-description">${card.description}</p>
+                            <ul class="card-features">${featuresList}</ul>
+                            <button class="select-btn" onclick="window.location.href='${card.link}'">explore</button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+            renderCards();
+
+            // ---------- filter functionality ----------
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            const cards = document.querySelectorAll('.experience-card');
+            
+            function filterCards(category) {
+                cards.forEach(card => {
+                    if (category === 'all' || card.dataset.category === category) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+                // update active button
+                filterButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.filter === category) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterCards(btn.dataset.filter);
+                });
+            });
+
+            // ---------- THREE.JS BACKGROUND (same as before, enhanced) ----------
+            const canvasContainer = document.getElementById('bg-canvas');
             const width = window.innerWidth;
             const height = window.innerHeight;
 
@@ -762,56 +544,44 @@
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             renderer.setSize(width, height);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            container.appendChild(renderer.domElement);
+            canvasContainer.appendChild(renderer.domElement);
 
             // particles
             const particlesGeometry = new THREE.BufferGeometry();
-            const particlesCount = 1500;
+            const particlesCount = 2000; // more particles
             const posArray = new Float32Array(particlesCount * 3);
             const colorArray = new Float32Array(particlesCount * 3);
 
             for (let i = 0; i < particlesCount * 3; i += 3) {
-                // positions in a sphere-ish distribution
-                const radius = 20 + Math.random() * 15;
+                const radius = 15 + Math.random() * 25;
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos((Math.random() * 2) - 1);
-
                 const x = radius * Math.sin(phi) * Math.cos(theta);
                 const y = radius * Math.sin(phi) * Math.sin(theta);
                 const z = radius * Math.cos(phi);
-
                 posArray[i] = x;
                 posArray[i+1] = y;
                 posArray[i+2] = z;
-
-                // colors: purple/blue/cyan hues
-                const r = 0.4 + 0.5 * Math.random();      // 0.4–0.9
-                const g = 0.3 + 0.6 * Math.random();      // 0.3–0.9
-                const b = 1.0;
-                colorArray[i] = r;
-                colorArray[i+1] = g;
-                colorArray[i+2] = b;
+                // colors
+                colorArray[i] = 0.4 + 0.6 * Math.random();
+                colorArray[i+1] = 0.3 + 0.7 * Math.random();
+                colorArray[i+2] = 1.0;
             }
-
             particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
 
             const particlesMaterial = new THREE.PointsMaterial({
-                size: 0.3,
+                size: 0.25,
                 vertexColors: true,
                 transparent: true,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
-
             const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
             scene.add(particlesMesh);
 
-            // lines connecting close particles
-            const linesGeometry = new THREE.BufferGeometry();
+            // lines
             const linesPositions = [];
-
-            // find pairs within distance
             const positions = particlesGeometry.attributes.position.array;
             for (let i = 0; i < particlesCount; i++) {
                 for (let j = i + 1; j < particlesCount; j++) {
@@ -821,81 +591,80 @@
                     const dy = positions[iy] - positions[jy];
                     const dz = positions[iz] - positions[jz];
                     const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    if (dist < 7) {
+                    if (dist < 6) {
                         linesPositions.push(positions[ix], positions[iy], positions[iz]);
                         linesPositions.push(positions[jx], positions[jy], positions[jz]);
                     }
                 }
             }
-
+            const linesGeometry = new THREE.BufferGeometry();
             linesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linesPositions, 3));
-            const linesMaterial = new THREE.LineBasicMaterial({ color: 0x667eea, opacity: 0.15, transparent: true });
+            const linesMaterial = new THREE.LineBasicMaterial({ color: 0x6688ff, opacity: 0.12, transparent: true });
             const linesMesh = new THREE.LineSegments(linesGeometry, linesMaterial);
             scene.add(linesMesh);
 
-            // ambient animation
+            // animation
             let time = 0;
             function animate() {
                 requestAnimationFrame(animate);
                 time += 0.0005;
+                particlesMesh.rotation.y += 0.00015;
+                particlesMesh.rotation.x += 0.00007;
+                linesMesh.rotation.y += 0.00015;
+                linesMesh.rotation.x += 0.00007;
 
-                // gentle rotation
-                particlesMesh.rotation.y += 0.0001;
-                particlesMesh.rotation.x += 0.00005;
-                linesMesh.rotation.y += 0.0001;
-                linesMesh.rotation.x += 0.00005;
-
-                // slight camera oscillation
-                camera.position.x = Math.sin(time * 0.5) * 3;
-                camera.position.y = Math.cos(time * 0.3) * 2;
+                camera.position.x = Math.sin(time * 0.4) * 4;
+                camera.position.y = Math.cos(time * 0.3) * 3;
                 camera.lookAt(0, 0, 0);
-
                 renderer.render(scene, camera);
             }
             animate();
 
-            // resize handler
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
-            // --------------------------------------------------------------
-            // 2. INTERACTIVE CARD TILT (immersive)
-            // --------------------------------------------------------------
-            const cards = document.querySelectorAll('.experience-card');
-            cards.forEach(card => {
-                card.addEventListener('mousemove', (e) => {
-                    const rect = card.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    const centerX = rect.width / 2;
-                    const centerY = rect.height / 2;
-                    const rotateX = ((y - centerY) / centerY) * 6;  // max 6deg
-                    const rotateY = ((centerX - x) / centerX) * 6;
-                    card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px) scale(1.02)`;
-                    card.style.transition = 'transform 0.1s';
+            // ---------- CARD TILT & INTERACTIONS (re-attach after render) ----------
+            function initCardInteractions() {
+                const cards = document.querySelectorAll('.experience-card');
+                cards.forEach(card => {
+                    // remove old listeners to avoid duplicates (simple approach)
+                    card.removeEventListener('mousemove', card._tilt);
+                    card.removeEventListener('mouseleave', card._leave);
+                    
+                    const tiltHandler = (e) => {
+                        const rect = card.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        const centerX = rect.width / 2;
+                        const centerY = rect.height / 2;
+                        const rotateX = ((y - centerY) / centerY) * 5;
+                        const rotateY = ((centerX - x) / centerX) * 5;
+                        card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px) scale(1.02)`;
+                        card.style.transition = 'transform 0.1s';
+                    };
+                    const leaveHandler = () => {
+                        card.style.transform = 'rotateX(2deg) rotateY(0deg) translateZ(20px) scale(1)';
+                        card.style.transition = 'transform 0.4s';
+                    };
+                    card._tilt = tiltHandler;
+                    card._leave = leaveHandler;
+                    card.addEventListener('mousemove', tiltHandler);
+                    card.addEventListener('mouseleave', leaveHandler);
                 });
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = 'rotateX(2deg) rotateY(0deg) translateZ(20px) scale(1)';
-                    card.style.transition = 'transform 0.4s';
+
+                // floating animation delays
+                cards.forEach((card, idx) => {
+                    card.style.animationDelay = `${idx * 0.15}s`;
+                    card.classList.add('floating');
                 });
-            });
+            }
+            initCardInteractions();
 
-            // --------------------------------------------------------------
-            // 3. MOUSE GLOW (follow)
-            // --------------------------------------------------------------
-            const glow = document.getElementById('glow');
-            document.addEventListener('mousemove', (e) => {
-                glow.style.left = e.clientX + 'px';
-                glow.style.top = e.clientY + 'px';
-            });
-
-            // --------------------------------------------------------------
-            // 4. CLICK CARD (if not button)
-            // --------------------------------------------------------------
-            cards.forEach(card => {
+            // click on card (if not button)
+            document.querySelectorAll('.experience-card').forEach(card => {
                 card.addEventListener('click', function(e) {
                     if (!e.target.classList.contains('select-btn')) {
                         const btn = this.querySelector('.select-btn');
@@ -910,41 +679,32 @@
                 });
             });
 
-            // --------------------------------------------------------------
-            // 5. KEYBOARD NAV (immersive shortcuts)
-            // --------------------------------------------------------------
-            document.addEventListener('keydown', (e) => {
-                if (e.key === '1') {
-                    window.location.href = 'Docs/docs.html';
-                } else if (e.key === '2') {
-                    window.location.href = 'home/index.html';
-                } else if (e.key === 'e') {
-                    window.location.href = 'Editor/editor.html';
-                } else if (e.key === 'x') {
-                    window.location.href = 'Explore/explore.html';
-                }
+            // mouse glow
+            const glow = document.getElementById('glow');
+            document.addEventListener('mousemove', (e) => {
+                glow.style.left = e.clientX + 'px';
+                glow.style.top = e.clientY + 'px';
             });
 
-            // --------------------------------------------------------------
-            // 6. REPLACE ALL "PACKAGE" WITH "PACK" (in case any generated text)
-            //    but we already manually changed. also console welcome
-            // --------------------------------------------------------------
+            // keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '1') window.location.href = 'Docs/docs.html';
+                else if (e.key === '2') window.location.href = 'home/index.html';
+                else if (e.key === 'e') window.location.href = 'Editor/editor.html';
+                else if (e.key === 'x') window.location.href = 'Explore/explore.html';
+            });
+
             console.log(`
 ╔══════════════════════════════════════╗
-║         🚀  PACKCDN  DIMENSION       ║
+║   PACKCDN · CATEGORIZED DIMENSIONS   ║
 ╠══════════════════════════════════════╣
-║  • press 1 : immersive docs          ║
-║  • press 2 : classic website         ║
-║  • press e : create pack              ║
-║  • press x : explore packs            ║
+║  filter with category buttons        ║
+║  • 1 : immersive docs                ║
+║  • 2 : classic website               ║
+║  • e : create pack                    ║
+║  • x : explore packs                  ║
 ╚══════════════════════════════════════╝
             `);
-
-            // add floating class with delay
-            cards.forEach((card, idx) => {
-                card.style.animationDelay = `${idx * 0.2}s`;
-                card.classList.add('floating');
-            });
         })();
     </script>
 </body>
