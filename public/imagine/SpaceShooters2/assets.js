@@ -35,147 +35,131 @@ const builtIn = {
     ]
 };
 
-// We'll build the actual manifest based on user choices (stored in localStorage)
+// Build manifest based on user choices
 function buildManifest() {
     const manifest = { images: builtIn.images.slice(), sounds: [], videos: [] };
-
-    // Get user choices
     const choices = JSON.parse(localStorage.getItem('spaceShooters_assetChoices') || '{}');
 
-    // Helper to add a built‑in asset by its internal name
     const addBuiltInSound = (category, choiceKey, defaultName) => {
         const choice = choices[choiceKey] || defaultName;
-        // Find in builtIn
         const found = builtIn[category].find(item => item.name === choice);
-        if (found) {
-            manifest[category].push({ name: choiceKey, src: found.src });
-        } else {
-            // It's a user asset ID
-            // We'll handle user assets separately after loading built‑ins
-        }
+        if (found) manifest[category].push({ name: choiceKey, src: found.src });
     };
 
-    // Add sounds based on choices
     addBuiltInSound('sounds', 'laser', 'laser1');
     addBuiltInSound('sounds', 'explode', 'explode1');
     addBuiltInSound('sounds', 'bgm', 'bgm1');
 
-    // Add video based on choice
     const bgChoice = choices.background || 'nebula1';
     const foundVideo = builtIn.videos.find(v => v.name === bgChoice);
-    if (foundVideo) {
-        manifest.videos.push({ name: 'background', src: foundVideo.src });
-    } else {
-        // user asset
-        // we'll handle after
-    }
+    if (foundVideo) manifest.videos.push({ name: 'background', src: foundVideo.src });
 
     return manifest;
 }
 
-// After building the manifest, we also need to load any user assets asynchronously
-async function loadUserAssets(manifest, callback) {
+// Load user assets (asynchronous, not blocking game start)
+async function loadUserAssets() {
     const choices = JSON.parse(localStorage.getItem('spaceShooters_assetChoices') || '{}');
-    const userAssetIds = [];
-
-    // Collect user asset IDs from choices
     for (let key of ['laser', 'explode', 'bgm', 'background']) {
         const val = choices[key];
         if (val && !builtIn.sounds.some(s => s.name === val) && !builtIn.videos.some(v => v.name === val)) {
-            userAssetIds.push({ key, id: val });
-        }
-    }
-
-    for (let { key, id } of userAssetIds) {
-        try {
-            const blob = await window.userAssets.load(id);
-            if (blob) {
-                const url = window.userAssets.blobToURL(blob);
-                if (key === 'background') {
-                    const video = document.createElement('video');
-                    video.src = url;
-                    video.loop = true;
-                    video.muted = true;
-                    video.load();
-                    assets.videos['background'] = video;
-                    // Count as loaded when ready? We'll handle in loadAssets
-                } else {
-                    const audio = new Audio();
-                    audio.src = url;
-                    audio.load();
-                    assets.sounds[key] = audio;
+            try {
+                const blob = await window.userAssets.load(val);
+                if (blob) {
+                    const url = window.userAssets.blobToURL(blob);
+                    if (key === 'background') {
+                        const video = document.createElement('video');
+                        video.src = url;
+                        video.loop = true;
+                        video.muted = true;
+                        video.load();
+                        assets.videos['background'] = video;
+                    } else {
+                        const audio = new Audio();
+                        audio.src = url;
+                        audio.load();
+                        assets.sounds[key] = audio;
+                    }
                 }
-                // We'll need to track loading separately
+            } catch (e) {
+                console.warn('Failed to load user asset', key, e);
             }
-        } catch (e) {
-            console.warn('Failed to load user asset', id, e);
         }
     }
 }
 
-// Modify loadAssets to first build manifest, then load built‑ins, then user assets
 function loadAssets(callback) {
     const manifest = buildManifest();
-    // Count built‑in assets
     assets.totalAssets = manifest.images.length + manifest.sounds.length + manifest.videos.length;
 
-    // Load built‑in images
+    // Images
     manifest.images.forEach(item => {
         const img = new Image();
         img.src = item.src;
         img.onload = assetLoaded;
-        img.onerror = () => { console.warn(`Failed to load image: ${item.src}`); assetLoaded(); };
+        img.onerror = () => {
+            console.warn(`Failed to load image: ${item.src}`);
+            assetLoaded(); // Count failed assets so game doesn't hang
+        };
         assets.images[item.name] = img;
     });
 
-    // Load built‑in sounds
+    // Sounds
     manifest.sounds.forEach(item => {
         const audio = new Audio();
         audio.src = item.src;
         audio.load();
-        audio.onerror = () => console.warn(`Failed to load sound: ${item.src}`);
+        audio.onerror = () => {
+            console.warn(`Failed to load sound: ${item.src}`);
+            assetLoaded();
+        };
+        audio.oncanplaythrough = assetLoaded; // Count when ready
         assets.sounds[item.name] = audio;
-        assetLoaded();
     });
 
-    // Load built‑in videos
+    // Videos – FIXED: onerror now calls assetLoaded
     manifest.videos.forEach(item => {
         const video = document.createElement('video');
         video.src = item.src;
         video.loop = true;
         video.muted = true;
         video.load();
-        video.onerror = () => console.warn(`Failed to load video: ${item.src}`);
+        video.onerror = () => {
+            console.warn(`Failed to load video: ${item.src}`);
+            assetLoaded(); // <-- THIS WAS MISSING
+        };
+        video.onloadeddata = assetLoaded;
         assets.videos[item.name] = video;
-        assetLoaded();
     });
 
     function assetLoaded() {
         assets.loadedCount++;
+        console.log(`Asset loaded: ${assets.loadedCount}/${assets.totalAssets}`);
         if (assets.loadedCount >= assets.totalAssets) {
-            // Now load user assets (which are extra and don't affect total)
-            loadUserAssets(manifest, () => {
-                assets.loaded = true;
-                console.log('All assets loaded');
+            assets.loaded = true;
+            console.log('All built‑in assets loaded, now loading user assets...');
+            loadUserAssets().then(() => {
+                if (callback) callback();
+            }).catch(err => {
+                console.warn('User assets loading failed, starting game anyway', err);
                 if (callback) callback();
             });
         }
     }
 
-    // If there are no built‑in assets, we still need to trigger user assets
+    // Edge case: no built‑in assets
     if (assets.totalAssets === 0) {
-        loadUserAssets(manifest, () => {
-            assets.loaded = true;
+        loadUserAssets().then(() => {
+            if (callback) callback();
+        }).catch(() => {
             if (callback) callback();
         });
     }
 }
 
-// Play sound (now uses the logical name, e.g., 'laser', 'explode', 'bgm')
 function playSound(name, volume = 1.0) {
     let sound = assets.sounds[name];
     if (!sound) return;
-    // Clone to allow overlapping
     const clone = sound.cloneNode();
     let volSetting = localStorage.getItem('spaceShooters_volume');
     if (volSetting === null) volSetting = 70;
@@ -183,7 +167,6 @@ function playSound(name, volume = 1.0) {
     clone.play().catch(e => {});
 }
 
-// Unlock audio on first user gesture
 function enableAudioOnUserGesture() {
     const unlock = () => {
         document.removeEventListener('click', unlock);
