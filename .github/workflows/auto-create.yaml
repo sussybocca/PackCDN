@@ -1,0 +1,142 @@
+name: Auto‑link Imagine Files
+
+on:
+  push:
+    paths:
+      - 'imagine/**'          # run only when files inside /imagine change
+  workflow_dispatch:           # allow manual trigger if needed
+
+permissions:
+  contents: write              # needed to commit the updated selector.html
+
+jobs:
+  update-selector:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install HTML parser
+        run: npm install node-html-parser   # lightweight, no need to modify package.json
+
+      - name: Update selector.html with new imagine files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { parse } = require('node-html-parser');
+
+            const selectorPath = 'selector.html';
+            const imagineDir = 'imagine';
+
+            // 1. Read the main selector page
+            const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
+            const root = parse(selectorHtml);
+
+            // 2. Locate the container where cards live
+            const grid = root.querySelector('.selector-grid');
+            if (!grid) {
+              core.setFailed('Could not find .selector-grid in selector.html');
+              return;
+            }
+
+            // 3. Get all HTML files inside the imagine folder
+            const files = fs.readdirSync(imagineDir).filter(f => f.endsWith('.html'));
+            if (files.length === 0) {
+              console.log('No HTML files found in imagine/ – nothing to do.');
+              return;
+            }
+
+            // Helper: extract <title> from an HTML file
+            function extractTitle(filePath) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                const doc = parse(content);
+                const titleTag = doc.querySelector('title');
+                return titleTag ? titleTag.text.trim() : null;
+              } catch {
+                return null;
+              }
+            }
+
+            // Helper: extract meta description or first <p> as a short description
+            function extractDescription(filePath) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                const doc = parse(content);
+                const metaDesc = doc.querySelector('meta[name="description"]');
+                if (metaDesc) {
+                  return metaDesc.getAttribute('content') || '';
+                }
+                const firstP = doc.querySelector('p');
+                if (firstP) {
+                  return firstP.text.trim().substring(0, 150) + '…';
+                }
+              } catch {}
+              return 'Explore this immersive experience.';
+            }
+
+            // 4. Loop through each HTML file
+            for (const file of files) {
+              const filePath = path.join(imagineDir, file);
+              const relativeLink = filePath; // e.g. imagine/foo.html
+
+              // Skip if a button with this link already exists (prevents duplicates)
+              const existing = root.querySelector(`.select-btn[onclick*="${relativeLink}"]`);
+              if (existing) {
+                console.log(`Link for ${file} already present – skipping.`);
+                continue;
+              }
+
+              // Extract or generate a title
+              let title = extractTitle(filePath);
+              if (!title) {
+                title = path.basename(file, '.html').replace(/[-_]/g, ' ');
+                title = title.charAt(0).toUpperCase() + title.slice(1);
+              }
+
+              // Get a short description
+              const description = extractDescription(filePath);
+
+              // Create a new card that matches your existing design
+              const cardHtml = `
+                <div class="experience-card floating" style="animation-delay: ${files.indexOf(file) * 0.2}s;">
+                  <div class="card-icon">📄</div>
+                  <h2 class="card-title">${title}</h2>
+                  <p class="card-description">${description}</p>
+                  <ul class="card-features">
+                    <li>Immersive experience</li>
+                    <li>New dimension</li>
+                    <li>Interactive content</li>
+                  </ul>
+                  <button class="select-btn" onclick="window.location.href='${relativeLink}'">
+                    explore
+                  </button>
+                </div>
+              `;
+
+              // Append the new card to the grid
+              grid.appendChild(parse(cardHtml));
+              console.log(`✅ Added card for ${file}`);
+            }
+
+            // 5. Write the updated HTML back to disk
+            fs.writeFileSync(selectorPath, root.toString());
+            console.log('selector.html updated successfully.');
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add selector.html
+          git diff --quiet && git diff --staged --quiet || git commit -m "Auto‑add imagine file links [skip ci]"
+          git push
