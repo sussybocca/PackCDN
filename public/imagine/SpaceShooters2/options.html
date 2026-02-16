@@ -1,103 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>SpaceShooters – Options</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            background: radial-gradient(circle at center, #0a0f2a 0%, #000 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Arial', sans-serif;
-            color: white;
-        }
-        .options {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 2rem 3rem;
-            border-radius: 2rem;
-            border: 2px solid #3a6ea5;
-            width: 300px;
-        }
-        h2 {
-            text-align: center;
-            color: cyan;
-        }
-        .setting {
-            margin: 1.5rem 0;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-        input[type=range] {
-            width: 100%;
-            cursor: pointer;
-        }
-        .btn {
-            display: inline-block;
-            background: #1e2a47;
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 2rem;
-            border: 2px solid #4aa;
-            margin-top: 1rem;
-        }
-        .back {
-            text-align: center;
-        }
+        /* Retro styling (same as before, plus some adjustments) */
+        body { background: #0a0c0f; color: #0ff; font-family: 'Press Start 2P', monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .options-panel { background: #1a1e2a; padding: 2rem; border: 4px solid #3a6ea5; border-radius: 20px; width: 600px; }
+        h2 { text-align: center; color: #ffd966; }
+        .setting { margin: 1.5rem 0; }
+        label { display: block; margin-bottom: 0.5rem; }
+        select, input[type=range] { width: 100%; padding: 0.5rem; font-family: inherit; background: #000; color: #0ff; border: 2px solid #3a6ea5; }
+        .file-input { display: none; }
+        .btn { background: #1e2a47; color: white; padding: 0.5rem 1rem; border: 2px solid #4aa; text-decoration: none; border-radius: 10px; }
+        .back { text-align: center; margin-top: 2rem; }
+        .radio-slot { background: #111; padding: 1rem; margin: 1rem 0; border: 2px solid #6f6; }
     </style>
 </head>
 <body>
-    <div class="options">
+    <div class="options-panel">
         <h2>⚙ OPTIONS</h2>
+
         <div class="setting">
             <label>🔊 Master Volume <span id="volValue">70</span>%</label>
             <input type="range" id="volume" min="0" max="100" value="70">
         </div>
+
         <div class="setting">
-            <label>🎯 Difficulty</label>
-            <select id="difficulty">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-            </select>
+            <label>🎬 Background Video</label>
+            <select id="backgroundSelect"></select>
+            <input type="file" id="bgFile" class="file-input" accept="video/mp4,video/webm">
         </div>
+
+        <div class="setting">
+            <label>🔫 Laser Sound</label>
+            <select id="laserSelect"></select>
+            <input type="file" id="laserFile" class="file-input" accept="audio/mp3,audio/wav">
+        </div>
+
+        <div class="setting">
+            <label>💥 Explosion Sound</label>
+            <select id="explodeSelect"></select>
+            <input type="file" id="explodeFile" class="file-input" accept="audio/mp3,audio/wav">
+        </div>
+
+        <div class="setting">
+            <label>🎵 Background Music</label>
+            <select id="bgmSelect"></select>
+            <input type="file" id="bgmFile" class="file-input" accept="audio/mp3,audio/wav">
+        </div>
+
+        <div class="setting">
+            <label>📻 USER RADIO (Upload your own tracks)</label>
+            <div class="radio-slot">
+                <input type="file" id="radio1" accept="audio/mp3,audio/wav">
+                <button class="btn" onclick="playRadio(1)">Play</button>
+                <button class="btn" onclick="stopRadio(1)">Stop</button>
+            </div>
+            <div class="radio-slot">
+                <input type="file" id="radio2" accept="audio/mp3,audio/wav">
+                <button class="btn" onclick="playRadio(2)">Play</button>
+                <button class="btn" onclick="stopRadio(2)">Stop</button>
+            </div>
+            <div class="radio-slot">
+                <input type="file" id="radio3" accept="audio/mp3,audio/wav">
+                <button class="btn" onclick="playRadio(3)">Play</button>
+                <button class="btn" onclick="stopRadio(3)">Stop</button>
+            </div>
+        </div>
+
         <div class="back">
             <a href="menu.html" class="btn">← BACK</a>
         </div>
     </div>
+
+    <script src="builtIn.js"></script> <!-- define builtIn object -->
+    <script src="userAssets.js"></script>
+    <script src="options.js"></script>
     <script>
-        // Load saved settings
-        const volumeSlider = document.getElementById('volume');
-        const volSpan = document.getElementById('volValue');
-        const difficultySelect = document.getElementById('difficulty');
-
-        // On page load
-        window.addEventListener('load', () => {
-            const savedVol = localStorage.getItem('spaceShooters_volume');
-            const savedDiff = localStorage.getItem('spaceShooters_difficulty');
-            if (savedVol !== null) {
-                volumeSlider.value = savedVol;
-                volSpan.textContent = savedVol;
+        // Simple radio player (just for preview in options)
+        let radioPlayers = [];
+        function playRadio(num) {
+            const input = document.getElementById('radio'+num);
+            const file = input.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            if (radioPlayers[num]) radioPlayers[num].pause();
+            const audio = new Audio(url);
+            audio.play();
+            radioPlayers[num] = audio;
+        }
+        function stopRadio(num) {
+            if (radioPlayers[num]) {
+                radioPlayers[num].pause();
+                radioPlayers[num] = null;
             }
-            if (savedDiff !== null) {
-                difficultySelect.value = savedDiff;
-            }
-        });
-
-        // Save on change
-        volumeSlider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            volSpan.textContent = val;
-            localStorage.setItem('spaceShooters_volume', val);
-        });
-        difficultySelect.addEventListener('change', (e) => {
-            localStorage.setItem('spaceShooters_difficulty', e.target.value);
-        });
+        }
     </script>
 </body>
 </html>
