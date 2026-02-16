@@ -3,11 +3,11 @@ name: Auto‑link Imagine Files
 on:
   push:
     paths:
-      - 'imagine/**'          # run only when files inside /imagine change
-  workflow_dispatch:           # allow manual trigger if needed
+      - 'imagine/**'          # triggers only when files inside /imagine change
+  workflow_dispatch:
 
 permissions:
-  contents: write              # needed to commit the updated selector.html
+  contents: write
 
 jobs:
   update-selector:
@@ -25,7 +25,7 @@ jobs:
           node-version: 20
 
       - name: Install HTML parser
-        run: npm install node-html-parser   # lightweight, no need to modify package.json
+        run: npm install node-html-parser
 
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
@@ -35,8 +35,9 @@ jobs:
             const path = require('path');
             const { parse } = require('node-html-parser');
 
-            const selectorPath = 'selector.html';
-            const imagineDir = 'imagine';
+            // selector.html is inside /public
+            const selectorPath = 'public/selector.html';
+            const imagineDir = 'imagine';   // folder at repository root
 
             // 1. Read the main selector page
             const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
@@ -50,6 +51,10 @@ jobs:
             }
 
             // 3. Get all HTML files inside the imagine folder
+            if (!fs.existsSync(imagineDir)) {
+              console.log('⚠️  imagine/ folder not found – nothing to do.');
+              return;
+            }
             const files = fs.readdirSync(imagineDir).filter(f => f.endsWith('.html'));
             if (files.length === 0) {
               console.log('No HTML files found in imagine/ – nothing to do.');
@@ -88,7 +93,8 @@ jobs:
             // 4. Loop through each HTML file
             for (const file of files) {
               const filePath = path.join(imagineDir, file);
-              const relativeLink = filePath; // e.g. imagine/foo.html
+              // Relative path from public/selector.html to root imagine/ file
+              const relativeLink = `../imagine/${file}`;
 
               // Skip if a button with this link already exists (prevents duplicates)
               const existing = root.querySelector(`.select-btn[onclick*="${relativeLink}"]`);
@@ -137,6 +143,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add selector.html
+          git add public/selector.html
           git diff --quiet && git diff --staged --quiet || git commit -m "Auto‑add imagine file links [skip ci]"
           git push
