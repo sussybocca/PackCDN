@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pack Popup Creator · Manifest Generator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .container {
+            max-width: 1300px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            color: #475569;
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            border-left: 4px solid #3b82f6;
+            padding-left: 1.25rem;
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(2px);
+            border-radius: 0 1rem 1rem 0;
+            width: fit-content;
+            padding: 0.75rem 1.5rem 0.75rem 1.5rem;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px -10px rgba(0,20,40,0.15), 0 0 0 1px rgba(0,0,0,0.02);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: box-shadow 0.2s;
+        }
+        .search-section {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+        .search-section input {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 3rem;
+            font-size: 1rem;
+            background: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            transition: 0.2s;
+        }
+        .search-section input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.15), inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .search-section button {
+            background: #1e293b;
+            color: white;
+            border: none;
+            border-radius: 3rem;
+            padding: 0 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .search-section button:hover:not(:disabled) {
+            background: #0f172a;
+            transform: scale(1.02);
+        }
+        .search-section button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        .pack-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid #e9eef3;
+            transition: 0.15s;
+            box-shadow: 0 4px 6px -2px rgba(0,0,0,0.02);
+        }
+        .pack-card:hover {
+            border-color: #b9c9dd;
+            box-shadow: 0 12px 20px -10px rgba(20,60,120,0.15);
+            transform: translateY(-2px);
+        }
+        .pack-card h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0b1e33;
+            margin-bottom: 0.25rem;
+        }
+        .pack-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            font-size: 0.85rem;
+            color: #546e7a;
+            margin: 0.5rem 0 1rem 0;
+        }
+        .pack-meta span {
+            background: #f1f6fa;
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+        }
+        .pack-card button {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 2rem;
+            padding: 0.6rem 1.5rem;
+            font-weight: 500;
+            color: #1e293b;
+            cursor: pointer;
+            transition: 0.1s;
+            width: 100%;
+            font-size: 0.95rem;
+        }
+        .pack-card button:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+        .selected-pack {
+            background: #e6f2fe;
+            border: 1px solid #b7d9fb;
+            border-radius: 2rem;
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+        .selected-pack .info {
+            flex: 2;
+            min-width: 240px;
+        }
+        .selected-pack .info strong {
+            color: #0751b3;
+            font-size: 1.2rem;
+        }
+        .selected-pack .info .pack-id {
+            font-family: monospace;
+            background: rgba(0,0,0,0.03);
+            padding: 0.2rem 0.6rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+        }
+        .selected-pack button.deselect {
+            background: none;
+            border: 1px solid #94a3b8;
+            border-radius: 2rem;
+            padding: 0.5rem 1.5rem;
+            color: #334155;
+            cursor: pointer;
+        }
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0 1rem;
+        }
+        .config-panel {
+            background: #f9fcff;
+            border-radius: 1.5rem;
+            padding: 1.75rem;
+            border: 1px solid #dee9f2;
+        }
+        .config-panel h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #0c2b4b;
+            margin-bottom: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.4rem;
+            color: #1e405e;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 0.9rem 1.2rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 1rem;
+            font-size: 0.95rem;
+            background: white;
+            transition: 0.1s;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+        .color-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .color-row input[type="color"] {
+            width: 70px;
+            height: 50px;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.8rem;
+            cursor: pointer;
+        }
+        .preview-panel {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            padding: 1.75rem;
+            border: 1px solid #dee9f2;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-panel h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #0c2b4b;
+            margin-bottom: 1.5rem;
+        }
+        .popup-preview {
+            background: v-bind(previewBg);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 20px 35px -8px rgba(0,20,40,0.2);
+            border: 1px solid rgba(255,255,255,0.5);
+            transition: all 0.2s;
+        }
+        .popup-preview h3 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            color: v-bind(previewText);
+        }
+        .popup-preview p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: v-bind(previewText);
+            opacity: 0.9;
+        }
+        .popup-preview .preview-button {
+            background: v-bind(previewButton);
+            color: v-bind(previewButtonText);
+            border: none;
+            border-radius: 3rem;
+            padding: 0.9rem 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: default;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+        .manifest-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 1.2rem;
+            padding: 1.5rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow: auto;
+            margin: 2rem 0 1rem;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.9rem 2rem;
+            border-radius: 3rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: 0.1s;
+            font-size: 1rem;
+            background: white;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-primary {
+            background: #1e293b;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #0f172a;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 3rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Popup Creator · Manifest Studio</h1>
+        <div class="subtitle">Connect a popup to your pack – generate a manifest.json in seconds</div>
+
+        <!-- Search card -->
+        <div class="card">
+            <div class="search-section">
+                <input type="text" id="searchInput" placeholder="Search packs by name, author, keyword... (e.g. 'game', 'wasm')" />
+                <button id="searchBtn">Search</button>
+            </div>
+            <div id="resultsContainer" style="min-height: 100px;"></div>
+            <div id="selectedPackContainer"></div>
+        </div>
+
+        <!-- Configuration & preview (shown only when pack selected) -->
+        <div id="configArea" style="display: none;">
+            <div class="card">
+                <div class="two-column">
+                    <!-- left: config form -->
+                    <div class="config-panel">
+                        <h2>⚙️ Popup settings</h2>
+                        <div class="form-group">
+                            <label>Popup title</label>
+                            <input type="text" id="popupTitle" placeholder="e.g. New Adventure Pack!" value="Try my pack!">
+                        </div>
+                        <div class="form-group">
+                            <label>Message</label>
+                            <textarea id="popupMessage" rows="2" placeholder="Describe your pack...">This pack adds epic levels and items. Check it out!</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Button text</label>
+                            <input type="text" id="buttonText" value="Install Now">
+                        </div>
+                        <div class="form-group">
+                            <label>Button link (CDN or custom)</label>
+                            <input type="url" id="buttonLink" placeholder="https://...">
+                        </div>
+                        <div class="color-row form-group">
+                            <div style="flex:1">
+                                <label>Background</label>
+                                <input type="color" id="bgColor" value="#ffffff">
+                            </div>
+                            <div style="flex:1">
+                                <label>Text color</label>
+                                <input type="color" id="textColor" value="#0f172a">
+                            </div>
+                        </div>
+                        <div class="color-row form-group">
+                            <div style="flex:1">
+                                <label>Button color</label>
+                                <input type="color" id="btnColor" value="#3b82f6">
+                            </div>
+                            <div style="flex:1">
+                                <label>Button text</label>
+                                <input type="color" id="btnTextColor" value="#ffffff">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- right: live preview -->
+                    <div class="preview-panel">
+                        <h2>👁️ Live preview</h2>
+                        <div class="popup-preview" id="popupPreview">
+                            <h3 id="previewTitle">Try my pack!</h3>
+                            <p id="previewMessage">This pack adds epic levels and items. Check it out!</p>
+                            <span class="preview-button" id="previewButton">Install Now</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- manifest output and actions -->
+                <h2 style="margin: 2rem 0 0.5rem 0;">📋 Generated manifest.json</h2>
+                <div class="manifest-output" id="manifestOutput">{
+  "popups": []
+}</div>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="copyManifest">📋 Copy manifest</button>
+                    <button class="btn btn-outline" id="downloadManifest">⬇️ Download manifest.json</button>
+                </div>
+                <p style="color: #4b5563; margin-top: 1rem; font-size: 0.9rem;">
+                    💡 Place <code>manifest.json</code> in the root of your pack. When users visit the game, the popup will appear automatically (if the game supports pack popups).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">📋 Copied to clipboard!</div>
+
+    <script>
+        // ==================== STATE ====================
+        let selectedPack = null;               // full pack object from API
+        let searchResults = [];
+        const API_BASE = '';                    // relative paths (assume same origin)
+        const SEARCH_ENDPOINT = '/api/search';
+        const GET_PACK_ENDPOINT = '/api/get-pack';   // ✅ correct endpoint
+
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const selectedPackContainer = document.getElementById('selectedPackContainer');
+        const configArea = document.getElementById('configArea');
+        const manifestOutput = document.getElementById('manifestOutput');
+        const popupTitle = document.getElementById('popupTitle');
+        const popupMessage = document.getElementById('popupMessage');
+        const buttonText = document.getElementById('buttonText');
+        const buttonLink = document.getElementById('buttonLink');
+        const bgColor = document.getElementById('bgColor');
+        const textColor = document.getElementById('textColor');
+        const btnColor = document.getElementById('btnColor');
+        const btnTextColor = document.getElementById('btnTextColor');
+        const previewTitle = document.getElementById('previewTitle');
+        const previewMessage = document.getElementById('previewMessage');
+        const previewButton = document.getElementById('previewButton');
+        const popupPreview = document.getElementById('popupPreview');
+        const copyBtn = document.getElementById('copyManifest');
+        const downloadBtn = document.getElementById('downloadManifest');
+        const toast = document.getElementById('toast');
+
+        // ==================== HELPERS ====================
+        function showToast(msg) {
+            toast.textContent = msg || '📋 Copied to clipboard!';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function setLoading(btn, isLoading) {
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span> Searching...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = 'Search';
+            }
+        }
+
+        // Update preview CSS variables (using style setProperty)
+        function updatePreview() {
+            previewTitle.innerText = popupTitle.value || 'Popup title';
+            previewMessage.innerText = popupMessage.value || 'Your message here';
+            previewButton.innerText = buttonText.value || 'Button';
+
+            popupPreview.style.backgroundColor = bgColor.value;
+            popupPreview.style.color = textColor.value; // not directly used, children override
+            previewTitle.style.color = textColor.value;
+            previewMessage.style.color = textColor.value;
+            previewButton.style.backgroundColor = btnColor.value;
+            previewButton.style.color = btnTextColor.value;
+        }
+
+        // Generate manifest object based on current selections
+        function generateManifest() {
+            if (!selectedPack) return { popups: [] };
+
+            const packId = selectedPack.id;
+            const packName = selectedPack.name;
+            // prefer cdnUrl from pack, fallback to workerUrl or empty
+            const defaultCdn = selectedPack.cdn_url || selectedPack.worker_url || '';
+
+            return {
+                popups: [
+                    {
+                        packId: packId,
+                        packName: packName,
+                        cdnUrl: defaultCdn,
+                        title: popupTitle.value || 'Try my pack!',
+                        message: popupMessage.value || 'This pack adds new features.',
+                        buttonText: buttonText.value || 'Install',
+                        buttonUrl: buttonLink.value || defaultCdn || '#',
+                        theme: {
+                            background: bgColor.value,
+                            text: textColor.value,
+                            button: btnColor.value,
+                            buttonText: btnTextColor.value
+                        }
+                    }
+                ]
+            };
+        }
+
+        function renderManifest() {
+            const manifest = generateManifest();
+            manifestOutput.innerText = JSON.stringify(manifest, null, 2);
+        }
+
+        // ==================== API CALLS ====================
+        async function searchPacks(query) {
+            if (!query.trim()) return [];
+            const url = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&limit=12&includeMetadata=true`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+            const data = await res.json();
+            return data.packs || [];
+        }
+
+        async function fetchPackDetails(id) {
+            const url = `${GET_PACK_ENDPOINT}?id=${encodeURIComponent(id)}&includeAdvanced=true`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Failed to fetch pack: ${res.status}`);
+            const data = await res.json();
+            // The API returns { success, pack, metadata, ... } with pack nested
+            return data.success ? data.pack : null;
+        }
+
+        // ==================== RENDER RESULTS ====================
+        function renderSearchResults(packs) {
+            if (!packs.length) {
+                resultsContainer.innerHTML = '<p style="color: #64748b; padding: 1rem;">No packs found. Try a different search.</p>';
+                return;
+            }
+            let html = '<div class="results-grid">';
+            packs.forEach(p => {
+                const type = p.packageType || p.pack_type || 'basic';
+                const author = p.author || 'unknown';
+                const downloads = p.downloads || 0;
+                html += `
+                    <div class="pack-card">
+                        <h3>${escapeHtml(p.name)}</h3>
+                        <div class="pack-meta">
+                            <span>${escapeHtml(type)}</span>
+                            <span>⬇️ ${downloads}</span>
+                        </div>
+                        <div style="color: #2c3e50; font-size:0.9rem; margin-bottom:1rem;">by ${escapeHtml(author)}</div>
+                        <button class="select-pack-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}">Select this pack</button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            resultsContainer.innerHTML = html;
+
+            // attach event listeners
+            document.querySelectorAll('.select-pack-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = btn.dataset.id;
+                    const name = btn.dataset.name;
+                    await selectPack(id, name);
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                if (m === '"') return '&quot;';
+                return m;
+            });
+        }
+
+        // ==================== SELECT PACK ====================
+        async function selectPack(id, name) {
+            // show loading on selected area
+            selectedPackContainer.innerHTML = '<div style="padding:1rem;text-align:center;">Loading pack details...</div>';
+            try {
+                const pack = await fetchPackDetails(id);
+                if (!pack) throw new Error('Pack not found');
+                selectedPack = pack;
+
+                // auto-fill button link with cdn_url if available
+                if (pack.cdn_url && !buttonLink.value) {
+                    buttonLink.value = pack.cdn_url;
+                } else if (!buttonLink.value) {
+                    buttonLink.value = '';
+                }
+
+                // show selected pack bar
+                selectedPackContainer.innerHTML = `
+                    <div class="selected-pack">
+                        <div class="info">
+                            <strong>${escapeHtml(pack.name)}</strong> <span class="pack-id">${escapeHtml(pack.id)}</span>
+                            <div style="margin-top:0.3rem; color:#2c3e50;">${pack.description ? pack.description.substring(0,80)+'…' : ''}</div>
+                        </div>
+                        <button class="deselect" id="deselectPack">Change pack</button>
+                    </div>
+                `;
+                document.getElementById('deselectPack').addEventListener('click', () => {
+                    selectedPack = null;
+                    configArea.style.display = 'none';
+                    selectedPackContainer.innerHTML = '';
+                    // clear search? keep results
+                });
+
+                // show config area
+                configArea.style.display = 'block';
+
+                // update manifest and preview
+                updatePreview();
+                renderManifest();
+            } catch (err) {
+                selectedPackContainer.innerHTML = `<div style="color:#b91c1c; padding:1rem;">Error: ${err.message}</div>`;
+                selectedPack = null;
+            }
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        searchBtn.addEventListener('click', async () => {
+            const query = searchInput.value.trim();
+            if (!query) return;
+            setLoading(searchBtn, true);
+            resultsContainer.innerHTML = '<div style="text-align:center; padding:2rem;">🔍 Searching...</div>';
+            try {
+                const packs = await searchPacks(query);
+                searchResults = packs;
+                renderSearchResults(packs);
+            } catch (err) {
+                resultsContainer.innerHTML = `<p style="color:#b91c1c;">Error: ${err.message}</p>`;
+            } finally {
+                setLoading(searchBtn, false);
+            }
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchBtn.click();
+        });
+
+        // Form inputs update manifest and preview
+        [popupTitle, popupMessage, buttonText, buttonLink, bgColor, textColor, btnColor, btnTextColor].forEach(el => {
+            el.addEventListener('input', () => {
+                updatePreview();
+                renderManifest();
+            });
+        });
+
+        // Copy manifest
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(manifestOutput.innerText).then(() => {
+                showToast('📋 Manifest copied to clipboard!');
+            }).catch(() => alert('Could not copy'));
+        });
+
+        // Download manifest.json
+        downloadBtn.addEventListener('click', () => {
+            const manifest = generateManifest();
+            const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'manifest.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // initial preview
+        updatePreview();
+        renderManifest();
+
+        // if no pack selected, hide config
+        if (!selectedPack) configArea.style.display = 'none';
+    </script>
+</body>
+</html>
