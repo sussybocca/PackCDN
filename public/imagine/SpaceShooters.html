@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 SPACE SHOOTERS · upgrade & blast</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(45deg, #0a0f1e, #0b1525);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .game-container {
+            background: #010314;
+            border-radius: 2rem;
+            padding: 1.5rem 2rem 2rem 2rem;
+            box-shadow: 0 20px 35px rgba(0, 10, 30, 0.8), 0 0 0 2px #2a3f5e inset;
+            border: 1px solid #4e7db3;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 20px;
+            background-color: #03050a;
+            box-shadow: 0 0 0 3px #1e3347, 0 10px 25px black;
+            cursor: none; /* more immersive */
+        }
+
+        .stats-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 10px 5px 10px;
+            color: #b1e5ff;
+            text-shadow: 0 0 5px #00aeff;
+            font-weight: bold;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+        }
+
+        .stats-panel span {
+            background: #0c1622;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            border: 1px solid #3a6d9c;
+            box-shadow: inset 0 2px 5px #00000055;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .restart-btn {
+            background: #1f3a57;
+            border: none;
+            color: #ddf0ff;
+            font-family: inherit;
+            font-size: 1.4rem;
+            font-weight: bold;
+            padding: 0.5rem 1.8rem;
+            border-radius: 50px;
+            box-shadow: 0 5px 0 #0a1725, 0 6px 15px #00b7ff55;
+            cursor: pointer;
+            transition: 0.07s ease;
+            letter-spacing: 1px;
+            border: 1px solid #5f9eff;
+        }
+
+        .restart-btn:hover {
+            background: #2b4e74;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 0 #0a1725, 0 10px 20px #3ea5ff;
+        }
+
+        .restart-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 2px 0 #0a1725, 0 5px 12px #0080ff;
+        }
+
+        .footer-tip {
+            color: #6b8fbb;
+            text-align: center;
+            margin-top: 12px;
+            font-size: 1.1rem;
+        }
+
+        .footer-tip kbd {
+            background: #152837;
+            border-radius: 6px;
+            padding: 3px 8px;
+            color: #c6e2ff;
+            border: 1px solid #2565a0;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <div class="stats-panel">
+        <span>💯 <span id="scoreDisplay">0</span></span>
+        <span>❤️ <span id="livesDisplay">3</span></span>
+        <span>⚡ <span id="levelDisplay">1</span></span>
+        <button class="restart-btn" id="restartButton">↺ RESTART</button>
+    </div>
+    <div class="footer-tip">
+        <kbd>←</kbd> <kbd>→</kbd> move · <kbd>SPACE</kbd> fire · upgrade every 15 pts
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----- CANVAS & CONTEXT -----
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ----- DISPLAY ELEMENTS -----
+        const scoreSpan = document.getElementById('scoreDisplay');
+        const livesSpan = document.getElementById('livesDisplay');
+        const levelSpan = document.getElementById('levelDisplay');
+
+        // ----- FIXED DIMENSIONS -----
+        const W = 800, H = 500;
+
+        // ----- GAME CONSTANTS -----
+        const PLAYER_RADIUS = 16;        // collision size
+        const ENEMY_RADIUS = 14;
+        const BULLET_RADIUS = 5;
+        const PLAYER_SPEED = 6;
+        const BULLET_SPEED = -8;          // upward
+        const BASE_FIRE_COOLDOWN = 10;     // frames between shots
+        const INVINCIBLE_DURATION = 70;    // frames (~1 sec at 60fps)
+        const SPAWN_RATE = 30;              // frames between enemy spawns
+        const MAX_WEAPON_LEVEL = 5;
+
+        // ----- GLOBAL STATE -----
+        let player = { x: W/2, y: H - 50 };    // player position (center)
+        let bullets = [];
+        let enemies = [];
+        let score = 0;
+        let lives = 3;
+        let gameOver = false;
+
+        // spawn counter
+        let spawnCounter = 0;
+
+        // weapon level derived from score (cached for display)
+        let weaponLevel = 1;
+
+        // invincibility after hit
+        let invincibleFrames = 0;
+
+        // shooting cooldown (frames)
+        let shotCooldown = 0;
+
+        // key flags
+        let leftPressed = false;
+        let rightPressed = false;
+        let spacePressed = false;
+
+        // stars for background (static but cosy)
+        const stars = [];
+        for (let i = 0; i < 200; i++) {
+            stars.push({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                size: Math.random() * 2 + 1,
+                flicker: Math.random() * 0.7 + 0.3
+            });
+        }
+
+        // ----- HELPER: UPDATE WEAPON LEVEL FROM SCORE -----
+        function updateWeaponLevel() {
+            // level 1 at 0 pts, then every 15 pts increase (capped at MAX)
+            let raw = Math.floor(score / 15) + 1;
+            weaponLevel = Math.min(raw, MAX_WEAPON_LEVEL);
+        }
+
+        // ----- RESET / RESTART GAME -----
+        function restartGame() {
+            player.x = W/2;
+            player.y = H - 50;
+            bullets = [];
+            enemies = [];
+            score = 0;
+            lives = 3;
+            gameOver = false;
+            invincibleFrames = 0;
+            shotCooldown = 0;
+            spawnCounter = 0;
+            leftPressed = false;
+            rightPressed = false;
+            spacePressed = false;
+            updateWeaponLevel();
+            updateDisplay();
+        }
+
+        // ----- UI UPDATE -----
+        function updateDisplay() {
+            scoreSpan.textContent = score;
+            livesSpan.textContent = lives;
+            levelSpan.textContent = weaponLevel;
+        }
+
+        // ----- SPAWN AN ENEMY (from top) -----
+        function spawnEnemy() {
+            const x = Math.random() * (W - 2 * ENEMY_RADIUS) + ENEMY_RADIUS;
+            const y = -ENEMY_RADIUS * 2; // start above canvas
+            const speedY = 2 + Math.random() * 2.2; // between 2 and 4.2
+            enemies.push({
+                x, y,
+                radius: ENEMY_RADIUS,
+                speedY: speedY
+            });
+        }
+
+        // ----- SHOOT BULLETS BASED ON CURRENT WEAPON LEVEL -----
+        function fireBullets() {
+            const count = weaponLevel;  // 1 to 5
+            // offsets symmetric: step = 10px
+            const step = 11; // little spread for visual
+            const startOffset = - (count - 1) * step / 2;
+
+            for (let i = 0; i < count; i++) {
+                const offsetX = startOffset + i * step;
+                bullets.push({
+                    x: player.x + offsetX,
+                    y: player.y - 15,  // from nose
+                    radius: BULLET_RADIUS,
+                    speedY: BULLET_SPEED
+                });
+            }
+        }
+
+        // ----- COLLISION DETECTION (bullet-enemy) -----
+        function handleBulletEnemyCollisions() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const bullet = bullets[j];
+                    const dx = bullet.x - enemy.x;
+                    const dy = bullet.y - enemy.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < bullet.radius + enemy.radius) {
+                        // collision: remove both, increase score
+                        enemies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score += 10;
+                        updateWeaponLevel();   // might increase level
+                        updateDisplay();
+                        break; // enemy removed, exit inner loop
+                    }
+                }
+            }
+        }
+
+        // ----- ENEMY COLLISION WITH PLAYER / BOTTOM (life loss) -----
+        function handleEnemyPlayerBottomCollision() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+
+                // 1) player collision (only if not invincible)
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distToPlayer = Math.sqrt(dx*dx + dy*dy);
+                const playerCollision = (distToPlayer < PLAYER_RADIUS + enemy.radius);
+
+                if (playerCollision && invincibleFrames <= 0 && !gameOver) {
+                    // hit player
+                    enemies.splice(i, 1);
+                    lives--;
+                    if (lives < 0) lives = 0;
+                    invincibleFrames = INVINCIBLE_DURATION;
+                    updateDisplay();
+                    if (lives <= 0) {
+                        gameOver = true;
+                    }
+                    continue; // enemy removed, skip bottom check
+                }
+
+                // 2) bottom collision (enemy reaches bottom line)
+                if (enemy.y + enemy.radius >= H) {
+                    enemies.splice(i, 1);
+                    lives--;
+                    if (lives < 0) lives = 0;
+                    updateDisplay();
+                    if (lives <= 0) {
+                        gameOver = true;
+                    }
+                    // no invincibility for bottom hits
+                    continue;
+                }
+            }
+        }
+
+        // ----- UPDATE GAME (only if not gameOver) -----
+        function updateGame() {
+            if (gameOver) return;
+
+            // move player (left/right)
+            if (leftPressed) player.x = Math.max(PLAYER_RADIUS, player.x - PLAYER_SPEED);
+            if (rightPressed) player.x = Math.min(W - PLAYER_RADIUS, player.x + PLAYER_SPEED);
+
+            // 1) bullets movement & remove offscreen top
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y += bullets[i].speedY;
+                if (bullets[i].y + bullets[i].radius < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // 2) enemies move downward
+            for (let enemy of enemies) {
+                enemy.y += enemy.speedY;
+            }
+
+            // 3) bullet-enemy collisions (and score)
+            handleBulletEnemyCollisions();
+
+            // 4) enemy-player & enemy-bottom collisions (life loss)
+            handleEnemyPlayerBottomCollision();
+
+            // 5) decrement invincibility counter
+            if (invincibleFrames > 0) {
+                invincibleFrames--;
+            }
+
+            // 6) shooting with cooldown
+            if (shotCooldown > 0) {
+                shotCooldown--;
+            }
+            if (spacePressed && shotCooldown <= 0 && !gameOver) {
+                fireBullets();
+                shotCooldown = BASE_FIRE_COOLDOWN;
+            }
+
+            // 7) spawn enemies
+            spawnCounter++;
+            if (spawnCounter >= SPAWN_RATE) {
+                spawnEnemy();
+                spawnCounter = 0;
+                // a little dynamic: occasionally spawn two at higher score? but fine.
+                if (score > 100 && Math.random() < 0.3) spawnEnemy(); // extra challenge
+            }
+
+            // keep display up-to-date (score may have changed from collisions)
+            updateDisplay();
+        }
+
+        // ----- DRAW EVERYTHING -----
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // ---- background stars ----
+            ctx.fillStyle = "white";
+            for (let s of stars) {
+                ctx.globalAlpha = s.flicker * (0.7 + 0.3 * Math.sin(Date.now() * 0.002 + s.x));
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+
+            // ---- bullets (bright plasma) ----
+            for (let b of bullets) {
+                ctx.shadowColor = '#ffff80';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ffffb0';
+                ctx.fill();
+                // inner core
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius-1, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fffae6';
+                ctx.fill();
+            }
+
+            // ---- enemies (alien ships) ----
+            for (let e of enemies) {
+                ctx.shadowColor = '#ff5555';
+                ctx.shadowBlur = 20;
+                // body
+                ctx.fillStyle = '#c04e4e';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, 2 * Math.PI);
+                ctx.fill();
+                // dome
+                ctx.fillStyle = '#962020';
+                ctx.beginPath();
+                ctx.arc(e.x-3, e.y-4, e.radius-5, 0, 2 * Math.PI);
+                ctx.fill();
+                // menacing eyes
+                ctx.shadowBlur = 5;
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(e.x-6, e.y-6, 3, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(e.x+6, e.y-6, 3, 0, 2*Math.PI);
+                ctx.fill();
+                // red glow
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#ff6a6a';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y+2, 4, 0, 2*Math.PI);
+                ctx.fill();
+            }
+
+            // ---- player ship (hero) with invincibility blink ----
+            if (invincibleFrames > 0 && (Math.floor(invincibleFrames / 6) % 2 === 0)) {
+                // blinking transparent during invincibility (skip drawing to blink)
+                // but we still draw a faint outline? we skip for clear blink effect.
+                // Actually we draw a ghost version: 
+                ctx.shadowBlur = 30;
+                ctx.fillStyle = '#88ddff';
+                ctx.globalAlpha = 0.5;
+            } else {
+                ctx.shadowBlur = 30;
+                ctx.fillStyle = '#5db9ff';
+                ctx.globalAlpha = 1.0;
+            }
+            ctx.shadowColor = '#00ddff';
+
+            // draw ship as triangle + cockpit
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y - 22);              // nose
+            ctx.lineTo(player.x - 18, player.y + 8);          // left wing
+            ctx.lineTo(player.x - 6, player.y + 2);           // left back
+            ctx.lineTo(player.x - 6, player.y + 12);          // left engine
+            ctx.lineTo(player.x, player.y + 16);              // center back
+            ctx.lineTo(player.x + 6, player.y + 12);          // right engine
+            ctx.lineTo(player.x + 6, player.y + 2);           // right back
+            ctx.lineTo(player.x + 18, player.y + 8);          // right wing
+            ctx.closePath();
+            ctx.fill();
+            // canopy
+            ctx.fillStyle = '#c2edff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y-12, 6, 0, Math.PI, true);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // ---- reset shadow ----
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+
+            // ---- game over overlay ----
+            if (gameOver) {
+                ctx.fillStyle = '#000000aa';
+                ctx.fillRect(0, 0, W, H);
+                ctx.font = 'bold 48px "Courier New", monospace';
+                ctx.fillStyle = '#ffaaaa';
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 20;
+                ctx.fillText('GAME OVER', W/2-210, H/2-20);
+                ctx.shadowBlur = 0;
+                ctx.font = '24px monospace';
+                ctx.fillStyle = '#ffeeaa';
+                ctx.fillText('press RESTART', W/2-100, H/2+40);
+            }
+
+            // ---- HUD texts inside canvas (extra) ----
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillStyle = '#b5d8ff';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#0088ff';
+            ctx.fillText(`SCORE ${score}`, 20, 40);
+            ctx.fillText(`LVL ${weaponLevel}`, 20, 75);
+        }
+
+        // ----- ANIMATION LOOP -----
+        function gameLoop() {
+            if (!gameOver) {
+                updateGame();
+            }
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ----- KEYBOARD HANDLERS -----
+        function handleKeyDown(e) {
+            const key = e.key;
+            // prevent arrow scrolling & space page jump
+            if (key === ' ' || key.startsWith('Arrow')) {
+                e.preventDefault();
+            }
+
+            if (key === 'ArrowLeft') leftPressed = true;
+            if (key === 'ArrowRight') rightPressed = true;
+            if (key === ' ') {
+                spacePressed = true;
+                e.preventDefault();  // extra safe
+            }
+
+            // optional: disable keys if gameOver (but we keep them, restart resets)
+        }
+
+        function handleKeyUp(e) {
+            const key = e.key;
+            if (key === ' ' || key.startsWith('Arrow')) {
+                e.preventDefault();
+            }
+            if (key === 'ArrowLeft') leftPressed = false;
+            if (key === 'ArrowRight') rightPressed = false;
+            if (key === ' ') spacePressed = false;
+        }
+
+        // make sure no page up/down interfere
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        // disable context menu on canvas (avoid right-click popup)
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // restart button
+        document.getElementById('restartButton').addEventListener('click', () => {
+            restartGame();
+        });
+
+        // initialize everything
+        restartGame();
+
+        // start the game loop
+        gameLoop();
+
+        // optional: clean up event listeners on page unload (not strictly needed)
+        window.addEventListener('unload', () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        });
+
+        // also if canvas loses focus, keys may stick; we can reset on window blur?
+        window.addEventListener('blur', () => {
+            leftPressed = false;
+            rightPressed = false;
+            spacePressed = false;
+        });
+
+    })();
+</script>
+</body>
+</html>
