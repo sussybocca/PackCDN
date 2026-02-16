@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pack Popup Creator · Manifest Generator</title>
     <style>
+        /* (keep all existing styles exactly as before) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -249,7 +250,6 @@
             margin-bottom: 1.5rem;
         }
         .popup-preview {
-            background: v-bind(previewBg);
             border-radius: 2rem;
             padding: 2rem;
             box-shadow: 0 20px 35px -8px rgba(0,20,40,0.2);
@@ -260,17 +260,13 @@
             font-size: 1.8rem;
             font-weight: 700;
             margin: 0 0 0.5rem 0;
-            color: v-bind(previewText);
         }
         .popup-preview p {
             font-size: 1.1rem;
             margin-bottom: 1.5rem;
-            color: v-bind(previewText);
             opacity: 0.9;
         }
         .popup-preview .preview-button {
-            background: v-bind(previewButton);
-            color: v-bind(previewButtonText);
             border: none;
             border-radius: 3rem;
             padding: 0.9rem 2rem;
@@ -297,6 +293,7 @@
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
+            margin-top: 1rem;
         }
         .btn {
             padding: 0.9rem 2rem;
@@ -316,6 +313,14 @@
         }
         .btn-primary:hover {
             background: #0f172a;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border: none;
+        }
+        .btn-success:hover {
+            background: #059669;
         }
         .btn-outline:hover {
             background: #f1f5f9;
@@ -351,7 +356,7 @@
 <body>
     <div class="container">
         <h1>📦 Popup Creator · Manifest Studio</h1>
-        <div class="subtitle">Connect a popup to your pack – generate a manifest.json in seconds</div>
+        <div class="subtitle">Connect a popup to your pack – generate a manifest.json or save globally via cookie</div>
 
         <!-- Search card -->
         <div class="card">
@@ -427,9 +432,11 @@
                 <div class="action-buttons">
                     <button class="btn btn-primary" id="copyManifest">📋 Copy manifest</button>
                     <button class="btn btn-outline" id="downloadManifest">⬇️ Download manifest.json</button>
+                    <button class="btn btn-success" id="saveCookieBtn">💾 Save Globally (Cookie)</button>
                 </div>
                 <p style="color: #4b5563; margin-top: 1rem; font-size: 0.9rem;">
-                    💡 Place <code>manifest.json</code> in the root of your pack. When users visit the game, the popup will appear automatically (if the game supports pack popups).
+                    💡 <strong>Save Globally</strong> stores the popup in a cookie so it appears on the main catalog.  
+                    <strong>Download manifest</strong> for hosting the file yourself.
                 </p>
             </div>
         </div>
@@ -443,7 +450,7 @@
         let searchResults = [];
         const API_BASE = '';                    // relative paths (assume same origin)
         const SEARCH_ENDPOINT = '/api/search';
-        const GET_PACK_ENDPOINT = '/api/get-pack';   // ✅ correct endpoint
+        const GET_PACK_ENDPOINT = '/api/get-pack';
 
         // DOM elements
         const searchInput = document.getElementById('searchInput');
@@ -466,6 +473,7 @@
         const popupPreview = document.getElementById('popupPreview');
         const copyBtn = document.getElementById('copyManifest');
         const downloadBtn = document.getElementById('downloadManifest');
+        const saveCookieBtn = document.getElementById('saveCookieBtn');
         const toast = document.getElementById('toast');
 
         // ==================== HELPERS ====================
@@ -485,27 +493,25 @@
             }
         }
 
-        // Update preview CSS variables (using style setProperty)
+        // Update preview
         function updatePreview() {
             previewTitle.innerText = popupTitle.value || 'Popup title';
             previewMessage.innerText = popupMessage.value || 'Your message here';
             previewButton.innerText = buttonText.value || 'Button';
 
             popupPreview.style.backgroundColor = bgColor.value;
-            popupPreview.style.color = textColor.value; // not directly used, children override
             previewTitle.style.color = textColor.value;
             previewMessage.style.color = textColor.value;
             previewButton.style.backgroundColor = btnColor.value;
             previewButton.style.color = btnTextColor.value;
         }
 
-        // Generate manifest object based on current selections
+        // Generate manifest object
         function generateManifest() {
             if (!selectedPack) return { popups: [] };
 
             const packId = selectedPack.id;
             const packName = selectedPack.name;
-            // prefer cdnUrl from pack, fallback to workerUrl or empty
             const defaultCdn = selectedPack.cdn_url || selectedPack.worker_url || '';
 
             return {
@@ -534,6 +540,66 @@
             manifestOutput.innerText = JSON.stringify(manifest, null, 2);
         }
 
+        // ==================== COOKIE FUNCTIONS ====================
+        function setCookie(name, value, days) {
+            let expires = '';
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = '; expires=' + date.toUTCString();
+            }
+            document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/';
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + '=';
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            }
+            return null;
+        }
+
+        // Save current popup to cookie (keyed by pack name)
+        function savePopupToCookie() {
+            if (!selectedPack) {
+                alert('Select a pack first.');
+                return;
+            }
+
+            const manifest = generateManifest();
+            const popupData = manifest.popups[0];
+            if (!popupData) return;
+
+            // Read existing popups from cookie
+            let popups = {};
+            const cookieData = getCookie('pack_popups');
+            if (cookieData) {
+                try {
+                    popups = JSON.parse(cookieData);
+                } catch (e) {
+                    popups = {};
+                }
+            }
+
+            // Store under pack name (or ID)
+            const key = selectedPack.name; // use name as key for matching in catalog
+            popups[key] = {
+                title: popupData.title,
+                message: popupData.message,
+                buttonText: popupData.buttonText,
+                buttonUrl: popupData.buttonUrl,
+                theme: popupData.theme,
+                link: selectedPack.link || selectedPack.cdn_url || '' // store the game link
+            };
+
+            // Save back to cookie (expires in 30 days)
+            setCookie('pack_popups', JSON.stringify(popups), 30);
+            showToast('💾 Popup saved globally!');
+        }
+
         // ==================== API CALLS ====================
         async function searchPacks(query) {
             if (!query.trim()) return [];
@@ -549,7 +615,6 @@
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Failed to fetch pack: ${res.status}`);
             const data = await res.json();
-            // The API returns { success, pack, metadata, ... } with pack nested
             return data.success ? data.pack : null;
         }
 
@@ -579,7 +644,6 @@
             html += '</div>';
             resultsContainer.innerHTML = html;
 
-            // attach event listeners
             document.querySelectorAll('.select-pack-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const id = btn.dataset.id;
@@ -602,21 +666,18 @@
 
         // ==================== SELECT PACK ====================
         async function selectPack(id, name) {
-            // show loading on selected area
             selectedPackContainer.innerHTML = '<div style="padding:1rem;text-align:center;">Loading pack details...</div>';
             try {
                 const pack = await fetchPackDetails(id);
                 if (!pack) throw new Error('Pack not found');
                 selectedPack = pack;
 
-                // auto-fill button link with cdn_url if available
                 if (pack.cdn_url && !buttonLink.value) {
                     buttonLink.value = pack.cdn_url;
                 } else if (!buttonLink.value) {
                     buttonLink.value = '';
                 }
 
-                // show selected pack bar
                 selectedPackContainer.innerHTML = `
                     <div class="selected-pack">
                         <div class="info">
@@ -630,13 +691,9 @@
                     selectedPack = null;
                     configArea.style.display = 'none';
                     selectedPackContainer.innerHTML = '';
-                    // clear search? keep results
                 });
 
-                // show config area
                 configArea.style.display = 'block';
-
-                // update manifest and preview
                 updatePreview();
                 renderManifest();
             } catch (err) {
@@ -666,7 +723,6 @@
             if (e.key === 'Enter') searchBtn.click();
         });
 
-        // Form inputs update manifest and preview
         [popupTitle, popupMessage, buttonText, buttonLink, bgColor, textColor, btnColor, btnTextColor].forEach(el => {
             el.addEventListener('input', () => {
                 updatePreview();
@@ -674,14 +730,12 @@
             });
         });
 
-        // Copy manifest
         copyBtn.addEventListener('click', () => {
             navigator.clipboard.writeText(manifestOutput.innerText).then(() => {
                 showToast('📋 Manifest copied to clipboard!');
             }).catch(() => alert('Could not copy'));
         });
 
-        // Download manifest.json
         downloadBtn.addEventListener('click', () => {
             const manifest = generateManifest();
             const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
@@ -693,11 +747,11 @@
             URL.revokeObjectURL(url);
         });
 
+        saveCookieBtn.addEventListener('click', savePopupToCookie);
+
         // initial preview
         updatePreview();
         renderManifest();
-
-        // if no pack selected, hide config
         if (!selectedPack) configArea.style.display = 'none';
     </script>
 </body>
