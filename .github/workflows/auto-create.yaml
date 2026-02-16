@@ -3,7 +3,7 @@ name: Auto‑link Imagine Files
 on:
   push:
     paths:
-      - 'imagine/**'          # triggers only when files inside /imagine change
+      - 'public/imagine/**'          # triggers when files inside public/imagine change
   workflow_dispatch:
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
 
             // selector.html is inside /public
             const selectorPath = 'public/selector.html';
-            const imagineDir = 'imagine';   // folder at repository root
+            const imagineDir = 'public/imagine';   // imagine folder now inside public/
 
             // 1. Read the main selector page
             const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
@@ -93,8 +93,8 @@ jobs:
             // 4. Loop through each HTML file
             for (const file of files) {
               const filePath = path.join(imagineDir, file);
-              // Relative path from public/selector.html to root imagine/ file
-              const relativeLink = `../imagine/${file}`;
+              // Relative path from selector.html (inside public/) to imagine/ (also inside public/)
+              const relativeLink = `imagine/${file}`;
 
               // Skip if a button with this link already exists (prevents duplicates)
               const existing = root.querySelector(`.select-btn[onclick*="${relativeLink}"]`);
