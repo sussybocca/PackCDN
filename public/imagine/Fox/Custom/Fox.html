@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOX · apex predator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #0b1a1f;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, -apple-system, 'Cinzel', serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: none; /* custom cursor – fox's aura */
+            box-shadow: 0 0 40px rgba(0,0,0,0.7) inset;
+        }
+        #hud {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            color: rgba(255, 240, 200, 0.9);
+            text-shadow: 0 0 15px #ff8800, 0 0 30px #b85e00;
+            background: rgba(10, 15, 10, 0.3);
+            backdrop-filter: blur(4px);
+            padding: 18px 28px;
+            border-radius: 60px;
+            border: 1px solid rgba(255, 160, 60, 0.6);
+            font-weight: 400;
+            letter-spacing: 1px;
+            pointer-events: none;
+            z-index: 10;
+            font-size: 1.4rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        #hud span {
+            font-weight: 700;
+            color: #ffb96a;
+            font-size: 2rem;
+            margin-left: 10px;
+            text-shadow: 0 0 20px #ff9900;
+        }
+        #instruction {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            color: #dbcbb4;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(3px);
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 1.1rem;
+            border: 1px solid #7f6242;
+            letter-spacing: 0.5px;
+            box-shadow: 0 5px 15px #00000050;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #instruction i {
+            font-style: normal;
+            color: #ffd793;
+            font-weight: 600;
+        }
+        .kill-feedback {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffba7a;
+            font-size: 2.2rem;
+            font-weight: 800;
+            text-shadow: 0 0 30px red, 0 0 60px orange;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 20;
+            white-space: nowrap;
+            background: rgba(0,0,0,0.2);
+            padding: 8px 30px;
+            border-radius: 60px;
+            backdrop-filter: blur(6px);
+            border: 1px solid #ff9f4b;
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">🦊 STRENGTH <span id="strength-val">12</span></div>
+    <div id="instruction"><i>🖱️ MOVE MOUSE</i> — fox hunts · grow strong · multi-kill</div>
+    <div id="multikill-msg" class="kill-feedback">⚡ MULTI KILL ⚡</div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const strengthSpan = document.getElementById('strength-val');
+            const multiMsg = document.getElementById('multikill-msg');
+
+            // ---- immersive dimensions ----
+            let width, height;
+            function resizeCanvas() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // ---- mouse tracking (fox target) ----
+            let mouseX = width * 0.5;
+            let mouseY = height * 0.5;
+            let mousePresent = true;
+
+            canvas.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                mousePresent = true;
+            });
+            canvas.addEventListener('mouseleave', () => {
+                mousePresent = false; // fox will slow down, not disappear
+            });
+            // touch devices basic support
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+                mousePresent = true;
+            }, { passive: false });
+            canvas.addEventListener('touchend', () => {
+                mousePresent = false;
+            });
+
+            // ---- game objects ----
+            const fox = {
+                x: width * 0.5,
+                y: height * 0.5,
+                r: 12,               // base size = strength
+                vx: 0, vy: 0,
+                maxSpeed: 5.2,
+                accel: 0.18,
+                color: '#d55d2f',
+                earColor: '#b3471c',
+                noseColor: '#3f2a1a',
+                eyeColor: '#26170e',
+                tailColor: '#f2c49b'
+            };
+
+            // prey database
+            const PREY_TYPES = [
+                { id: 'rabbit', baseR: 6, color: '#b59b80', earColor: '#8f6d5c', speed: 1.6, flee: 130, value: 1, minFoxR: 0 },
+                { id: 'deer', baseR: 14, color: '#9c7c5b', earColor: '#6b4f38', antlerColor: '#73553b', speed: 2.1, flee: 160, value: 4, minFoxR: 20 },
+                { id: 'boar', baseR: 22, color: '#584b42', earColor: '#3a3029', tuskColor: '#9e8b7a', speed: 1.8, flee: 140, value: 9, minFoxR: 32 }
+            ];
+
+            let preyArray = [];
+            let particles = [];
+
+            // spawn control
+            let lastSpawn = 0;
+            const MAX_PREY = 70;
+            const SPAWN_INTERVAL = 25; // frames
+
+            // ---- helper functions ----
+            function random(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            // spawn new prey based on fox strength (world evolution)
+            function trySpawnPrey() {
+                if (preyArray.length >= MAX_PREY) return;
+
+                // determine which types can appear
+                let possibleTypes = PREY_TYPES.filter(t => fox.r >= t.minFoxR * 0.9); // appear slightly before you can eat them
+                if (possibleTypes.length === 0) possibleTypes = [PREY_TYPES[0]];
+
+                const type = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+
+                // edge spawn
+                const side = Math.floor(Math.random() * 4);
+                let x, y;
+                const pad = 50;
+                if (side === 0) { // top
+                    x = random(pad, width - pad);
+                    y = -pad;
+                } else if (side === 2) { // bottom
+                    x = random(pad, width - pad);
+                    y = height + pad;
+                } else if (side === 1) { // right
+                    x = width + pad;
+                    y = random(pad, height - pad);
+                } else { // left
+                    x = -pad;
+                    y = random(pad, height - pad);
+                }
+
+                // base radius with slight variation
+                const rFactor = random(0.9, 1.2);
+                const preyR = type.baseR * rFactor;
+
+                preyArray.push({
+                    type: type.id,
+                    r: preyR,
+                    x, y,
+                    vx: random(-0.5, 0.5),
+                    vy: random(-0.5, 0.5),
+                    speed: type.speed * random(0.8, 1.2),
+                    fleeRadius: type.flee,
+                    color: type.color,
+                    earColor: type.earColor || '#aaa',
+                    antlerColor: type.antlerColor || null,
+                    value: type.value,
+                    // for deer/boar specifics
+                    hasAntlers: type.id === 'deer',
+                    hasTusks: type.id === 'boar'
+                });
+            }
+
+            // ---- particle effects (blood/feathers) ----
+            function addDeathParticles(x, y, color) {
+                for (let i = 0; i < 12; i++) {
+                    particles.push({
+                        x: x + random(-12, 12),
+                        y: y + random(-12, 12),
+                        vx: random(-3, 3),
+                        vy: random(-3, 3) - 1.5,
+                        size: random(3, 9),
+                        color: color,
+                        life: 1.0,
+                        decay: random(0.01, 0.03)
+                    });
+                }
+            }
+
+            // ---- multi-kill feedback ----
+            let multiFlash = 0;
+            function showMultiKill() {
+                multiFlash = 1.0;
+                multiMsg.style.opacity = '1';
+            }
+
+            // ---- kill action + area damage ----
+            function eatPrey(preyIdx) {
+                const prey = preyArray[preyIdx];
+                if (!prey) return false;
+
+                // increase fox size (strength) based on prey value
+                fox.r += prey.value * 0.65;
+                // soft cap – still grows but visual
+                if (fox.r > 90) fox.r = 90;
+
+                // death effect
+                addDeathParticles(prey.x, prey.y, prey.color);
+
+                // remove prey
+                preyArray.splice(preyIdx, 1);
+
+                // ---- MULTI KILL : if fox is huge, shockwave ----
+                if (fox.r > 28) {
+                    let multiKilled = 0;
+                    const waveRadius = fox.r * 2.2; // area of devastation
+                    for (let i = preyArray.length - 1; i >= 0; i--) {
+                        const other = preyArray[i];
+                        const dx = other.x - fox.x;
+                        const dy = other.y - fox.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        // kill if in radius AND significantly smaller (fox 2x size)
+                        if (dist < waveRadius && other.r * 2.5 < fox.r) {
+                            // add particles for each
+                            addDeathParticles(other.x, other.y, other.color);
+                            preyArray.splice(i, 1);
+                            multiKilled++;
+                            // extra growth but less per extra kill
+                            fox.r += other.value * 0.25;
+                        }
+                    }
+                    if (multiKilled >= 2) {
+                        showMultiKill();
+                    } else if (multiKilled === 1) {
+                        // still show subtle?
+                    }
+                }
+
+                // limit insane fox
+                if (fox.r > 95) fox.r = 95;
+                return true;
+            }
+
+            // ---- update ----
+            function update() {
+                // fox AI: follow mouse with smooth acceleration
+                if (mousePresent) {
+                    const targetX = mouseX;
+                    const targetY = mouseY;
+                    const dx = targetX - fox.x;
+                    const dy = targetY - fox.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 2) {
+                        const moveX = (dx / dist) * fox.maxSpeed;
+                        const moveY = (dy / dist) * fox.maxSpeed;
+                        fox.vx += (moveX - fox.vx) * fox.accel;
+                        fox.vy += (moveY - fox.vy) * fox.accel;
+                    } else {
+                        fox.vx *= 0.95;
+                        fox.vy *= 0.95;
+                    }
+                } else {
+                    // drift to stop
+                    fox.vx *= 0.98;
+                    fox.vy *= 0.98;
+                }
+
+                // move fox
+                fox.x += fox.vx;
+                fox.y += fox.vy;
+
+                // keep fox inside (with soft border)
+                const margin = fox.r;
+                if (fox.x < margin) fox.x = margin;
+                if (fox.x > width - margin) fox.x = width - margin;
+                if (fox.y < margin) fox.y = margin;
+                if (fox.y > height - margin) fox.y = height - margin;
+
+                // update prey
+                for (let i = 0; i < preyArray.length; i++) {
+                    const p = preyArray[i];
+
+                    // flee from fox if too close
+                    const dxFox = fox.x - p.x;
+                    const dyFox = fox.y - p.y;
+                    const distToFox = Math.sqrt(dxFox*dxFox + dyFox*dyFox);
+
+                    if (distToFox < p.fleeRadius) {
+                        // flee direction: away from fox
+                        const angle = Math.atan2(dyFox, dxFox);
+                        const fleeSpeed = p.speed * 1.8;
+                        p.vx += Math.cos(angle) * -0.3; // negative = away
+                        p.vy += Math.sin(angle) * -0.3;
+                    } else {
+                        // random wander
+                        if (Math.random() < 0.02) {
+                            p.vx += random(-0.7, 0.7);
+                            p.vy += random(-0.7, 0.7);
+                        }
+                    }
+
+                    // speed limit
+                    const sp = Math.hypot(p.vx, p.vy);
+                    if (sp > p.speed) {
+                        p.vx = (p.vx / sp) * p.speed;
+                        p.vy = (p.vy / sp) * p.speed;
+                    }
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // boundary bounce / wrap? better soft bounce to keep visible
+                    if (p.x < 10) { p.x = 10; p.vx *= -0.7; }
+                    if (p.x > width - 10) { p.x = width - 10; p.vx *= -0.7; }
+                    if (p.y < 10) { p.y = 10; p.vy *= -0.7; }
+                    if (p.y > height - 10) { p.y = height - 10; p.vy *= -0.7; }
+                }
+
+                // collisions: fox vs prey
+                for (let i = preyArray.length - 1; i >= 0; i--) {
+                    const prey = preyArray[i];
+                    const dx = fox.x - prey.x;
+                    const dy = fox.y - prey.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < fox.r + prey.r - 2) { // overlap
+                        // fox can eat if it's larger (with tiny buffer)
+                        if (fox.r > prey.r * 1.1) {
+                            eatPrey(i);
+                        } else {
+                            // not big enough: bounce away slightly (prey escapes)
+                            const angle = Math.atan2(dy, dx);
+                            const push = 0.8;
+                            prey.vx -= Math.cos(angle) * push;
+                            prey.vy -= Math.sin(angle) * push;
+                            fox.vx += Math.cos(angle) * push * 0.5;
+                            fox.vy += Math.sin(angle) * push * 0.5;
+                        }
+                    }
+                }
+
+                // particles update
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const part = particles[i];
+                    part.x += part.vx;
+                    part.y += part.vy;
+                    part.vy += 0.08; // gravity
+                    part.life -= part.decay;
+                    if (part.life <= 0 || part.y > height + 50) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                // spawn prey
+                lastSpawn++;
+                if (lastSpawn > SPAWN_INTERVAL) {
+                    lastSpawn = 0;
+                    trySpawnPrey();
+                    // occasionally double spawn if low count
+                    if (preyArray.length < 20) trySpawnPrey();
+                }
+
+                // update hud
+                strengthSpan.innerText = Math.floor(fox.r * 10) / 10;
+
+                // multi-kill message fade
+                if (multiFlash > 0) {
+                    multiFlash -= 0.015;
+                    multiMsg.style.opacity = Math.min(1, multiFlash * 1.5).toString();
+                } else {
+                    multiMsg.style.opacity = '0';
+                }
+            }
+
+            // -------------- ADVANCED GRAPHICS RENDERING --------------
+            function drawBackground() {
+                // immersive gradient sky (sunset mood)
+                const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                gradient.addColorStop(0, '#141e2b');
+                gradient.addColorStop(0.5, '#4f3b2c');
+                gradient.addColorStop(1, '#1d342a');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+
+                // distant trees (silhouettes) – parallax feel
+                ctx.shadowColor = '#00000050';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#1f2e1b';
+                for (let i = 0; i < 12; i++) {
+                    let x = (i * 130 + Math.sin(Date.now() * 0.0005 + i) * 10) % (width + 200) - 100;
+                    let h = 150 + Math.sin(i) * 40;
+                    ctx.beginPath();
+                    ctx.moveTo(x, height);
+                    ctx.lineTo(x - 30, height - h);
+                    ctx.lineTo(x + 30, height - h);
+                    ctx.closePath();
+                    ctx.fillStyle = '#172012';
+                    ctx.fill();
+                }
+                // ground mist
+                ctx.shadowBlur = 50;
+                ctx.fillStyle = '#263f2e30';
+                ctx.fillRect(0, height * 0.7, width, height * 0.3);
+
+                // glowing grass blades
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#aad6aa20';
+                for (let i = 0; i < 60; i++) {
+                    let x = (i * 37 + Date.now() * 0.02) % (width + 80) - 40;
+                    ctx.beginPath();
+                    ctx.moveTo(x, height);
+                    ctx.lineTo(x - 6, height - 30 - Math.sin(i) * 10);
+                    ctx.lineTo(x + 6, height - 25 + Math.cos(i) * 10);
+                    ctx.fillStyle = `#3f614580`;
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+            }
+
+            function drawFox() {
+                // shadow under fox
+                ctx.shadowColor = '#300';
+                ctx.shadowBlur = 30;
+                ctx.shadowOffsetY = 5;
+
+                // body (gradient)
+                const bodyGrad = ctx.createRadialGradient(fox.x-5, fox.y-5, fox.r*0.2, fox.x, fox.y, fox.r*1.5);
+                bodyGrad.addColorStop(0, '#f78b4b');
+                bodyGrad.addColorStop(1, '#ac3f1a');
+                ctx.beginPath();
+                ctx.arc(fox.x, fox.y, fox.r, 0, Math.PI*2);
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+
+                // ears (triangles)
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#ce4f28';
+                // left ear
+                ctx.beginPath();
+                ctx.moveTo(fox.x - fox.r*0.6, fox.y - fox.r*0.7);
+                ctx.lineTo(fox.x - fox.r*0.3, fox.y - fox.r*1.2);
+                ctx.lineTo(fox.x - fox.r*0.1, fox.y - fox.r*0.7);
+                ctx.closePath();
+                ctx.fill();
+                // right ear
+                ctx.beginPath();
+                ctx.moveTo(fox.x + fox.r*0.6, fox.y - fox.r*0.7);
+                ctx.lineTo(fox.x + fox.r*0.3, fox.y - fox.r*1.2);
+                ctx.lineTo(fox.x + fox.r*0.1, fox.y - fox.r*0.7);
+                ctx.closePath();
+                ctx.fill();
+
+                // white ear tips
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#f2e3cf';
+                ctx.beginPath();
+                ctx.moveTo(fox.x - fox.r*0.5, fox.y - fox.r*0.95);
+                ctx.lineTo(fox.x - fox.r*0.35, fox.y - fox.r*1.1);
+                ctx.lineTo(fox.x - fox.r*0.25, fox.y - fox.r*0.95);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(fox.x + fox.r*0.5, fox.y - fox.r*0.95);
+                ctx.lineTo(fox.x + fox.r*0.35, fox.y - fox.r*1.1);
+                ctx.lineTo(fox.x + fox.r*0.25, fox.y - fox.r*0.95);
+                ctx.closePath();
+                ctx.fill();
+
+                // eyes
+                ctx.shadowBlur = 5;
+                ctx.fillStyle = '#2e1f14';
+                ctx.beginPath();
+                ctx.arc(fox.x - fox.r*0.3, fox.y - fox.r*0.2, fox.r*0.12, 0, Math.PI*2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(fox.x + fox.r*0.3, fox.y - fox.r*0.2, fox.r*0.12, 0, Math.PI*2);
+                ctx.fill();
+                // eye glint
+                ctx.fillStyle = '#fffcf0';
+                ctx.beginPath();
+                ctx.arc(fox.x - fox.r*0.35, fox.y - fox.r*0.25, fox.r*0.03, 0, Math.PI*2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(fox.x + fox.r*0.25, fox.y - fox.r*0.25, fox.r*0.03, 0, Math.PI*2);
+                ctx.fill();
+
+                // nose
+                ctx.shadowBlur = 18;
+                ctx.fillStyle = '#3b281d';
+                ctx.beginPath();
+                ctx.arc(fox.x, fox.y + fox.r*0.1, fox.r*0.13, 0, Math.PI*2);
+                ctx.fill();
+
+                // tail swish (gradient)
+                ctx.shadowBlur = 30;
+                const tailGrad = ctx.createLinearGradient(fox.x - fox.r*1.1, fox.y - fox.r*0.2, fox.x - fox.r*0.5, fox.y - fox.r*0.7);
+                tailGrad.addColorStop(0, '#f9b985');
+                tailGrad.addColorStop(1, '#cf601f');
+                ctx.beginPath();
+                ctx.moveTo(fox.x - fox.r*0.9, fox.y - fox.r*0.4);
+                ctx.quadraticCurveTo(fox.x - fox.r*1.3, fox.y - fox.r*0.9, fox.x - fox.r*1.5, fox.y - fox.r*0.2);
+                ctx.quadraticCurveTo(fox.x - fox.r*1.3, fox.y + fox.r*0.3, fox.x - fox.r*0.8, fox.y + fox.r*0.1);
+                ctx.fillStyle = tailGrad;
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+            }
+
+            function drawPrey(p) {
+                ctx.shadowColor = '#261d14';
+                ctx.shadowBlur = 18;
+                ctx.shadowOffsetY = 3;
+
+                // body
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+
+                if (p.type === 'rabbit') {
+                    // long ears
+                    ctx.fillStyle = p.earColor;
+                    ctx.beginPath();
+                    ctx.ellipse(p.x - p.r*0.5, p.y - p.r*0.9, p.r*0.2, p.r*0.5, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(p.x + p.r*0.5, p.y - p.r*0.9, p.r*0.2, p.r*0.5, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    // eye
+                    ctx.fillStyle = '#1a130e';
+                    ctx.beginPath();
+                    ctx.arc(p.x - p.r*0.2, p.y - p.r*0.2, p.r*0.1, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (p.type === 'deer') {
+                    // antlers
+                    ctx.shadowBlur = 12;
+                    ctx.strokeStyle = '#68573f';
+                    ctx.lineWidth = p.r*0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - p.r*0.4, p.y - p.r*0.7);
+                    ctx.lineTo(p.x - p.r*0.7, p.y - p.r*1.1);
+                    ctx.lineTo(p.x - p.r*1.0, p.y - p.r*1.0);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + p.r*0.4, p.y - p.r*0.7);
+                    ctx.lineTo(p.x + p.r*0.7, p.y - p.r*1.1);
+                    ctx.lineTo(p.x + p.r*1.0, p.y - p.r*1.0);
+                    ctx.stroke();
+                } else if (p.type === 'boar') {
+                    // tusks
+                    ctx.fillStyle = '#cbb291';
+                    ctx.beginPath();
+                    ctx.ellipse(p.x - p.r*0.5, p.y + p.r*0.2, p.r*0.1, p.r*0.25, -0.2, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(p.x + p.r*0.5, p.y + p.r*0.2, p.r*0.1, p.r*0.25, 0.2, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+
+            function drawParticles() {
+                for (let p of particles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.shadowBlur = 15 * p.life;
+                    ctx.shadowColor = '#fcb27d';
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+
+            function draw() {
+                drawBackground();
+
+                // draw prey (with blending)
+                for (let p of preyArray) {
+                    drawPrey(p);
+                }
+
+                // fox drawn last (on top)
+                drawFox();
+
+                // particles (blood, fur)
+                drawParticles();
+
+                // extra glow around fox (immersion)
+                ctx.shadowBlur = 60;
+                ctx.shadowColor = '#ff8c4230';
+                ctx.beginPath();
+                ctx.arc(fox.x, fox.y, fox.r + 6, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ffb16420';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // reset shadow
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+            }
+
+            // game loop
+            function gameLoop() {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+
+            // init some prey
+            for (let i = 0; i < 20; i++) {
+                trySpawnPrey();
+            }
+            gameLoop();
+        })();
+    </script>
+</body>
+</html>
