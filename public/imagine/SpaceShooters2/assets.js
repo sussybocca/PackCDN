@@ -10,8 +10,8 @@ const assets = {
 
 const assetManifest = {
     images: [
-        { name: 'player', src: 'images/player.png' },
-        { name: 'enemy1', src: 'images/enemy1.png' },
+        { name: 'player', src: 'images/player_spaceship.png' },
+        { name: 'enemy1', src: 'images/enemy_spaceship.png' },
         { name: 'enemy2', src: 'images/enemy2.png' },
         { name: 'bullet', src: 'images/bullets.png' },
         { name: 'enemyBullet', src: 'images/bullet.png' },
