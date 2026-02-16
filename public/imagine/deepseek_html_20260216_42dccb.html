@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PackCDN · PURE THREE.JS GAME · CONTROLS WORK</title>
+    <!-- Only Three.js and its addons -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            touch-action: none;
+            background: #0a0a1a;
+        }
+        /* UI overlays */
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 100;
+            pointer-events: none;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        #info span { color: #a78bfa; font-weight: 700; }
+
+        #portal-labels {
+            position: absolute;
+            bottom: 120px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 300px;
+            pointer-events: none;
+            z-index: 200;
+            text-shadow: 0 0 20px #667eea;
+        }
+        @media (max-width: 768px) {
+            #portal-labels { gap: 100px; bottom: 100px; }
+            .portal-label { font-size: 1.2rem; }
+        }
+        .portal-label {
+            color: white;
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(145deg, #667eea, #9f7aea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 30px #764ba2);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a14;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 1s;
+            color: white;
+            font-size: 2rem;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .spinner {
+            width: 70px;
+            height: 70px;
+            border: 6px solid #334155;
+            border-top: 6px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid #a78bfa;
+            box-shadow: 0 0 20px #a78bfa;
+            pointer-events: none;
+            z-index: 150;
+        }
+
+        /* Custom touch joystick (pure CSS/HTML, no external lib) */
+        #joystick-container {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 140px;
+            height: 140px;
+            z-index: 300;
+            display: none;
+            border-radius: 50%;
+            background: rgba(20,20,40,0.4);
+            backdrop-filter: blur(8px);
+            border: 2px solid #667eea;
+            box-shadow: 0 0 30px #667eea;
+            touch-action: none;
+        }
+        @media (max-width: 768px) {
+            #joystick-container { display: block; }
+        }
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #joystick-thumb {
+            width: 60px;
+            height: 60px;
+            background: rgba(102,126,234,0.9);
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 20px #a78bfa;
+            transform: translate(0, 0);
+            will-change: transform;
+            transition: transform 0.02s;
+        }
+
+        #mobile-instruction {
+            position: absolute;
+            bottom: 200px;
+            left: 60px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
+            border: 1px solid #667eea;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            #mobile-instruction { display: block; }
+        }
+
+        /* Start overlay */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10,10,20,0.95);
+            backdrop-filter: blur(15px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: white;
+            font-size: 2rem;
+            flex-direction: column;
+            gap: 30px;
+            cursor: pointer;
+            transition: opacity 0.5s;
+        }
+        #start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .start-button {
+            background: linear-gradient(145deg, #667eea, #9f7aea);
+            border: none;
+            padding: 20px 60px;
+            border-radius: 60px;
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 0 50px #667eea;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .start-button:hover {
+            transform: scale(1.1);
+        }
+
+        /* Desktop instruction */
+        #desktop-instruction {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 1rem;
+            border: 1px solid #667eea;
+            backdrop-filter: blur(5px);
+            z-index: 350;
+            pointer-events: none;
+        }
+        @media (max-width: 768px) {
+            #desktop-instruction { display: none; }
+        }
+
+        /* Debug (optional, but helpful) */
+        #debug {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-family: monospace;
+            z-index: 10000;
+            border: 1px solid #667eea;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div>🌀 constructing ultra‑realistic dimension...</div>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Start overlay -->
+    <div id="start-overlay">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🌌 PackCDN</div>
+        <div style="font-size: 1.5rem; max-width: 600px; text-align: center; margin-bottom: 40px;">Click anywhere to enter<br>• Desktop: mouse follows cursor + WASD backup<br>• Mobile: drag joystick</div>
+        <div class="start-button">▶ ENTER</div>
+    </div>
+
+    <div id="info">✨ <span>PackCDN</span> · PURE THREE.JS GAME</div>
+    <div id="crosshair"></div>
+    <div id="portal-labels">
+        <div class="portal-label">📦 CREATE PACK</div>
+        <div class="portal-label">🔍 EXPLORE PACKS</div>
+    </div>
+    <div id="desktop-instruction">🖱️ Mouse = move • WASD also works</div>
+
+    <!-- Custom joystick -->
+    <div id="joystick-container">
+        <div id="joystick-base">
+            <div id="joystick-thumb"></div>
+        </div>
+    </div>
+    <div id="mobile-instruction">⬆️ drag joystick to move</div>
+
+    <!-- Optional debug panel -->
+    <div id="debug">mouse: (0,0) joy: (0,0)</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+        import { Reflector } from 'three/addons/objects/Reflector.js';
+
+        // ========== SETUP SCENE, CAMERA, RENDERERS ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a1a);
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 9, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.bias = 0.0001;
+        renderer.shadowMap.normalBias = 0.02;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.appendChild(renderer.domElement);
+
+        // CSS2 renderer for labels
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // ========== LIGHTING ==========
+        const ambient = new THREE.AmbientLight(0x40406b, 1.4);
+        scene.add(ambient);
+
+        const sunLight = new THREE.DirectionalLight(0xffeedd, 2.2);
+        sunLight.position.set(30, 45, 25);
+        sunLight.castShadow = true;
+        sunLight.receiveShadow = true;
+        sunLight.shadow.mapSize.width = 4096;
+        sunLight.shadow.mapSize.height = 4096;
+        const d = 70;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 1;
+        sunLight.shadow.camera.far = 120;
+        sunLight.shadow.bias = -0.001;
+        scene.add(sunLight);
+
+        const fillLight1 = new THREE.PointLight(0x5a6fd8, 1.3, 80);
+        fillLight1.position.set(-25, 18, 30);
+        scene.add(fillLight1);
+        const fillLight2 = new THREE.PointLight(0xaa88ff, 1.0, 70);
+        fillLight2.position.set(20, 15, -30);
+        scene.add(fillLight2);
+
+        const portalLightLeft = new THREE.PointLight(0x667eea, 6, 50);
+        portalLightLeft.position.set(-20, 6, 0);
+        scene.add(portalLightLeft);
+        const portalLightRight = new THREE.PointLight(0x9f7aea, 6, 50);
+        portalLightRight.position.set(20, 6, 0);
+        scene.add(portalLightRight);
+
+        const extraLights = [];
+        for (let i = 0; i < 12; i++) {
+            const color = new THREE.Color().setHSL(Math.random() * 0.3 + 0.5, 0.9, 0.6);
+            const light = new THREE.PointLight(color, 1.8, 40);
+            const angle = (i / 12) * Math.PI * 2;
+            light.position.set(Math.cos(angle) * 30, 8 + Math.random() * 10, Math.sin(angle) * 30);
+            scene.add(light);
+            extraLights.push(light);
+        }
+
+        // ========== GROUND, PUDDLES, REFLECTOR ==========
+        const groundGeometry = new THREE.CircleGeometry(150, 128);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x1e3042, roughness: 0.6, metalness: 0.1, emissive: 0x0a1220 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        for (let i = 0; i < 80; i++) {
+            const puddleGeom = new THREE.CircleGeometry(0.8 + Math.random()*3.0, 8);
+            const puddleMat = new THREE.MeshStandardMaterial({ color: 0x2a4f6a, emissive: 0x102435, transparent: true, opacity: 0.5 });
+            const puddle = new THREE.Mesh(puddleGeom, puddleMat);
+            puddle.rotation.x = -Math.PI / 2;
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 15 + Math.random() * 50;
+            puddle.position.set(Math.cos(angle)*rad, 0.0, Math.sin(angle)*rad);
+            puddle.receiveShadow = true;
+            scene.add(puddle);
+        }
+
+        const reflectorGeometry = new THREE.CircleGeometry(10, 64);
+        const reflector = new Reflector(reflectorGeometry, {
+            clipBias: 0.003,
+            textureWidth: window.innerWidth * 2,
+            textureHeight: window.innerHeight * 2,
+            color: 0x4a6e9a
+        });
+        reflector.rotation.x = -Math.PI / 2;
+        reflector.position.set(0, 0.02, 0);
+        reflector.receiveShadow = true;
+        scene.add(reflector);
+
+        // ========== TREES ==========
+        function createTree(x, z, variant = 'normal') {
+            const group = new THREE.Group();
+            const trunkHeight = variant === 'tall' ? 5.0 : (variant === 'pine' ? 6.5 : 3.5);
+            const trunkGeom = new THREE.CylinderGeometry(0.7, 1.2, trunkHeight);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.7 });
+            const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+            trunk.position.y = trunkHeight/2;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            group.add(trunk);
+
+            const green1 = 0x2E7D32;
+            const green2 = 0x3D8C40;
+            
+            if (variant === 'pine') {
+                const folMat = new THREE.MeshStandardMaterial({ color: 0x2E7D32 });
+                const fol1 = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.5, 8), folMat);
+                fol1.position.y = trunkHeight - 0.8;
+                fol1.castShadow = true;
+                fol1.receiveShadow = true;
+                group.add(fol1);
+                const fol2 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 8), folMat);
+                fol2.position.y = trunkHeight + 1.0;
+                fol2.castShadow = true;
+                group.add(fol2);
+                const fol3 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.0, 8), folMat);
+                fol3.position.y = trunkHeight + 2.5;
+                fol3.castShadow = true;
+                group.add(fol3);
+            } else {
+                const foliageMat1 = new THREE.MeshStandardMaterial({ color: green1 });
+                const fol1 = new THREE.Mesh(new THREE.SphereGeometry(1.4, 7), foliageMat1);
+                fol1.position.y = trunkHeight;
+                fol1.castShadow = true;
+                fol1.receiveShadow = true;
+                group.add(fol1);
+                const foliageMat2 = new THREE.MeshStandardMaterial({ color: green2 });
+                const fol2 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 7), foliageMat2);
+                fol2.position.set(0.9, trunkHeight + 0.7, 0.7);
+                fol2.castShadow = true;
+                group.add(fol2);
+                const fol3 = new THREE.Mesh(new THREE.SphereGeometry(1.1, 7), foliageMat2);
+                fol3.position.set(-0.8, trunkHeight + 0.9, -0.6);
+                fol3.castShadow = true;
+                group.add(fol3);
+            }
+
+            const bushMat = new THREE.MeshStandardMaterial({ color: 0x3D8C40 });
+            for (let j = 0; j < 5; j++) {
+                const bush = new THREE.Mesh(new THREE.SphereGeometry(0.4 + Math.random()*0.4, 5), bushMat);
+                bush.position.set((Math.random()-0.5)*2.0, 0.2, (Math.random()-0.5)*2.0);
+                bush.castShadow = true;
+                bush.receiveShadow = true;
+                group.add(bush);
+            }
+            group.position.set(x, 0, z);
+            return group;
+        }
+
+        const treePositions = [];
+        for (let i = 0; i < 500; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 25 + Math.random() * 60;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            if (Math.abs(x) < 30 && Math.abs(z) < 25) continue;
+            const variant = Math.random() > 0.6 ? 'pine' : (Math.random() > 0.5 ? 'tall' : 'normal');
+            const tree = createTree(x, z, variant);
+            scene.add(tree);
+            treePositions.push({ x, z });
+        }
+
+        // ========== ROCKS ==========
+        for (let i = 0; i < 300; i++) {
+            const rockGeom = new THREE.DodecahedronGeometry(0.5 + Math.random()*0.8);
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x7A6A5A, roughness: 0.9 });
+            const rock = new THREE.Mesh(rockGeom, rockMat);
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 10 + Math.random() * 55;
+            rock.position.set(Math.cos(angle)*rad, 0.2, Math.sin(angle)*rad);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            scene.add(rock);
+        }
+
+        // ========== FLOWERS ==========
+        function createFlower(x, z, color) {
+            const group = new THREE.Group();
+            const stemGeom = new THREE.CylinderGeometry(0.07, 0.1, 0.7);
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x3c8d3c });
+            const stem = new THREE.Mesh(stemGeom, stemMat);
+            stem.position.y = 0.35;
+            stem.castShadow = true;
+            stem.receiveShadow = true;
+            group.add(stem);
+            const headGeom = new THREE.SphereGeometry(0.2, 7);
+            const headMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.7 });
+            const head = new THREE.Mesh(headGeom, headMat);
+            head.position.y = 0.75;
+            head.castShadow = true;
+            group.add(head);
+            group.position.set(x, 0, z);
+            return group;
+        }
+        for (let i = 0; i < 400; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 8 + Math.random() * 45;
+            const x = Math.cos(angle) * rad;
+            const z = Math.sin(angle) * rad;
+            const hue = Math.random() * 0.2 + 0.8;
+            const color = new THREE.Color().setHSL(hue, 0.9, 0.7);
+            const flower = createFlower(x, z, color);
+            scene.add(flower);
+        }
+
+        // ========== CRYSTALS ==========
+        function createCrystal(x, y, z, color) {
+            const geom = new THREE.OctahedronGeometry(0.5);
+            const mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.9, transparent: true, opacity: 0.9 });
+            const crystal = new THREE.Mesh(geom, mat);
+            crystal.position.set(x, y, z);
+            crystal.castShadow = true;
+            return crystal;
+        }
+        for (let i = 0; i < 20; i++) {
+            const angle = (i / 20) * Math.PI * 2;
+            const rad = 5.5;
+            let x = -20 + Math.cos(angle) * rad;
+            let z = Math.sin(angle) * rad;
+            let y = 3.0 + Math.sin(angle * 3) * 2.0;
+            scene.add(createCrystal(x, y, z, 0x667eea));
+            x = 20 + Math.cos(angle) * rad;
+            z = Math.sin(angle) * rad;
+            y = 3.0 + Math.sin(angle * 3) * 2.0;
+            scene.add(createCrystal(x, y, z, 0x9f7aea));
+        }
+
+        // ========== PARTICLES ==========
+        const particleCount = 2500;
+        const particleGeom = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleColors = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount; i++) {
+            const r = 10 + Math.random() * 70;
+            const theta = Math.random() * Math.PI * 2;
+            const y = 1.0 + Math.random() * 25;
+            particlePositions[i*3] = Math.cos(theta) * r;
+            particlePositions[i*3+1] = y;
+            particlePositions[i*3+2] = Math.sin(theta) * r;
+            const color = new THREE.Color().setHSL(0.65 + Math.random()*0.2, 0.9, 0.7);
+            particleColors[i*3] = color.r;
+            particleColors[i*3+1] = color.g;
+            particleColors[i*3+2] = color.b;
+        }
+        particleGeom.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        particleGeom.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.3, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, opacity: 1.0 });
+        const particles = new THREE.Points(particleGeom, particleMat);
+        scene.add(particles);
+
+        // ========== STARS ==========
+        const starCount = 1200;
+        const starGeom = new THREE.BufferGeometry();
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            const r = 80 + Math.random() * 70;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPos[i*3] = Math.sin(phi) * Math.cos(theta) * r;
+            starPos[i*3+1] = Math.sin(phi) * Math.sin(theta) * r * 0.5 + 40;
+            starPos[i*3+2] = Math.cos(phi) * r;
+        }
+        starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transparent: true, blending: THREE.AdditiveBlending });
+        const stars = new THREE.Points(starGeom, starMat);
+        scene.add(stars);
+
+        // ========== PORTALS ==========
+        function createPortal(x, color, labelText, url) {
+            const group = new THREE.Group();
+            group.position.set(x, 3.0, 0);
+            const ringMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 1.5, transparent: true, opacity: 0.9 });
+            const ring = new THREE.Mesh(new THREE.TorusKnotGeometry(2.5, 0.5, 100, 16), ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.rotation.z = 0.3;
+            ring.castShadow = true;
+            ring.receiveShadow = true;
+            group.add(ring);
+
+            const swirlGroup1 = new THREE.Group();
+            const swirlGroup2 = new THREE.Group();
+            for (let i = 0; i < 48; i++) {
+                const sphereMat = new THREE.MeshStandardMaterial({ color: color, emissive: color });
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8), sphereMat);
+                const angle = (i / 48) * Math.PI * 2;
+                sphere.position.set(Math.cos(angle) * 2.3, Math.sin(angle) * 1.0, Math.sin(angle) * 2.0);
+                swirlGroup1.add(sphere);
+                const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6), sphereMat);
+                sphere2.position.set(Math.cos(angle+0.4) * 1.5, 0, Math.sin(angle+0.4) * 1.5);
+                swirlGroup2.add(sphere2);
+            }
+            group.add(swirlGroup1);
+            group.add(swirlGroup2);
+
+            const centerGlow = new THREE.Mesh(new THREE.SphereGeometry(1.8, 36), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.2 }));
+            centerGlow.position.y = 0;
+            group.add(centerGlow);
+            group.userData = { type: 'portal', url: url, radius: 5.0 };
+
+            const labelDiv = document.createElement('div');
+            labelDiv.textContent = labelText;
+            labelDiv.style.color = 'white';
+            labelDiv.style.fontSize = '32px';
+            labelDiv.style.fontWeight = 'bold';
+            labelDiv.style.textShadow = `0 0 40px ${color}`;
+            labelDiv.style.background = 'rgba(10,10,30,0.8)';
+            labelDiv.style.padding = '15px 40px';
+            labelDiv.style.borderRadius = '60px';
+            labelDiv.style.border = `3px solid ${color}`;
+            labelDiv.style.backdropFilter = 'blur(12px)';
+            const label = new CSS2DObject(labelDiv);
+            label.position.set(x, 8.0, 0);
+            scene.add(label);
+            return group;
+        }
+        const portalLeft = createPortal(-22, 0x667eea, '📦 CREATE PACK', 'Pages/Editor/editor.html');
+        const portalRight = createPortal(22, 0x9f7aea, '🔍 EXPLORE PACKS', 'Pages/Explore/explore.html');
+        scene.add(portalLeft);
+        scene.add(portalRight);
+
+        // ========== CHARACTER ==========
+        const character = new THREE.Group();
+        const bodyGeom = new THREE.CylinderGeometry(1.2, 1.2, 2.5);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5f6b8a, emissive: 0x1a1f3a, roughness: 0.4, metalness: 0.2 });
+        const body = new THREE.Mesh(bodyGeom, bodyMat);
+        body.position.y = 1.25;
+        body.castShadow = true;
+        body.receiveShadow = true;
+        character.add(body);
+        const headGeom = new THREE.SphereGeometry(0.9);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbb5, roughness: 0.3 });
+        const head = new THREE.Mesh(headGeom, headMat);
+        head.position.y = 2.7;
+        head.castShadow = true;
+        head.receiveShadow = true;
+        character.add(head);
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x4466aa });
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.18), eyeMat);
+        leftEye.position.set(-0.35, 2.9, 0.75);
+        character.add(leftEye);
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.18), eyeMat);
+        rightEye.position.set(0.35, 2.9, 0.75);
+        character.add(rightEye);
+        const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.08), pupilMat);
+        leftPupil.position.set(-0.35, 2.87, 0.92);
+        character.add(leftPupil);
+        const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.08), pupilMat);
+        rightPupil.position.set(0.35, 2.87, 0.92);
+        character.add(rightPupil);
+        const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x3f4d7a, roughness: 0.3, metalness: 0.3 });
+        const leftShoulder = new THREE.Mesh(new THREE.SphereGeometry(0.7), shoulderMat);
+        leftShoulder.position.set(-1.5, 2.2, 0);
+        leftShoulder.scale.set(0.6, 0.5, 0.5);
+        leftShoulder.castShadow = true;
+        character.add(leftShoulder);
+        const rightShoulder = new THREE.Mesh(new THREE.SphereGeometry(0.7), shoulderMat);
+        rightShoulder.position.set(1.5, 2.2, 0);
+        rightShoulder.scale.set(0.6, 0.5, 0.5);
+        rightShoulder.castShadow = true;
+        character.add(rightShoulder);
+        const armGeom = new THREE.CylinderGeometry(0.35, 0.35, 1.8);
+        const armMat = new THREE.MeshStandardMaterial({ color: 0x3f4d7a });
+        const leftArm = new THREE.Mesh(armGeom, armMat);
+        leftArm.position.set(-1.8, 1.4, 0);
+        leftArm.rotation.z = 0.3;
+        leftArm.rotation.x = 0.2;
+        leftArm.castShadow = true;
+        character.add(leftArm);
+        const rightArm = new THREE.Mesh(armGeom, armMat);
+        rightArm.position.set(1.8, 1.4, 0);
+        rightArm.rotation.z = -0.3;
+        rightArm.rotation.x = -0.2;
+        rightArm.castShadow = true;
+        character.add(rightArm);
+        const legGeom = new THREE.CylinderGeometry(0.5, 0.5, 1.6);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x2f3a60 });
+        const leftLeg = new THREE.Mesh(legGeom, legMat);
+        leftLeg.position.set(-0.7, 0.8, 0);
+        leftLeg.castShadow = true;
+        character.add(leftLeg);
+        const rightLeg = new THREE.Mesh(legGeom, legMat);
+        rightLeg.position.set(0.7, 0.8, 0);
+        rightLeg.castShadow = true;
+        character.add(rightLeg);
+        character.position.set(0, 0.4, 25);
+        character.castShadow = true;
+        character.receiveShadow = true;
+        scene.add(character);
+
+        const nameDiv = document.createElement('div');
+        nameDiv.textContent = '✦ YOU ✦';
+        nameDiv.style.color = '#d4dcff';
+        nameDiv.style.fontSize = '20px';
+        nameDiv.style.fontWeight = 'bold';
+        nameDiv.style.textShadow = '0 0 30px #667eea';
+        nameDiv.style.background = 'rgba(20,20,40,0.7)';
+        nameDiv.style.padding = '6px 20px';
+        nameDiv.style.borderRadius = '40px';
+        nameDiv.style.border = '2px solid #667eea';
+        const nameLabel = new CSS2DObject(nameDiv);
+        nameLabel.position.set(0, 4.6, 0);
+        character.add(nameLabel);
+
+        // ========== CONTROLS ==========
+        // State
+        const keyState = { w: false, a: false, s: false, d: false };
+        let joystickDir = new THREE.Vector2(0, 0);
+        let mouseTarget = null;
+        const moveSpeed = 14;
+        const clock = new THREE.Clock();
+
+        // UI elements
+        const startOverlay = document.getElementById('start-overlay');
+        const debugEl = document.getElementById('debug');
+        const joystickThumb = document.getElementById('joystick-thumb');
+        const joystickContainer = document.getElementById('joystick-container');
+
+        // Start button
+        startOverlay.addEventListener('click', () => {
+            startOverlay.classList.add('hidden');
+            document.getElementById('loading').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 500);
+        });
+
+        // Keyboard (global, works regardless of focus)
+        window.addEventListener('keydown', (e) => {
+            if (!startOverlay.classList.contains('hidden')) return;
+            switch(e.code) {
+                case 'KeyW': keyState.w = true; e.preventDefault(); break;
+                case 'KeyA': keyState.a = true; e.preventDefault(); break;
+                case 'KeyS': keyState.s = true; e.preventDefault(); break;
+                case 'KeyD': keyState.d = true; e.preventDefault(); break;
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (!startOverlay.classList.contains('hidden')) return;
+            switch(e.code) {
+                case 'KeyW': keyState.w = false; e.preventDefault(); break;
+                case 'KeyA': keyState.a = false; e.preventDefault(); break;
+                case 'KeyS': keyState.s = false; e.preventDefault(); break;
+                case 'KeyD': keyState.d = false; e.preventDefault(); break;
+            }
+        });
+
+        // Mouse follow (desktop)
+        const raycaster = new THREE.Raycaster();
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (!startOverlay.classList.contains('hidden')) return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const target = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(groundPlane, target)) {
+                mouseTarget = target;
+            }
+        });
+
+        // Custom joystick (mobile)
+        if (joystickContainer) {
+            let joystickActive = false;
+            const maxDist = 50; // max thumb displacement in px
+            const baseRect = joystickContainer.getBoundingClientRect();
+            const baseCenter = { x: baseRect.left + baseRect.width/2, y: baseRect.top + baseRect.height/2 };
+
+            joystickContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                joystickActive = true;
+                const touch = e.touches[0];
+                updateJoystick(touch.clientX, touch.clientY);
+            });
+            joystickContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!joystickActive) return;
+                const touch = e.touches[0];
+                updateJoystick(touch.clientX, touch.clientY);
+            });
+            joystickContainer.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                joystickActive = false;
+                joystickDir.set(0, 0);
+                joystickThumb.style.transform = 'translate(0, 0)';
+            });
+            joystickContainer.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                joystickActive = false;
+                joystickDir.set(0, 0);
+                joystickThumb.style.transform = 'translate(0, 0)';
+            });
+
+            function updateJoystick(clientX, clientY) {
+                const rect = joystickContainer.getBoundingClientRect();
+                const baseX = rect.left + rect.width/2;
+                const baseY = rect.top + rect.height/2;
+                let dx = clientX - baseX;
+                let dy = clientY - baseY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > maxDist) {
+                    dx = (dx / dist) * maxDist;
+                    dy = (dy / dist) * maxDist;
+                }
+                joystickDir.set(dx / maxDist, dy / maxDist);
+                joystickThumb.style.transform = `translate(${dx}px, ${dy}px)`;
+            }
+        }
+
+        // OrbitControls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false;
+        controls.enableZoom = true;
+        controls.maxPolarAngle = Math.PI / 2.2;
+        controls.minDistance = 14;
+        controls.maxDistance = 50;
+        controls.target.copy(character.position);
+        controls.update();
+
+        // Collision spheres
+        const treeBoundSpheres = treePositions.map(p => new THREE.Sphere(new THREE.Vector3(p.x, 2.0, p.z), 4.0));
+        let portalTriggered = false;
+
+        // Animation loop
+        function animate() {
+            const delta = Math.min(clock.getDelta(), 0.1);
+            const time = performance.now() * 0.001;
+
+            // Combine inputs
+            let moveX = 0, moveZ = 0;
+
+            // Keyboard
+            if (keyState.w) moveZ -= 1;
+            if (keyState.s) moveZ += 1;
+            if (keyState.a) moveX -= 1;
+            if (keyState.d) moveX += 1;
+
+            // Joystick (mobile)
+            if (joystickDir.length() > 0.05) {
+                moveX += joystickDir.x;
+                moveZ -= joystickDir.y; // y up = negative Z
+            }
+
+            // Mouse follow (if no keyboard/joystick)
+            if (mouseTarget && moveX === 0 && moveZ === 0 && joystickDir.length() <= 0.05) {
+                const charPos = character.position;
+                const dx = mouseTarget.x - charPos.x;
+                const dz = mouseTarget.z - charPos.z;
+                const dist = Math.sqrt(dx*dx + dz*dz);
+                if (dist > 1.0) {
+                    moveX = dx / dist;
+                    moveZ = dz / dist;
+                }
+            }
+
+            // Apply movement
+            if (Math.abs(moveX) > 0 || Math.abs(moveZ) > 0) {
+                const len = Math.sqrt(moveX*moveX + moveZ*moveZ);
+                moveX /= len;
+                moveZ /= len;
+
+                // Camera-relative direction
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                forward.y = 0;
+                forward.normalize();
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                right.y = 0;
+                right.normalize();
+
+                const moveDir = new THREE.Vector3(0, 0, 0);
+                moveDir.addScaledVector(forward, moveZ);
+                moveDir.addScaledVector(right, moveX);
+                moveDir.normalize();
+                const newPos = character.position.clone().add(moveDir.multiplyScalar(moveSpeed * delta));
+
+                // Collision
+                let collides = false;
+                for (let sphere of treeBoundSpheres) {
+                    if (sphere.distanceToPoint(newPos) < 4.0) {
+                        collides = true;
+                        break;
+                    }
+                }
+                if (!collides && newPos.length() < 80) {
+                    character.position.copy(newPos);
+                }
+            }
+
+            controls.target.copy(character.position);
+
+            // Animate portals, particles, lights
+            portalLeft.children[1].rotation.y += 0.03;
+            portalLeft.children[2].rotation.y -= 0.04;
+            portalRight.children[1].rotation.y -= 0.03;
+            portalRight.children[2].rotation.y += 0.04;
+
+            particles.rotation.y += 0.001;
+            stars.rotation.y += 0.0004;
+
+            extraLights.forEach((light, i) => {
+                const angle = time * 0.3 + i;
+                light.position.x = Math.cos(angle) * 35;
+                light.position.z = Math.sin(angle) * 35;
+            });
+
+            // Portal teleport
+            if (!portalTriggered) {
+                const charPos = character.position;
+                const distLeft = charPos.distanceTo(new THREE.Vector3(-22, 3.0, 0));
+                const distRight = charPos.distanceTo(new THREE.Vector3(22, 3.0, 0));
+                if (distLeft < 6.0) {
+                    portalTriggered = true;
+                    window.location.href = portalLeft.userData.url;
+                } else if (distRight < 6.0) {
+                    portalTriggered = true;
+                    window.location.href = portalRight.userData.url;
+                }
+            }
+
+            // Character bob
+            character.position.y = 0.4 + Math.sin(time * 6) * 0.05;
+
+            // Debug
+            debugEl.innerHTML = `mouse: (${mouseTarget ? mouseTarget.x.toFixed(1) : 'none'}) joy: (${joystickDir.x.toFixed(2)}, ${joystickDir.y.toFixed(2)})`;
+
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        console.log('PURE THREE.JS GAME – controls work.');
+    </script>
+</body>
+</html>
