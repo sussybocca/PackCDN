@@ -3,615 +3,448 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PACKCDN · RETRO CONSOLE EDITION</title>
+    <title>📺 RETRO·VISION·8000 · ULTIMATE 80s CRT</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        /* ===== RETRO CONSOLE OVERRIDES ===== */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            min-height: 100vh;
-            color: #0f0;
-            background: #050510;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* CRT + scanlines + rgb split */
+        body { margin: 0; overflow: hidden; background: #050510; font-family: 'Courier New', monospace; }
+        /* Hyper-realistic CRT + scanlines + aperture grille + phosphor glow */
         .crt {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: repeating-linear-gradient(0deg, 
-                rgba(0,30,0,0.2) 0px, 
-                rgba(0,255,0,0.03) 1px, 
-                transparent 3px,
-                rgba(255,0,0,0.02) 4px,
-                transparent 5px
+                rgba(0,30,0,0.3) 0px, rgba(0,255,0,0.03) 1px, transparent 2px,
+                rgba(255,0,0,0.02) 3px, transparent 4px
             );
-            pointer-events: none;
-            z-index: 1000;
-            mix-blend-mode: overlay;
-            box-shadow: inset 0 0 200px rgba(0,60,0,0.5);
-        }
-        .crt::before {
-            content: "";
-            position: absolute;
-            width: 100%; height: 100%;
-            background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,40,0,0.3) 90%);
+            pointer-events: none; z-index: 2000; mix-blend-mode: overlay;
+            box-shadow: inset 0 0 200px rgba(0,80,0,0.7), inset 0 0 100px #00ff0022;
         }
         .crt::after {
-            content: "";
-            position: absolute;
-            width: 100%; height: 100%;
-            background: repeating-linear-gradient(90deg, 
-                rgba(255,0,0,0.1) 0px, transparent 2px,
-                rgba(0,255,0,0.1) 2px, transparent 4px,
-                rgba(0,0,255,0.1) 4px, transparent 6px
-            );
-            mix-blend-mode: screen;
+            content: ""; position: absolute; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,40,0,0.6) 90%);
         }
-
-        /* 3D canvas background (now becomes the console) */
-        #console-canvas {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
+        /* Tiny retro UI overlays */
+        #info {
+            position: absolute; bottom: 30px; left: 30px; color: #88ff88; z-index: 3000;
+            background: rgba(0,0,0,0.8); padding: 18px 35px; border-radius: 60px;
+            border: 4px solid #0f0; box-shadow: 0 0 40px #0f0; font-size: 1.4rem;
+            backdrop-filter: blur(5px); text-shadow: 0 0 10px lime; letter-spacing: 2px;
         }
-
-        /* UI overlay – floats above 3D, but we style it like a retro terminal */
-        .ui-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 100;
-            pointer-events: none; /* let clicks pass through to canvas? no, we need buttons. but we make areas clickable */
+        #coin-area {
+            position: absolute; top: 30px; right: 30px; z-index: 3000;
+            display: flex; flex-direction: column; align-items: center;
         }
-
-        /* But we need interactive elements – place them in a bottom panel that looks like console deck */
-        .console-deck {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 95%;
-            max-width: 1600px;
-            background: rgba(10, 5, 0, 0.85);
-            backdrop-filter: blur(10px);
-            border: 4px solid #ff8800;
-            border-radius: 60px 60px 30px 30px;
-            padding: 20px 30px;
-            box-shadow: 0 0 0 2px #442200, 0 0 50px #ffaa00, inset 0 0 30px #331100;
-            pointer-events: auto;
-            color: #ffcc88;
-            font-family: 'Courier New', monospace;
-            text-shadow: 0 0 8px #ffaa00;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 200;
-        }
-
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .logo-area h1 {
-            font-size: 2.5rem;
-            background: linear-gradient(45deg, #ffaa33, #ffdd88);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-shadow: 0 0 20px #ff8800;
-            letter-spacing: 4px;
-        }
-        .power-led {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #ff3300;
-            box-shadow: 0 0 20px red;
-            animation: blink 1.5s infinite;
-        }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } }
-
-        .deck-controls {
-            display: flex;
-            gap: 30px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .retro-btn {
-            background: #332211;
-            border: 3px solid #ffaa33;
-            color: #ffcc66;
-            padding: 10px 25px;
-            border-radius: 40px;
-            font-weight: bold;
-            font-size: 1.3rem;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: 0 0 15px #ffaa00, inset 0 0 5px #442200;
-            transition: 0.1s;
-            font-family: 'Courier New', monospace;
-        }
-        .retro-btn:hover {
-            background: #553322;
-            box-shadow: 0 0 30px #ffaa00;
-            transform: scale(1.05);
-            color: white;
-        }
-        .coin-slot {
-            display: flex;
-            align-items: center;
-            background: #2a1e0e;
-            border: 4px solid gold;
-            border-radius: 40px;
-            padding: 5px 20px;
-            gap: 15px;
-            box-shadow: 0 0 30px gold;
-        }
-        #coinCount {
-            font-size: 2rem;
-            color: gold;
-            font-weight: bold;
-        }
-        #coinButton {
+        #coin-btn {
             background: radial-gradient(circle at 30% 30%, #ffffaa, #aa6600);
-            border: 3px solid #ffdd44;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            font-size: 30px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 0 30px orange;
+            border: 8px solid gold; width: 130px; height: 130px; border-radius: 70px;
+            font-size: 70px; cursor: pointer; box-shadow: 0 0 0 6px #442200, 0 0 90px gold;
+            transition: 0.1s; color: #331100; line-height: 1;
         }
-
-        /* Cartridge display (cards area) – inside a CRT monitor on canvas, but we can overlay a semi-transparent panel */
-        .screen-panel {
-            position: absolute;
-            top: 5%;
-            left: 5%;
-            width: 90%;
-            height: 60%;
-            background: rgba(0, 20, 0, 0.6);
-            border: 6px solid #aa8844;
-            border-radius: 40px;
-            padding: 20px;
-            backdrop-filter: blur(8px);
-            box-shadow: inset 0 0 100px #223300, 0 0 0 4px #553322, 0 0 60px #88ff88;
-            overflow-y: auto;
-            pointer-events: auto;
-            z-index: 150;
-            scrollbar-width: thin;
-            scrollbar-color: #88ff88 #112200;
+        #coin-btn:active { transform: scale(0.8); box-shadow: 0 0 200px orange; }
+        #coin-counter {
+            font-size: 40px; background: #1a0f0a; padding: 10px 40px; border-radius: 60px;
+            border: 5px solid gold; color: gold; margin-top: 20px; font-weight: bold;
+            box-shadow: 0 0 50px #ffaa00; backdrop-filter: blur(4px);
         }
-        .screen-panel::-webkit-scrollbar { width: 12px; }
-        .screen-panel::-webkit-scrollbar-track { background: #112200; }
-        .screen-panel::-webkit-scrollbar-thumb { background: #88ff88; border-radius: 20px; }
-
-        /* keep card styling but make them look like cartridges */
-        .selector-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 20px;
-        }
-        .experience-card {
-            background: linear-gradient(145deg, #2a2a1a, #1a1a0a);
-            border: 3px solid #ccaa44;
-            border-radius: 30px 10px 30px 10px;
-            padding: 15px;
-            color: #ffdd99;
-            box-shadow: 0 0 0 2px #886622, 0 10px 0 #332211, 0 10px 20px black;
-            transform: translateY(-5px);
-            transition: 0.1s;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            position: relative;
-        }
-        .experience-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 0 0 3px #ffaa33, 0 15px 0 #332211, 0 0 40px #ffaa00;
-            border-color: gold;
-        }
-        .card-icon { font-size: 3rem; filter: drop-shadow(0 0 10px #ffaa00); }
-        .category-badge {
-            background: #221100;
-            border: 2px solid #ccaa44;
-            color: #ffcc66;
-        }
-        .card-title { font-size: 1.4rem; color: #ffdd88; text-shadow: 2px 2px 0 #442200; }
-        .select-btn {
-            background: #886622;
-            border: 3px solid #ffcc66;
-            color: #221100;
-            font-weight: bold;
-        }
-        .filter-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        .filter-btn {
-            background: #221100;
-            border: 3px solid #ccaa44;
-            color: #ffcc88;
-            padding: 8px 20px;
-            border-radius: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 0 10px #886622;
-        }
-        .filter-btn.active {
-            background: #886622;
-            color: black;
-            border-color: gold;
-            box-shadow: 0 0 30px gold;
-        }
-
-        /* arcade mode toggle but integrated */
-        .mode-toggle {
-            background: #221100;
-            border: 3px solid cyan;
-            color: cyan;
-            padding: 12px 30px;
-            border-radius: 40px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .mode-toggle:hover {
-            background: cyan;
-            color: black;
-            box-shadow: 0 0 30px cyan;
-        }
-
-        /* arcade container (hidden unless arcade mode) */
-        #arcadeContainer {
-            display: none;
-            margin-top: 20px;
-        }
-        body.arcade-mode #arcadeContainer {
-            display: block;
-        }
-        .arcade-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .game-frame {
-            background: #1a1a0a;
-            border: 4px solid #ffaa33;
-            border-radius: 30px;
-            padding: 10px;
-            box-shadow: 0 0 30px #ffaa00;
-        }
-        .game-frame iframe { width: 100%; height: 200px; border-radius: 20px; }
-
-        /* quick links retrofied */
-        .quick-links .link-btn {
-            background: #221100;
-            border: 3px solid #88ff88;
-            color: #aaffaa;
-            padding: 10px 25px;
-            border-radius: 40px;
-            text-decoration: none;
-        }
-
-        footer { color: #886622; text-align: center; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div id="console-canvas"></div>
     <div class="crt"></div>
-
-    <!-- Main UI deck (bottom) -->
-    <div class="console-deck">
-        <div class="logo-area">
-            <div class="power-led"></div>
-            <h1>PACKCDN·ROM</h1>
-        </div>
-        <div class="deck-controls">
-            <button class="retro-btn" id="arcadeToggle">🎮 ARCADE MODE</button>
-            <div class="coin-slot">
-                <span>🪙</span>
-                <span id="coinCount">0</span>
-                <button id="coinButton">🪙</button>
-            </div>
-        </div>
+    <div id="info">📺 RETRO·VISION 8000 · ↑↓ SELECT · ⏎ PLAY · 🪙 COIN</div>
+    <div id="coin-area">
+        <button id="coin-btn">🪙</button>
+        <div id="coin-counter">0</div>
     </div>
-
-    <!-- Screen panel (card catalog) -->
-    <div class="screen-panel" id="screenPanel">
-        <div class="filter-bar" id="categoryFilter">
-            <button class="filter-btn active" data-filter="all">🌌 ALL</button>
-            <button class="filter-btn" data-filter="featured">✨ FEATURED</button>
-            <button class="filter-btn" data-filter="games">🎮 GAMES</button>
-            <button class="filter-btn" data-filter="utility">🛠️ UTILITY</button>
-            <button class="filter-btn" data-filter="demos">🌀 DEMOS</button>
-        </div>
-        <div class="selector-grid" id="cardsContainer"></div>
-
-        <!-- arcade container inside screen -->
-        <div id="arcadeContainer">
-            <div style="display: flex; gap: 15px; margin: 20px 0; justify-content: center;">
-                <button class="style-btn retro" data-style="retro">🕹️ RETRO</button>
-                <button class="style-btn immersive" data-style="immersive">🌌 IMMERSIVE</button>
-                <button class="style-btn normal" data-style="normal">📟 NORMAL</button>
-            </div>
-            <div class="arcade-grid" id="arcadeGrid"></div>
-        </div>
-
-        <div class="quick-links">
-            <h3 style="color:#ffaa33;">⚡ QUICK ACCESS</h3>
-            <div class="link-buttons">
-                <a href="Editor/editor.html" class="link-btn">📦 CREATE PACK</a>                
-                <a href="Explore/explore.html" class="link-btn">🔍 EXPLORE</a>
-                <a href="/api/search" class="link-btn">🌀 API</a>
-                <a href="https://github.com/sussybocca/PackCDN/tree/main" class="link-btn">⌨️ GITHUB</a>
-            </div>
-        </div>
-        <footer>PACKCDN © 2024 — RETRO TERMINAL</footer>
-    </div>
-
-    <!-- popup modal (retro style) -->
-    <div class="popup-modal" id="popupModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,20,0,0.9); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; z-index:1000; opacity:0; visibility:hidden; transition:0.2s;">
-        <div style="background:#1a2a1a; border:6px solid #88ff88; border-radius:40px; padding:40px; max-width:500px; box-shadow:0 0 100px #00ff00;">
-            <h3 id="popupTitle" style="color:#ffaa00;"></h3>
-            <p id="popupMessage" style="color:#aaffaa;"></p>
-            <button id="popupActionButton" style="background:#886622; border:4px solid gold; padding:15px 40px; border-radius:60px; font-weight:bold;"></button>
-            <button id="popupClose" style="background:none; border:none; color:white; font-size:30px; float:right;">&times;</button>
-        </div>
-    </div>
-
-    <!-- cheat menu (hidden) -->
-    <div class="cheat-menu" id="cheatMenu" style="position:fixed; background:#1a1a2a; border:4px solid #ff44aa; border-radius:20px; padding:15px; display:none; z-index:2000;"></div>
+    <div id="canvas-container" style="position: fixed; top:0; left:0; width:100vw; height:100vh;"></div>
 
     <script>
         (function() {
-            // ---------- CARD DATA (same as original) ----------
-            const cardsData = [
-  { icon: "🌀", title: "Immersive Docs", description: "Step into a living 3D documentation with animated examples.", features: [ "Three.js 3D", "GSAP transitions", "Code playgrounds" ], link: "Docs/docs.html", category: "featured", highlight: true },
-  { icon: "🌐", title: "Classic Website", description: "Fast, lightweight landing.", features: [ "Fast load", "Responsive" ], link: "home/index.html", category: "featured", highlight: false },
-  { icon: "📄", title: "JavaMods", description: "Immersive experience.", features: [ "Immersive", "Interactive" ], link: "../imagine/index.html", category: "games", highlight: false },
-  { icon: "📄", title: "JavaMods", description: "Explore.", features: [ "New dimension" ], link: "imagine/index (1).html", category: "games", highlight: false },
-  { icon: "📄", title: "PackCDN · PURE THREE.JS GAME", description: "Three.js game.", features: [ "3D", "Controls" ], link: "imagine/deepseek_html_20260216_42dccb.html", category: "demos", highlight: false },
-  { icon: "📄", title: "Ghost Clicker 3D", description: "Spectral hunting.", features: [ "3D ghosts", "Cursor banish" ], link: "imagine/ghost.html", category: "games", highlight: false },
-  { icon: "📄", title: "ROAD CHASE", description: "Run them down.", features: [ "Racing" ], link: "imagine/RoadChase.html", category: "games", highlight: false },
-  { icon: "📄", title: "SPACE SHOOTERS", description: "Upgrade & blast.", features: [ "Shooter" ], link: "imagine/SpaceShooters.html", category: "games", highlight: false },
-  { icon: "📄", title: "PARCORE", description: "Maze rush.", features: [ "Fly", "Upgrade" ], link: "imagine/ParCoreSim.html", category: "games", highlight: false },
-  { icon: "📄", title: "Subway Surfers", description: "Endless runner.", features: [ "Runner" ], link: "imagine/index (2).html", category: "games", highlight: false },
-  { icon: "📄", title: "Brick breaker", description: "Classic.", features: [ "Arkanoid" ], link: "imagine/brick-breaker.html", category: "games", highlight: false },
-  { icon: "📄", title: "장기", description: "Korean chess.", features: [ "Board game" ], link: "imagine/janggi.html", category: "games", highlight: false },
-  { icon: "📄", title: "일정관리", description: "Kanban.", features: [ "Utility" ], link: "imagine/kanban.html", category: "utility", highlight: false },
-  { icon: "📄", title: "Maze", description: "Labyrinth.", features: [ "Puzzle" ], link: "imagine/maze.html", category: "games", highlight: false },
-  { icon: "📄", title: "Gomoku", description: "Five in a row.", features: [ "Board" ], link: "imagine/omok.html", category: "games", highlight: false },
-  { icon: "📄", title: "Stack", description: "Stacking game.", features: [ "Arcade" ], link: "imagine/stack.html", category: "games", highlight: false },
-  { icon: "📄", title: "Tetris", description: "Classic.", features: [ "Puzzle" ], link: "imagine/tetris.html", category: "games", highlight: false },
-  { icon: "📄", title: "2048", description: "Join numbers.", features: [ "Puzzle" ], link: "imagine/2048.html", category: "games", highlight: false },
-  { icon: "📄", title: "Zombierush", description: "Zombies.", features: [ "Survival" ], link: "imagine/zombierush.html", category: "games", highlight: false },
-  { icon: "📄", title: "Cookieclicker", description: "Clicker.", features: [ "Idle" ], link: "imagine/cookieclicker.html", category: "games", highlight: false },
-  { icon: "📄", title: "Amongus", description: "Social deduction.", features: [ "Multiplayer" ], link: "imagine/amongus.html", category: "games", highlight: false },
-  { icon: "📄", title: "Basketbros", description: "Basketball.", features: [ "Sports" ], link: "imagine/basketbros.html", category: "games", highlight: false },
-  { icon: "📄", title: "8ballclassic", description: "Pool.", features: [ "Sports" ], link: "imagine/8ballclassic.html", category: "games", highlight: false },
-  { icon: "📄", title: "Angrybirds", description: "Slingshot.", features: [ "Puzzle" ], link: "imagine/angrybirds.html", category: "games", highlight: false },
-  { icon: "📄", title: "Bitlife", description: "Life sim.", features: [ "Sim" ], link: "imagine/bitlife.html", category: "games", highlight: false },
-  { icon: "📄", title: "Ageofwar", description: "Strategy.", features: [ "War" ], link: "imagine/ageofwar.html", category: "games", highlight: false },
-  { icon: "📄", title: "BloonsTD", description: "Tower defense.", features: [ "TD" ], link: "imagine/bloonsTD.html", category: "games", highlight: false },
-  { icon: "📄", title: "Flappy Bird", description: "Flappy.", features: [ "Arcade" ], link: "imagine/flappybird.html", category: "games", highlight: false },
-  { icon: "📄", title: "fnaf HTML", description: "Horror.", features: [ "FNAF" ], link: "imagine/fnaf.html", category: "demos", highlight: false },
-  { icon: "📄", title: "SPACESHOOTERS 1970s", description: "Retro TV.", features: [ "Shooter" ], link: "imagine/SpaceShooters2/index.html", category: "demos", highlight: false },
-  { icon: "📄", title: "SpaceShooters Menu", description: "Menu.", features: [ "Menu" ], link: "imagine/SpaceShooters2/main.html", category: "demos", highlight: false },
-  { icon: "📄", title: "SPACESHOOTERS ARCADE", description: "Arcade menu.", features: [ "Menu" ], link: "imagine/SpaceShooters2/menu.html", category: "demos", highlight: false },
-  { icon: "📄", title: "SpaceShooters Options", description: "Options.", features: [ "Settings" ], link: "imagine/SpaceShooters2/options.html", category: "demos", highlight: false },
-  { icon: "📄", title: "run HTML", description: "Runner.", features: [ "Run" ], link: "imagine/Run/Runner/run.html", category: "demos", highlight: false },
-  { icon: "📄", title: "capybaraclicker", description: "Clicker.", features: [ "Capybara" ], link: "imagine/CapyBaraClicker/capybaraclicker.html", category: "demos", highlight: false },
-  { icon: "📄", title: "crossyroad", description: "Frogger style.", features: [ "Arcade" ], link: "imagine/TinyFishing/Games/ETC/crossyroad.htm", category: "demos", highlight: false },
-  { icon: "📄", title: "ducklife", description: "Duck training.", features: [ "Sim" ], link: "imagine/TinyFishing/Games/ETC/ducklife.html", category: "demos", highlight: false },
-  { icon: "📄", title: "tinyfishing", description: "Fishing.", features: [ "Idle" ], link: "imagine/TinyFishing/Games/ETC/tinyfishing.html", category: "demos", highlight: false },
-  { icon: "📄", title: "FOX apex", description: "Predator sim.", features: [ "Fox" ], link: "imagine/Fox/Custom/Fox.html", category: "demos", highlight: false },
-  { icon: "📄", title: "Pack Popup Creator", description: "Manifest generator.", features: [ "Tool" ], link: "imagine/PopUpManger/Popup-creator.html", category: "demos", highlight: false },
-  { icon: "📄", title: "CDN Pack Maker", description: "QR generator.", features: [ "Tool" ], link: "imagine/CDN_InstantCreator/PACK_QRCODE.htm", category: "demos", highlight: false },
-  { icon: "📄", title: "Pack Details", description: "Info.", features: [ "Details" ], link: "imagine/CDN_InstantCreator/pack-info.html", category: "demos", highlight: false }
-];
+            // --- Game data (25 classic titles) ---
+            const games = [
+                { title: "GHOST CLICKER 3D", link: "imagine/ghost.html" },
+                { title: "ROAD CHASE", link: "imagine/RoadChase.html" },
+                { title: "SPACE SHOOTERS", link: "imagine/SpaceShooters.html" },
+                { title: "PARCORE MAZE", link: "imagine/ParCoreSim.html" },
+                { title: "SUBWAY SURFERS", link: "imagine/index (2).html" },
+                { title: "BRICK BREAKER", link: "imagine/brick-breaker.html" },
+                { title: "JANGGI", link: "imagine/janggi.html" },
+                { title: "MAZE", link: "imagine/maze.html" },
+                { title: "GOMOKU", link: "imagine/omok.html" },
+                { title: "STACK", link: "imagine/stack.html" },
+                { title: "TETRIS", link: "imagine/tetris.html" },
+                { title: "2048", link: "imagine/2048.html" },
+                { title: "ZOMBIERUSH", link: "imagine/zombierush.html" },
+                { title: "COOKIE CLICKER", link: "imagine/cookieclicker.html" },
+                { title: "AMONG US", link: "imagine/amongus.html" },
+                { title: "BASKETBROS", link: "imagine/basketbros.html" },
+                { title: "8BALL CLASSIC", link: "imagine/8ballclassic.html" },
+                { title: "ANGRY BIRDS", link: "imagine/angrybirds.html" },
+                { title: "BITLIFE", link: "imagine/bitlife.html" },
+                { title: "AGEOF WAR", link: "imagine/ageofwar.html" },
+                { title: "BLOONS TD", link: "imagine/bloonsTD.html" },
+                { title: "FLAPPY BIRD", link: "imagine/flappybird.html" },
+                { title: "FNAF", link: "imagine/fnaf.html" },
+                { title: "SPACESHOOTERS 1970", link: "imagine/SpaceShooters2/index.html" },
+                { title: "FOX APEX", link: "imagine/Fox/Custom/Fox.html" }
+            ];
+            let selectedIdx = 0;
+            let coins = 0;
+            const coinCounter = document.getElementById('coin-counter');
+            document.getElementById('coin-btn').addEventListener('click', () => {
+                coins++;
+                coinCounter.textContent = coins;
+                drawScreen(selectedIdx); // update screen with new coin count
+            });
 
-            // ========== RENDER CARDS (same logic) ==========
-            const container = document.getElementById('cardsContainer');
-            function renderCards() {
-                let html = '';
-                cardsData.forEach((card, index) => {
-                    const featuresList = card.features.map(f => `<li>${f}</li>`).join('');
-                    html += `
-                        <div class="experience-card ${card.highlight ? 'highlight' : ''}" data-category="${card.category}" data-index="${index}" data-title="${card.title.replace(/"/g, '&quot;')}" data-link="${card.link}">
-                            <div class="card-icon">${card.icon}</div>
-                            <div class="category-badge">${card.category}</div>
-                            <h2 class="card-title">${card.title}</h2>
-                            <p class="card-description">${card.description}</p>
-                            <ul class="card-features">${featuresList}</ul>
-                            <button class="select-btn" onclick="window.location.href='${card.link}'">INSERT CART</button>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            }
-            renderCards();
-
-            // ========== THREE.JS RETRO CONSOLE BACKGROUND ==========
-            const canvasContainer = document.getElementById('console-canvas');
+            // --- THREE.JS EXTREME DETAIL: 80s CRT CONSOLE ---
+            const container = document.getElementById('canvas-container');
             const width = window.innerWidth;
             const height = window.innerHeight;
 
             const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a14);
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 20, 80);
 
             const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-            camera.position.set(5, 3, 12);
-            camera.lookAt(2, 1, 0);
+            camera.position.set(10, 5, 18);
+            camera.lookAt(5, 3, 2);
 
-            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
             renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
-            canvasContainer.appendChild(renderer.domElement);
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.shadowMap.bias = 0.00005;
+            container.appendChild(renderer.domElement);
 
-            // Lighting
-            const ambient = new THREE.AmbientLight(0x404060);
+            // --- COMPLEX LIGHTING (simulate warm room) ---
+            const ambient = new THREE.AmbientLight(0x40406b);
             scene.add(ambient);
-            const light = new THREE.DirectionalLight(0xffeedd, 1);
-            light.position.set(5, 10, 7);
-            light.castShadow = true;
-            scene.add(light);
 
-            // Build a massive retro console (detailed)
-            const consoleGroup = new THREE.Group();
+            const keyLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+            keyLight.position.set(8, 20, 12);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 4096;
+            keyLight.shadow.mapSize.height = 4096;
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 50;
+            keyLight.shadow.camera.left = -15;
+            keyLight.shadow.camera.right = 15;
+            keyLight.shadow.camera.top = 15;
+            keyLight.shadow.camera.bottom = -15;
+            keyLight.shadow.bias = -0.0008;
+            scene.add(keyLight);
 
-            // Base
-            const baseGeo = new THREE.BoxGeometry(8, 0.8, 5);
-            const baseMat = new THREE.MeshStandardMaterial({ color: 0xb87c4b, roughness: 0.7 });
-            const base = new THREE.Mesh(baseGeo, baseMat);
-            base.position.set(2, 0, 0);
-            base.castShadow = true; base.receiveShadow = true;
-            consoleGroup.add(base);
+            const fillLight = new THREE.PointLight(0x88aaff, 1.0);
+            fillLight.position.set(-4, 6, 10);
+            scene.add(fillLight);
 
-            // Wood stripes
-            for (let i=0; i<6; i++) {
-                const strip = new THREE.BoxGeometry(0.2, 0.1, 5.2);
-                const m = new THREE.MeshStandardMaterial({ color: 0x6b4f3a });
-                const s = new THREE.Mesh(strip, m);
-                s.position.set(0.2 + i*1.3, 0.45, 0);
-                consoleGroup.add(s);
+            const backLight = new THREE.PointLight(0xffaa88, 0.6);
+            backLight.position.set(2, 4, -10);
+            scene.add(backLight);
+
+            // glowing warm spots
+            const spotWarm = new THREE.SpotLight(0xffaa33, 1.2);
+            spotWarm.position.set(3, 12, 8);
+            spotWarm.angle = 0.4;
+            spotWarm.penumbra = 0.6;
+            spotWarm.decay = 1;
+            spotWarm.distance = 40;
+            scene.add(spotWarm);
+
+            // --- FLOOR (worn linoleum) ---
+            const floorGeo = new THREE.CircleGeometry(60, 64);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.8, metalness: 0.1 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI/2;
+            floor.position.y = -0.2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // wear marks (decals not possible, so add many small planes? skip for performance)
+
+            // --- MAIN CONSOLE: 80s CRT TELEVISION (MASSIVE DETAIL) ---
+            const tvGroup = new THREE.Group();
+
+            // === CABINET (woodgrain, massive) ===
+            const cabinetGeo = new THREE.BoxGeometry(11, 7, 7);
+            const cabinetMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8, emissive: 0x000000 });
+            const cabinet = new THREE.Mesh(cabinetGeo, cabinetMat);
+            cabinet.position.set(4, 2.5, 0);
+            cabinet.castShadow = true;
+            cabinet.receiveShadow = true;
+            tvGroup.add(cabinet);
+
+            // Wood grain stripes (simulated with many thin boxes)
+            for (let i=0; i<30; i++) {
+                const stripGeo = new THREE.BoxGeometry(0.15, 0.2, 7.2);
+                const stripMat = new THREE.MeshStandardMaterial({ color: 0x5a3e2e });
+                const strip = new THREE.Mesh(stripGeo, stripMat);
+                strip.position.set(-1 + i*0.4, 2.5 + (i%3)*0.5 - 1, 0);
+                strip.castShadow = true;
+                tvGroup.add(strip);
             }
 
-            // Cartridge slot
-            const slot = new THREE.BoxGeometry(3, 0.4, 1.2);
-            const slotMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-            const slotMesh = new THREE.Mesh(slot, slotMat);
-            slotMesh.position.set(2, 0.6, -2.0);
-            consoleGroup.add(slotMesh);
-
-            // Power LED
-            const led = new THREE.SphereGeometry(0.15, 16);
-            const ledMat = new THREE.MeshStandardMaterial({ color: 0xff5500, emissive: 0x441100 });
-            const ledMesh = new THREE.Mesh(led, ledMat);
-            ledMesh.position.set(0.5, 0.7, 2.2);
-            consoleGroup.add(ledMesh);
-
-            // Joystick
-            const stickBase = new THREE.CylinderGeometry(0.5, 0.5, 0.2);
-            const stick = new THREE.Mesh(stickBase, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-            stick.position.set(4.5, 0.6, 1.5);
-            consoleGroup.add(stick);
-            const handle = new THREE.CylinderGeometry(0.15, 0.15, 1.2);
-            const h = new THREE.Mesh(handle, new THREE.MeshStandardMaterial({ color: 0xff3333 }));
-            h.position.set(4.5, 1.2, 1.5);
-            consoleGroup.add(h);
-            const knob = new THREE.SphereGeometry(0.25);
-            const k = new THREE.Mesh(knob, new THREE.MeshStandardMaterial({ color: 0x000000 }));
-            k.position.set(4.5, 1.8, 1.5);
-            consoleGroup.add(k);
-
-            // Big screen bezel
-            const bezel = new THREE.BoxGeometry(5, 3.5, 0.4);
-            const bezelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const bezelMesh = new THREE.Mesh(bezel, bezelMat);
-            bezelMesh.position.set(2, 2.2, -2.3);
-            consoleGroup.add(bezelMesh);
-
-            // inner screen (emissive)
-            const screenGeo = new THREE.BoxGeometry(4.2, 2.8, 0.2);
-            const screenMat = new THREE.MeshStandardMaterial({ color: 0x224422, emissive: 0x113311 });
-            const screen = new THREE.Mesh(screenGeo, screenMat);
-            screen.position.set(2, 2.2, -2.5);
-            consoleGroup.add(screen);
-
-            scene.add(consoleGroup);
-
-            // Floating particles (dust)
-            const particles = new THREE.BufferGeometry();
-            const posArray = new Float32Array(400 * 3);
-            for (let i=0; i<400*3; i+=3) {
-                posArray[i] = (Math.random()-0.5)*20;
-                posArray[i+1] = Math.random()*8;
-                posArray[i+2] = (Math.random()-0.5)*20;
+            // Rounded front edges (using cylinders)
+            const edgeMat = new THREE.MeshStandardMaterial({ color: 0x6b4f3a });
+            for (let side = -1; side <=1; side+=2) {
+                const cylGeo = new THREE.CylinderGeometry(0.5, 0.5, 7, 12, 1);
+                const cyl = new THREE.Mesh(cylGeo, edgeMat);
+                cyl.rotation.z = Math.PI/2;
+                cyl.position.set(4 + side*5.2, 2.5, 0);
+                cyl.castShadow = true;
+                tvGroup.add(cyl);
             }
-            particles.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particleMat = new THREE.PointsMaterial({ color: 0x88aaff, size: 0.05, transparent: true });
-            const particleSys = new THREE.Points(particles, particleMat);
-            scene.add(particleSys);
 
-            // Animation
+            // === SCREEN AREA (deep bezel, curved) ===
+            const outerBezelGeo = new THREE.BoxGeometry(7.5, 5.5, 0.8);
+            const outerBezelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.3 });
+            const outerBezel = new THREE.Mesh(outerBezelGeo, outerBezelMat);
+            outerBezel.position.set(4, 3.2, 3.2);
+            outerBezel.castShadow = true;
+            outerBezel.receiveShadow = true;
+            tvGroup.add(outerBezel);
+
+            const midBezelGeo = new THREE.BoxGeometry(6.8, 4.8, 0.6);
+            const midBezelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            const midBezel = new THREE.Mesh(midBezelGeo, midBezelMat);
+            midBezel.position.set(4, 3.2, 3.5);
+            midBezel.castShadow = true;
+            tvGroup.add(midBezel);
+
+            const innerBezelGeo = new THREE.BoxGeometry(6.2, 4.2, 0.5);
+            const innerBezelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            const innerBezel = new THREE.Mesh(innerBezelGeo, innerBezelMat);
+            innerBezel.position.set(4, 3.2, 3.8);
+            innerBezel.castShadow = true;
+            tvGroup.add(innerBezel);
+
+            // === ACTUAL SCREEN (curved slightly with many segments - use plane with texture) ===
+            const screenCanvas = document.createElement('canvas');
+            screenCanvas.width = 2048;
+            screenCanvas.height = 1536;
+            const ctx = screenCanvas.getContext('2d');
+
+            function drawScreen(sel) {
+                ctx.fillStyle = '#0a1f0a';
+                ctx.fillRect(0, 0, 2048, 1536);
+                // retro grid
+                ctx.strokeStyle = '#226622';
+                ctx.lineWidth = 2;
+                for (let i=0; i<2048; i+=80) {
+                    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,1536); ctx.strokeStyle = '#226622'; ctx.stroke();
+                }
+                for (let i=0; i<1536; i+=60) {
+                    ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(2048,i); ctx.strokeStyle = '#226622'; ctx.stroke();
+                }
+                // title
+                ctx.font = 'bold 130px "Courier New"';
+                ctx.fillStyle = '#ffaa33';
+                ctx.fillText('CARTRIDGE BAY', 200, 200);
+                // game list
+                ctx.font = '85px "Courier New"';
+                let start = Math.max(0, sel - 5);
+                let end = Math.min(games.length, start + 10);
+                let y = 400;
+                for (let i=start; i<end; i++) {
+                    if (i === sel) {
+                        ctx.fillStyle = '#ffffaa';
+                        ctx.fillText('▶ ' + games[i].title, 250, y);
+                    } else {
+                        ctx.fillStyle = '#88ff88';
+                        ctx.fillText('  ' + games[i].title, 250, y);
+                    }
+                    y += 100;
+                }
+                // coin display
+                ctx.font = '70px monospace';
+                ctx.fillStyle = 'gold';
+                ctx.fillText('COINS: ' + coins, 250, 1300);
+                ctx.fillStyle = '#ccc';
+                ctx.font = '60px monospace';
+                ctx.fillText('PRESS ENTER TO LOAD', 250, 1420);
+            }
+            drawScreen(selectedIdx);
+
+            const screenTexture = new THREE.CanvasTexture(screenCanvas);
+            const screenGeo = new THREE.PlaneGeometry(5.8, 3.9);
+            const screenMat = new THREE.MeshStandardMaterial({ map: screenTexture, emissive: 0x113311 });
+            const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+            screenMesh.position.set(4, 3.2, 4.0);
+            tvGroup.add(screenMesh);
+
+            // === SPEAKER GRILLE (bottom) ===
+            const speakerGeo = new THREE.BoxGeometry(4, 0.8, 0.3);
+            const speakerMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const speaker = new THREE.Mesh(speakerGeo, speakerMat);
+            speaker.position.set(4, 0.8, 3.2);
+            speaker.castShadow = true;
+            tvGroup.add(speaker);
+            // speaker holes (tiny cylinders)
+            for (let s=0; s<12; s++) {
+                const holeGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 6);
+                const holeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                const hole = new THREE.Mesh(holeGeo, holeMat);
+                hole.rotation.x = Math.PI/2;
+                hole.position.set(2.5 + s*0.3, 0.8, 3.35);
+                tvGroup.add(hole);
+            }
+
+            // === VINTAGE DIALS / KNOBS (left side) ===
+            const knobPositions = [
+                [0.5, 2.0, 2.8], [0.5, 1.2, 2.8], [0.5, 0.4, 2.8]
+            ];
+            knobPositions.forEach((pos, idx) => {
+                const knobBaseGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.3, 24);
+                const knobBaseMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4 });
+                const knobBase = new THREE.Mesh(knobBaseGeo, knobBaseMat);
+                knobBase.position.set(pos[0], pos[1], pos[2]);
+                knobBase.castShadow = true;
+                tvGroup.add(knobBase);
+
+                const knobGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.5, 16);
+                const knobMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+                const knob = new THREE.Mesh(knobGeo, knobMat);
+                knob.position.set(pos[0], pos[1]+0.25, pos[2]);
+                knob.castShadow = true;
+                tvGroup.add(knob);
+
+                // indicator line
+                const lineGeo = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+                const lineMat = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+                const line = new THREE.Mesh(lineGeo, lineMat);
+                line.position.set(pos[0]+0.3, pos[1]+0.25, pos[2]);
+                tvGroup.add(line);
+            });
+
+            // === VCR / CASSETTE DECK (right side) ===
+            const deckGeo = new THREE.BoxGeometry(2.5, 1.2, 1.5);
+            const deckMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            const deck = new THREE.Mesh(deckGeo, deckMat);
+            deck.position.set(7.0, 1.2, 2.2);
+            deck.castShadow = true;
+            tvGroup.add(deck);
+
+            // cassette window
+            const windowGeo = new THREE.BoxGeometry(1.2, 0.5, 0.2);
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x88aaff, emissive: 0x112233 });
+            const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+            windowMesh.position.set(7.0, 1.2, 2.9);
+            tvGroup.add(windowMesh);
+
+            // buttons
+            for (let b=0; b<4; b++) {
+                const btnGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 8);
+                const btnMat = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+                const btn = new THREE.Mesh(btnGeo, btnMat);
+                btn.position.set(6.2 + b*0.4, 1.5, 2.2);
+                tvGroup.add(btn);
+            }
+
+            // === ANTENNA (top) ===
+            const antennaBaseGeo = new THREE.SphereGeometry(0.3, 8);
+            const antennaBaseMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+            const antennaBase = new THREE.Mesh(antennaBaseGeo, antennaBaseMat);
+            antennaBase.position.set(6, 6.0, 1.5);
+            tvGroup.add(antennaBase);
+
+            const antennaRodGeo = new THREE.CylinderGeometry(0.08, 0.08, 3.0, 6);
+            const antennaRodMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+            const antennaRod = new THREE.Mesh(antennaRodGeo, antennaRodMat);
+            antennaRod.position.set(6.2, 7.5, 1.5);
+            antennaRod.rotation.z = 0.2;
+            antennaRod.castShadow = true;
+            tvGroup.add(antennaRod);
+
+            const antennaBallGeo = new THREE.SphereGeometry(0.2, 6);
+            const antennaBall = new THREE.Mesh(antennaBallGeo, new THREE.MeshStandardMaterial({ color: 0xffaa00 }));
+            antennaBall.position.set(6.6, 9.0, 1.8);
+            tvGroup.add(antennaBall);
+
+            scene.add(tvGroup);
+
+            // --- FLOATING CARTRIDGES (detailed) ---
+            const cartGroup = new THREE.Group();
+            for (let i=0; i<12; i++) {
+                const cartGeo = new THREE.BoxGeometry(0.9, 0.5, 1.3);
+                const cartMat = new THREE.MeshStandardMaterial({ color: i%2?0xaa3333:0x3366aa, emissive: 0x111122 });
+                const cart = new THREE.Mesh(cartGeo, cartMat);
+                cart.position.set(-1 + i*1.3, 1.8 + Math.sin(i)*0.5, 5.0 + i*0.3);
+                cart.rotation.y = 0.5;
+                cart.castShadow = true;
+                // label
+                const labelGeo = new THREE.PlaneGeometry(0.7, 0.3);
+                const labelMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+                const label = new THREE.Mesh(labelGeo, labelMat);
+                label.position.set(0, 0, 0.66);
+                cart.add(label);
+                cartGroup.add(cart);
+            }
+            scene.add(cartGroup);
+
+            // --- DUST PARTICLES (thousands, for atmosphere) ---
+            const particleCount = 3000;
+            const particleGeo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(particleCount * 3);
+            for (let i=0; i<particleCount*3; i+=3) {
+                posArray[i] = (Math.random() - 0.5) * 100;
+                posArray[i+1] = Math.random() * 25;
+                posArray[i+2] = (Math.random() - 0.5) * 80;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particleMat = new THREE.PointsMaterial({ color: 0xaaccff, size: 0.1, transparent: true, blending: THREE.AdditiveBlending });
+            const particles = new THREE.Points(particleGeo, particleMat);
+            scene.add(particles);
+
+            // --- ANIMATION & INTERACTION ---
             let time = 0;
+
+            // keyboard nav
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowUp') {
+                    selectedIdx = (selectedIdx - 1 + games.length) % games.length;
+                    drawScreen(selectedIdx);
+                    screenTexture.needsUpdate = true;
+                } else if (e.key === 'ArrowDown') {
+                    selectedIdx = (selectedIdx + 1) % games.length;
+                    drawScreen(selectedIdx);
+                    screenTexture.needsUpdate = true;
+                } else if (e.key === 'Enter') {
+                    if (games[selectedIdx] && games[selectedIdx].link) {
+                        window.open(games[selectedIdx].link, '_blank');
+                    }
+                }
+            });
+
+            document.getElementById('coin-btn').addEventListener('click', () => {
+                drawScreen(selectedIdx);
+                screenTexture.needsUpdate = true;
+            });
+
             function animate() {
                 requestAnimationFrame(animate);
                 time += 0.002;
-                consoleGroup.rotation.y = 0.1 + Math.sin(time*0.5)*0.05;
-                consoleGroup.position.y = Math.sin(time*0.8)*0.05;
-                ledMesh.material.emissiveIntensity = 0.5 + Math.sin(time*15)*0.3;
-                camera.position.x = 5 + Math.sin(time*0.3)*1;
-                camera.position.y = 3 + Math.sin(time*0.4)*0.2;
-                camera.lookAt(2, 1.8, 0);
+
+                // gentle TV float
+                tvGroup.rotation.y = 0.05 + Math.sin(time * 0.2) * 0.02;
+                tvGroup.position.y = Math.sin(time * 0.3) * 0.1;
+
+                // floating cartridges rotate
+                cartGroup.children.forEach((cart, idx) => {
+                    cart.rotation.y += 0.005;
+                    cart.position.y = 1.8 + Math.sin(time * 2 + idx) * 0.4;
+                });
+
+                // particles drift
+                particles.rotation.y += 0.0001;
+
+                // camera move (slow dolly)
+                camera.position.x = 10 + Math.sin(time * 0.15) * 2;
+                camera.position.y = 5 + Math.sin(time * 0.2) * 0.5;
+                camera.lookAt(5, 3.5, 2);
+
                 renderer.render(scene, camera);
             }
             animate();
 
-            // ========== FILTER, ARCADE, COIN (same logic) ==========
-            const filterButtons = document.querySelectorAll('.filter-btn');
-            const cards = document.querySelectorAll('.experience-card');
-            function filterCards(category) {
-                cards.forEach(c => {
-                    if (category === 'all' || c.dataset.category === category) c.style.display = 'block';
-                    else c.style.display = 'none';
-                });
-                filterButtons.forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.filter === category);
-                });
-            }
-            filterButtons.forEach(btn => btn.addEventListener('click', () => filterCards(btn.dataset.filter)));
-
-            // Arcade mode
-            const arcadeToggle = document.getElementById('arcadeToggle');
-            const body = document.body;
-            const arcadeGrid = document.getElementById('arcadeGrid');
-            let coins = 0;
-            document.getElementById('coinCount').textContent = coins;
-            document.getElementById('coinButton').addEventListener('click', () => {
-                if (Math.random() < 0.5) {
-                    coins++;
-                    document.getElementById('coinCount').textContent = coins;
-                } else alert('CLUNK! No coin.');
-            });
-
-            function buildArcadeGrid(style) {
-                const gameCards = cardsData.filter(c => c.category === 'games');
-                let html = '';
-                gameCards.forEach(game => {
-                    if (style === 'normal') {
-                        html += `<div class="game-frame normal"><a href="${game.link}" target="_blank" style="display:block; padding:30px;">🎮 ${game.title}</a></div>`;
-                    } else {
-                        html += `<div class="game-frame ${style}"><iframe src="${game.link}" sandbox="allow-same-origin allow-scripts"></iframe><div class="game-title">${game.title}</div></div>`;
-                    }
-                });
-                arcadeGrid.innerHTML = html;
-            }
-            document.querySelectorAll('.style-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    buildArcadeGrid(btn.dataset.style);
-                });
-            });
-            buildArcadeGrid('retro');
-
-            arcadeToggle.addEventListener('click', () => {
-                body.classList.toggle('arcade-mode');
-                arcadeToggle.textContent = body.classList.contains('arcade-mode') ? '⏎ NORMAL' : '🎮 ARCADE';
-            });
-
-            // Popup modal (stub, not fully implemented to keep size)
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
