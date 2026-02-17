@@ -28,11 +28,11 @@ function startGame() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ========== PERFORMANCE MODE (for low-end devices) ==========
+    // ========== PERFORMANCE MODE ==========
     const performanceMode = localStorage.getItem('spaceShooters_performance') === 'true';
 
-    // ========== OPEN WORLD PARAMETERS ==========
-    const WORLD_SIZE = 10000;                        // virtual universe size (pixels)
+    // ========== INFINITE WORLD PARAMETERS ==========
+    // No WORLD_SIZE – world is infinite
     let worldX = 512;                                 // player's absolute X in world
     let worldY = 650;                                 // player's absolute Y in world
     const SECTOR_SIZE = 1024;                         // size of one sector (matches canvas)
@@ -90,15 +90,11 @@ function startGame() {
             const canvasX = (touch.clientX - rect.left) * scaleX;
             const canvasY = (touch.clientY - rect.top) * scaleY;
 
-            // Left half of screen = movement, right half = fire
             if (canvasX < canvas.width / 2) {
-                // Movement touch
                 touchActive = true;
-                // Convert screen to world position
                 touchX = camera.x + canvasX;
                 touchY = camera.y + canvasY;
             } else {
-                // Fire touch
                 fireTouch = true;
             }
         }
@@ -152,13 +148,11 @@ function startGame() {
         fireTouch = false;
     });
 
-    // Prevent context menu on canvas
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Shooting cooldown
     let shootCooldown = 0;
 
-    // ========== PLAYER STATS TRACKING (FOR CROSS‑GAME LEARNING) ==========
+    // ========== PLAYER STATS TRACKING ==========
     let gameStats = {
         avgX: 0,
         avgY: 0,
@@ -170,7 +164,7 @@ function startGame() {
         totalFrames: 0
     };
 
-    // ========== MULTIPLAYER (LAN) ==========
+    // ========== MULTIPLAYER ==========
     let multiplayerActive = false;
     let remotePlayer = null;
     let isHost = false;
@@ -187,7 +181,7 @@ function startGame() {
         };
     }
 
-    // ========== CHEAT MENU TOGGLE (LEFT CLICK) ==========
+    // ========== CHEAT MENU ==========
     canvas.addEventListener('click', (e) => {
         if (e.button === 0) {
             e.preventDefault();
@@ -239,7 +233,6 @@ function startGame() {
     document.addEventListener('keydown', userInteraction);
     document.addEventListener('touchstart', userInteraction);
 
-    // Play background video if available
     if (assets.videos && assets.videos.background) {
         assets.videos.background.play().catch(e => {
             console.log('Background video autoplay failed:', e);
@@ -253,7 +246,7 @@ function startGame() {
         });
     }
 
-    // Start first level (global, not per sector)
+    // Start first level
     waveManager.waveCount = currentLevel;
     waveManager.startWave();
     if (window.cheatSystem) window.cheatSystem.updateUnlocks(currentLevel);
@@ -270,7 +263,7 @@ function startGame() {
         if (sectorEnemies.has(key)) return;
 
         const enemies = [];
-        // Use waveManager parameters for spawn position and enemy properties
+        // Procedurally generate enemies based on sector coordinates and level
         const enemyCount = 3 + Math.floor(Math.random() * 5) + currentLevel;
         for (let i = 0; i < enemyCount; i++) {
             let x;
@@ -282,7 +275,6 @@ function startGame() {
             }
             const y = sy * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
             const type = Math.random() < 0.7 ? 'enemy1' : 'enemy2';
-            // Determine pattern based on waveManager.forceSinePattern and wave count
             const pattern = waveManager.forceSinePattern ? 'sine' : (waveManager.waveCount % 2 === 0 ? 'down' : 'sine');
             const enemy = new Enemy(x, y, type, waveManager.learningProfile, waveManager.enemySpeedMultiplier, pattern);
             enemies.push(enemy);
@@ -314,11 +306,12 @@ function startGame() {
         return nearby;
     }
 
-    // Clean up enemies that have fallen off the world (below WORLD_SIZE)
+    // Clean up enemies that have fallen off the bottom of the world
     function cleanupOffWorldEnemies() {
         for (let [key, enemies] of sectorEnemies.entries()) {
             for (let i = enemies.length - 1; i >= 0; i--) {
-                if (enemies[i].y > WORLD_SIZE) {
+                // Remove if far below bottom (no upper bound)
+                if (enemies[i].y > worldY + 5000) { // arbitrary limit to prevent memory leak
                     enemies.splice(i, 1);
                 }
             }
@@ -329,8 +322,15 @@ function startGame() {
         }
     }
 
-    // Generate initial sectors around player
-    updateSector();
+    // FORCE generate starting sectors (this is the key fix!)
+    const startSx = Math.floor(worldX / SECTOR_SIZE);
+    const startSy = Math.floor(worldY / SECTOR_SIZE);
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            generateSector(startSx + dx, startSy + dy);
+        }
+    }
+    currentSector = { x: startSx, y: startSy };
 
     // ========== GAME LOOP ==========
     function gameLoop() {
@@ -349,7 +349,7 @@ function startGame() {
         requestAnimationFrame(gameLoop);
     }
 
-    // ========== HELPER: Generate bullets based on kill count ==========
+    // ========== BULLET HELPER ==========
     function createBullets(playerX, playerY, playerWidth, baseSpeed, rapidFireActive) {
         const bulletsArray = [];
         let baseWidth = 4;
@@ -402,7 +402,7 @@ function startGame() {
     function update() {
         if (window.enemyLearning) window.enemyLearning.setGlobalFrame(frame);
 
-        // ----- Player movement (keyboard) -----
+        // Player movement (keyboard)
         const leftPressed = keys['ArrowLeft'] || keys['KeyA'];
         const rightPressed = keys['ArrowRight'] || keys['KeyD'];
         const upPressed = keys['ArrowUp'] || keys['KeyW'];
@@ -414,13 +414,12 @@ function startGame() {
         if (upPressed) moveY -= 1;
         if (downPressed) moveY += 1;
 
-        // ----- Mobile touch movement -----
+        // Mobile touch movement
         if (touchActive) {
-            // Move player towards touch point
             const dx = touchX - worldX;
             const dy = touchY - worldY;
             const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist > 5) { // dead zone
+            if (dist > 5) {
                 const normX = dx / dist;
                 const normY = dy / dist;
                 moveX += normX;
@@ -428,7 +427,7 @@ function startGame() {
             }
         }
 
-        // Normalize diagonal speed
+        // Normalize diagonal
         if (moveX !== 0 && moveY !== 0) {
             const length = Math.sqrt(moveX*moveX + moveY*moveY);
             moveX = moveX / length;
@@ -438,35 +437,31 @@ function startGame() {
         worldX += moveX * player.speed;
         worldY += moveY * player.speed;
 
-        // Keep player within world bounds (only the WORLD_SIZE edges, no other barriers)
-        worldX = Math.max(0, Math.min(WORLD_SIZE - player.width, worldX));
-        worldY = Math.max(0, Math.min(WORLD_SIZE - player.height, worldY));
+        // NO WORLD BOUNDARIES – infinite movement
 
-        // Update camera
+        // Update camera (no clamping)
         camera.x = worldX - canvas.width / 2;
         camera.y = worldY - canvas.height / 2;
-        camera.x = Math.max(0, Math.min(camera.x, WORLD_SIZE - canvas.width));
-        camera.y = Math.max(0, Math.min(camera.y, WORLD_SIZE - canvas.height));
 
         // Update sector based on new position
         updateSector();
 
-        // Update stats for cross‑game learning
+        // Stats
         gameStats.totalFrames++;
-        gameStats.avgX = (gameStats.avgX * (gameStats.totalFrames - 1) + (worldX / WORLD_SIZE)) / gameStats.totalFrames;
-        gameStats.avgY = (gameStats.avgY * (gameStats.totalFrames - 1) + (worldY / WORLD_SIZE)) / gameStats.totalFrames;
+        gameStats.avgX = (gameStats.avgX * (gameStats.totalFrames - 1) + (worldX / 10000)) / gameStats.totalFrames; // normalize roughly
+        gameStats.avgY = (gameStats.avgY * (gameStats.totalFrames - 1) + (worldY / 10000)) / gameStats.totalFrames;
         if (leftPressed) gameStats.leftMoves++;
         if (rightPressed) gameStats.rightMoves++;
         if (upPressed) gameStats.upMoves++;
         if (downPressed) gameStats.downMoves++;
 
-        // Check active cheats
+        // Cheats
         const rapidFireActive = window.cheatSystem ? window.cheatSystem.isCheatActive('rapidfire') : false;
         const invincibleActive = window.cheatSystem ? window.cheatSystem.isCheatActive('invincible') : false;
         const autoAimActive = window.cheatSystem ? window.cheatSystem.isCheatActive('autotarget') : false;
         const oneHitKillActive = window.cheatSystem ? window.cheatSystem.isCheatActive('onehitkill') : false;
 
-        // Shooting (keyboard or touch fire)
+        // Shooting
         const shotThisFrame = (keys['Space'] || fireTouch) && shootCooldown <= 0;
         if (shotThisFrame) {
             const newBullets = createBullets(worldX, worldY, player.width, -8, rapidFireActive);
@@ -474,27 +469,27 @@ function startGame() {
             playSound('laser', 0.5);
             shootCooldown = rapidFireActive ? 5 : 10;
             gameStats.shotsFired += newBullets.length;
-            fireTouch = false; // reset touch fire
+            fireTouch = false;
         }
         if (shootCooldown > 0) shootCooldown--;
 
-        // Real‑time learning – pass screen coordinates, not world
+        // Live learning (screen coordinates)
         if (window.liveLearning) {
             const screenX = worldX - camera.x;
             const screenY = worldY - camera.y;
             window.liveLearning.update(screenX, screenY, shotThisFrame);
         }
 
-        // Get all enemies near player
+        // Get all enemies
         const allEnemies = getNearbyEnemies();
 
         // Update enemies
         allEnemies.forEach(e => e.update());
 
-        // Remove enemies that have fallen off the world
+        // Cleanup off‑world enemies (below a certain distance)
         cleanupOffWorldEnemies();
 
-        // Update player bullets
+        // Update player bullets – remove if too far (infinite world, just keep them)
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             if (b.speedX !== undefined) {
@@ -503,7 +498,8 @@ function startGame() {
             } else {
                 b.y += b.speed;
             }
-            if (b.y + b.h < 0 || b.y > WORLD_SIZE || b.x + b.w < 0 || b.x > WORLD_SIZE) {
+            // Remove if too far from player to save memory
+            if (Math.abs(b.x - worldX) > 5000 || Math.abs(b.y - worldY) > 5000) {
                 bullets.splice(i, 1);
             }
         }
@@ -522,10 +518,12 @@ function startGame() {
             });
         }
 
-        // Update enemy bullets
+        // Update enemy bullets – remove if too far
         for (let i = enemyBullets.length - 1; i >= 0; i--) {
             enemyBullets[i].y += enemyBullets[i].speed;
-            if (enemyBullets[i].y > WORLD_SIZE) enemyBullets.splice(i, 1);
+            if (Math.abs(enemyBullets[i].y - worldY) > 5000) {
+                enemyBullets.splice(i, 1);
+            }
         }
 
         // Collisions: player bullets vs enemies
@@ -538,7 +536,6 @@ function startGame() {
                     b.y < e.y + e.height &&
                     b.y + b.h > e.y) {
                     bullets.splice(i, 1);
-                    // Remove enemy from sector
                     const key = getSectorKey(e.x, e.y);
                     const sectorList = sectorEnemies.get(key);
                     if (sectorList) {
@@ -613,7 +610,7 @@ function startGame() {
         document.getElementById('lives').textContent = player.lives;
         document.getElementById('score').textContent = score;
 
-        // Level progression (global, based on kills)
+        // Level progression (based on kills)
         if (killCount > currentLevel * 10) {
             currentLevel++;
             waveManager.waveCount = currentLevel;
@@ -667,7 +664,7 @@ function startGame() {
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw background (video or starfield)
+        // Background (video or starfield)
         if (assets.videos && assets.videos.background && assets.videos.background.readyState >= 2) {
             ctx.drawImage(assets.videos.background, 0, 0, canvas.width, canvas.height);
         } else {
@@ -680,7 +677,7 @@ function startGame() {
             }
         }
 
-        // Draw level message
+        // Level message
         if (levelMessageTimer > 0) {
             ctx.font = '40px "Press Start 2P", monospace';
             ctx.fillStyle = '#ffd966';
@@ -688,7 +685,7 @@ function startGame() {
             ctx.fillText(levelMessage, canvas.width/2, 300);
         }
 
-        // Draw player (convert world to screen)
+        // Player
         const playerScreenX = worldX - camera.x;
         const playerScreenY = worldY - camera.y;
         if (player.invincible <= 0 || Math.floor(frame / 5) % 2 === 0) {
@@ -700,7 +697,7 @@ function startGame() {
             }
         }
 
-        // Draw enemies
+        // Enemies
         const allEnemies = getNearbyEnemies();
         allEnemies.forEach(e => {
             const ex = e.x - camera.x;
@@ -715,7 +712,7 @@ function startGame() {
             }
         });
 
-        // Draw remote player
+        // Remote player
         if (multiplayerActive && remotePlayer) {
             const rx = remotePlayer.x - camera.x;
             const ry = remotePlayer.y - camera.y;
@@ -731,7 +728,7 @@ function startGame() {
             }
         }
 
-        // Draw player bullets
+        // Player bullets
         bullets.forEach(b => {
             const bx = b.x - camera.x;
             const by = b.y - camera.y;
@@ -745,7 +742,7 @@ function startGame() {
             }
         });
 
-        // Draw enemy bullets
+        // Enemy bullets
         enemyBullets.forEach(b => {
             const bx = b.x - camera.x;
             const by = b.y - camera.y;
@@ -759,12 +756,12 @@ function startGame() {
             }
         });
 
-        // Draw cheat menu
+        // Cheat menu
         if (cheatMenuOpen && window.cheatSystem) {
             window.cheatSystem.drawCheatMenu(ctx, canvas.width, canvas.height);
         }
 
-        // Draw multiplayer status
+        // Multiplayer status
         if (multiplayerActive) {
             ctx.font = '16px "Press Start 2P", monospace';
             ctx.fillStyle = '#0ff';
@@ -772,19 +769,19 @@ function startGame() {
             ctx.fillText('MULTIPLAYER', canvas.width - 20, 40);
         }
 
-        // Draw kill count
+        // Kill count
         ctx.font = '16px "Press Start 2P", monospace';
         ctx.fillStyle = '#ff0';
         ctx.textAlign = 'left';
         ctx.fillText(`KILLS: ${killCount}`, 20, 100);
 
-        // Draw current level
+        // Level
         ctx.font = '16px "Press Start 2P", monospace';
         ctx.fillStyle = '#0ff';
         ctx.textAlign = 'right';
         ctx.fillText(`LEVEL: ${currentLevel}`, canvas.width - 20, 100);
 
-        // Draw touch hint (if on mobile)
+        // Touch hint
         if ('ontouchstart' in window) {
             ctx.font = '12px "Press Start 2P", monospace';
             ctx.fillStyle = '#aaa';
