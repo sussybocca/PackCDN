@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackCDN · Pack Details</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+            min-height:100vh; display:flex; justify-content:center; align-items:center;
+            background:#0a0a14; color:#fff; padding:20px;
+        }
+        .glass-container {
+            max-width:700px; width:100%;
+            background:rgba(10,10,20,0.6); backdrop-filter:blur(12px);
+            border-radius:60px; padding:40px 50px;
+            border:1px solid rgba(255,255,255,0.1);
+            box-shadow:0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05) inset, 0 0 40px rgba(100,150,255,0.2);
+            text-align:center;
+        }
+        h1 {
+            font-size:3rem; font-weight:800;
+            background:linear-gradient(135deg,#a78bfa,#60a5fa,#34d399);
+            -webkit-background-clip:text; background-clip:text; color:transparent;
+            margin-bottom:10px; letter-spacing:-0.02em;
+        }
+        .subtitle {
+            color:rgba(255,255,255,0.6); font-size:1.1rem; margin-bottom:40px;
+            text-transform:uppercase; letter-spacing:3px;
+            border-bottom:1px dashed rgba(255,255,255,0.2); padding-bottom:20px;
+        }
+        .info-panel {
+            background:rgba(0,0,0,0.3); border-radius:30px; padding:25px; margin-bottom:25px;
+        }
+        .info-row {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.1);
+        }
+        .info-row:last-child { border-bottom:none; }
+        .info-label { font-weight:500; color:rgba(255,255,255,0.6); }
+        .info-value { font-family:monospace; color:#a78bfa; word-break:break-all; text-align:right; }
+        .cdn-link {
+            background:rgba(0,0,0,0.5); padding:15px 20px; border-radius:50px;
+            border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center;
+            justify-content:space-between; gap:15px; flex-wrap:wrap; margin:20px 0;
+        }
+        .cdn-link span { font-family:monospace; font-size:0.95rem; color:#a78bfa; word-break:break-all; }
+        .copy-btn {
+            background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+            border-radius:40px; padding:8px 20px; font-size:0.9rem; color:white;
+            cursor:pointer; transition:0.2s; white-space:nowrap;
+        }
+        .copy-btn:hover { background:#8b5cf6; border-color:#8b5cf6; }
+        .qr-container { display:flex; justify-content:center; margin:20px 0; }
+        #qrCanvas { border-radius:30px; padding:20px; background:white; box-shadow:0 20px 40px rgba(0,0,0,0.5); }
+        .edit-token {
+            background:rgba(0,0,0,0.3); padding:15px; border-radius:20px; margin-top:20px;
+            font-size:0.9rem; border:1px dashed #8b5cf6;
+        }
+        .edit-token code {
+            background:#1e1e2f; padding:5px 10px; border-radius:30px; display:inline-block;
+            margin:10px 0; word-break:break-all; color:#a78bfa;
+        }
+        .back-link {
+            display:inline-block; margin-top:30px; color:rgba(255,255,255,0.5);
+            text-decoration:none; border-bottom:1px dotted;
+        }
+        .back-link:hover { color:white; }
+        .loading-spinner {
+            display:inline-block; width:20px; height:20px;
+            border:3px solid rgba(255,255,255,0.3); border-radius:50%;
+            border-top-color:white; animation:spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .error-message {
+            color:#f87171; background:rgba(127,29,29,0.3);
+            padding:15px; border-radius:30px; margin-top:20px;
+            border:1px solid #f87171;
+        }
+        .hidden { display:none; }
+    </style>
+</head>
+<body>
+    <div class="glass-container">
+        <h1>📦 Pack Details</h1>
+        <div class="subtitle" id="packNameSubtitle">Loading...</div>
+
+        <div id="loadingIndicator" class="loading-spinner"></div>
+        <div id="errorArea" class="error-message hidden"></div>
+
+        <div id="contentArea" class="hidden">
+            <div class="info-panel">
+                <div class="info-row"><span class="info-label">Pack ID</span><span class="info-value" id="packId"></span></div>
+                <div class="info-row"><span class="info-label">Version</span><span class="info-value" id="packVersion"></span></div>
+                <div class="info-row"><span class="info-label">Type</span><span class="info-value" id="packType"></span></div>
+                <div class="info-row"><span class="info-label">Description</span><span class="info-value" id="packDesc"></span></div>
+            </div>
+
+            <div class="cdn-link">
+                <span id="cdnUrl"></span>
+                <button class="copy-btn" id="copyBtn">📋 Copy</button>
+            </div>
+
+            <div class="qr-container">
+                <canvas id="qrCanvas"></canvas>
+            </div>
+
+            <div id="editTokenBox" class="edit-token hidden">
+                <strong>🔑 Edit token (save this to update later):</strong><br>
+                <code id="editToken"></code>
+            </div>
+
+            <a href="index.html" class="back-link">← Back to catalog</a>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const packId = urlParams.get('id');
+            const token = urlParams.get('token');
+
+            const loading = document.getElementById('loadingIndicator');
+            const errorArea = document.getElementById('errorArea');
+            const contentArea = document.getElementById('contentArea');
+            const packNameSubtitle = document.getElementById('packNameSubtitle');
+            const packIdSpan = document.getElementById('packId');
+            const packVersionSpan = document.getElementById('packVersion');
+            const packTypeSpan = document.getElementById('packType');
+            const packDescSpan = document.getElementById('packDesc');
+            const cdnUrlSpan = document.getElementById('cdnUrl');
+            const copyBtn = document.getElementById('copyBtn');
+            const qrCanvas = document.getElementById('qrCanvas');
+            const editTokenBox = document.getElementById('editTokenBox');
+            const editTokenSpan = document.getElementById('editToken');
+
+            if (!packId) {
+                showError('No pack ID provided.');
+                return;
+            }
+
+            async function fetchPack() {
+                try {
+                    const response = await fetch(`/api/get-pack?id=${encodeURIComponent(packId)}`);
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.error || 'Failed to load pack');
+                    return data.pack; // assuming pack object is under data.pack
+                } catch (err) {
+                    throw new Error('Could not fetch pack details');
+                }
+            }
+
+            function showError(msg) {
+                loading.classList.add('hidden');
+                errorArea.textContent = msg;
+                errorArea.classList.remove('hidden');
+            }
+
+            function displayPack(pack) {
+                packNameSubtitle.textContent = pack.name || 'Pack Details';
+                packIdSpan.textContent = pack.id || packId;
+                packVersionSpan.textContent = pack.version || '1.0.0';
+                packTypeSpan.textContent = pack.packageType || pack.pack_type || 'basic';
+                packDescSpan.textContent = pack.description || 'No description';
+
+                const cdnUrl = pack.cdn_url || `https://pack-cdn.vercel.app/pack/${packId}`;
+                cdnUrlSpan.textContent = cdnUrl;
+
+                // Generate QR
+                QRCode.toCanvas(qrCanvas, cdnUrl, { width: 200 }, (err) => {
+                    if (err) console.warn('QR error', err);
+                });
+
+                // Show edit token if present in URL
+                if (token) {
+                    editTokenSpan.textContent = token;
+                    editTokenBox.classList.remove('hidden');
+                }
+
+                loading.classList.add('hidden');
+                contentArea.classList.remove('hidden');
+            }
+
+            fetchPack().then(displayPack).catch(err => {
+                showError(err.message);
+            });
+
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(cdnUrlSpan.textContent).then(() => {
+                    const original = copyBtn.textContent;
+                    copyBtn.textContent = '✅ Copied!';
+                    setTimeout(() => { copyBtn.textContent = original; }, 2000);
+                }).catch(() => alert('Could not copy'));
+            });
+        })();
+    </script>
+</body>
+</html>
