@@ -119,19 +119,17 @@ function startGame() {
                 touchActive = true;
                 touchX = camera.x + canvasX;
                 touchY = camera.y + canvasY;
-                break; // only care about one movement touch
+                break;
             }
         }
     });
 
     canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
-        // If no touches left, disable movement and fire
         if (e.touches.length === 0) {
             touchActive = false;
             fireTouch = false;
         } else {
-            // Check if any remaining touches are movement
             let hasMovement = false;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -145,7 +143,6 @@ function startGame() {
                 }
             }
             touchActive = hasMovement;
-            // Fire flag is momentary, reset after each shot
         }
     });
 
@@ -273,14 +270,21 @@ function startGame() {
         if (sectorEnemies.has(key)) return;
 
         const enemies = [];
-        // Procedurally generate enemies based on sector coordinates and level
+        // Use waveManager parameters for spawn position and enemy properties
         const enemyCount = 3 + Math.floor(Math.random() * 5) + currentLevel;
         for (let i = 0; i < enemyCount; i++) {
-            const x = sx * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
+            let x;
+            // Apply spawn bias from live learning
+            switch (waveManager.spawnBias) {
+                case 'left':   x = sx * SECTOR_SIZE + Math.random() * 200; break;
+                case 'right':  x = (sx + 1) * SECTOR_SIZE - 200 + Math.random() * 200; break;
+                default:       x = sx * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
+            }
             const y = sy * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
             const type = Math.random() < 0.7 ? 'enemy1' : 'enemy2';
-            const enemy = new Enemy(x, y, type, waveManager.learningProfile);
-            enemy.pattern = waveManager.waveCount % 2 === 0 ? 'down' : 'sine';
+            // Determine pattern based on waveManager.forceSinePattern and wave count
+            const pattern = waveManager.forceSinePattern ? 'sine' : (waveManager.waveCount % 2 === 0 ? 'down' : 'sine');
+            const enemy = new Enemy(x, y, type, waveManager.learningProfile, waveManager.enemySpeedMultiplier, pattern);
             enemies.push(enemy);
         }
         sectorEnemies.set(key, enemies);
@@ -308,6 +312,21 @@ function startGame() {
             nearby.push(...enemies);
         }
         return nearby;
+    }
+
+    // Clean up enemies that have fallen off the world (below WORLD_SIZE)
+    function cleanupOffWorldEnemies() {
+        for (let [key, enemies] of sectorEnemies.entries()) {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].y > WORLD_SIZE) {
+                    enemies.splice(i, 1);
+                }
+            }
+            if (enemies.length === 0) {
+                sectorEnemies.delete(key);
+                loadedSectors.delete(key);
+            }
+        }
     }
 
     // Generate initial sectors around player
@@ -402,7 +421,6 @@ function startGame() {
             const dy = touchY - worldY;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > 5) { // dead zone
-                // Normalize direction
                 const normX = dx / dist;
                 const normY = dy / dist;
                 moveX += normX;
@@ -419,6 +437,8 @@ function startGame() {
 
         worldX += moveX * player.speed;
         worldY += moveY * player.speed;
+
+        // Keep player within world bounds (only the WORLD_SIZE edges, no other barriers)
         worldX = Math.max(0, Math.min(WORLD_SIZE - player.width, worldX));
         worldY = Math.max(0, Math.min(WORLD_SIZE - player.height, worldY));
 
@@ -458,16 +478,21 @@ function startGame() {
         }
         if (shootCooldown > 0) shootCooldown--;
 
-        // Real‑time learning
+        // Real‑time learning – pass screen coordinates, not world
         if (window.liveLearning) {
-            window.liveLearning.update(worldX, worldY, shotThisFrame);
+            const screenX = worldX - camera.x;
+            const screenY = worldY - camera.y;
+            window.liveLearning.update(screenX, screenY, shotThisFrame);
         }
 
         // Get all enemies near player
         const allEnemies = getNearbyEnemies();
 
         // Update enemies
-        allEnemies.forEach(e => e.update(worldX, worldY));
+        allEnemies.forEach(e => e.update());
+
+        // Remove enemies that have fallen off the world
+        cleanupOffWorldEnemies();
 
         // Update player bullets
         for (let i = bullets.length - 1; i >= 0; i--) {
@@ -649,7 +674,6 @@ function startGame() {
             ctx.fillStyle = 'white';
             const starCount = performanceMode ? 30 : 100;
             for (let i = 0; i < starCount; i++) {
-                // Stars move slightly with camera to give parallax effect
                 let sx = (i * 73 + camera.x * 0.2) % canvas.width;
                 let sy = (frame * 0.5 + i * 23 + camera.y * 0.2) % canvas.height;
                 ctx.fillRect(sx, sy, 2, 2);
