@@ -1,7 +1,6 @@
 // ==================== ENEMIES.JS ====================
 console.log('enemies.js loaded (learning AI + real‑time adaptation)');
 
-// ========== GLOBAL FRAME COUNTER (set by game.js) ==========
 let globalFrame = 0;
 function setGlobalFrame(frame) { globalFrame = frame; }
 
@@ -71,16 +70,14 @@ window.enemyLearning = {
 loadProfile();
 
 // ========== REAL‑TIME LIVE LEARNING ==========
-// Adapts enemy spawn parameters based on player's on‑screen behaviour
 const liveLearning = {
-    playerPositions: [],      // last 60 normalized screen positions
-    playerShots: [],          // frame numbers of recent shots
+    playerPositions: [],
+    playerShots: [],
     lastAnalysisFrame: 0,
-    analysisInterval: 60,     // analyse every 60 frames
+    analysisInterval: 60,
 
     // Called every frame with player's screen coordinates (0..1024, 0..768)
     update(screenX, screenY, shotThisFrame) {
-        // Normalize to 0..1
         const normX = screenX / 1024;
         const normY = screenY / 768;
         this.playerPositions.push({ x: normX, y: normY, frame: globalFrame });
@@ -105,9 +102,8 @@ const liveLearning = {
         const recentShots = this.playerShots.filter(ts => globalFrame - ts < 60).length;
         const shotRate = recentShots / 60;
 
-        // Update waveManager parameters (used when generating new enemies)
         if (avgX < 0.3) {
-            waveManager.spawnBias = 'right';   // player stays left → spawn enemies from right
+            waveManager.spawnBias = 'right';
         } else if (avgX > 0.7) {
             waveManager.spawnBias = 'left';
         } else {
@@ -126,9 +122,8 @@ const liveLearning = {
 };
 
 // ========== ENEMY CLASS ==========
-// Used by game.js to create enemies in sectors
 class Enemy {
-    constructor(x, y, type = 'enemy1', learning = null, speedMultiplier = 1.0) {
+    constructor(x, y, type = 'enemy1', learning = null, speedMultiplier = 1.0, pattern = 'down') {
         this.x = x;
         this.y = y;
         this.type = type;
@@ -136,7 +131,7 @@ class Enemy {
         this.height = 40;
         this.speed = 2 * speedMultiplier;
         this.hp = 1;
-        this.pattern = 'down';
+        this.pattern = pattern;      // set by waveManager
         this.frame = 0;
         this.lastShot = 0;
 
@@ -157,7 +152,6 @@ class Enemy {
         }
     }
 
-    // Simple update: move downward, optionally sine wave
     update() {
         this.y += this.speed;
         if (this.pattern === 'sine') {
@@ -177,24 +171,19 @@ class Enemy {
     }
 }
 
-// ========== SIMPLIFIED WAVE MANAGER ==========
-// Now only holds wave count and adaptation parameters.
-// Enemy spawning is handled by game.js via sectors.
+// ========== WAVE MANAGER (only parameters, no enemy array) ==========
 const waveManager = {
     waveCount: 0,
     learningProfile: null,
-    // Real‑time adaptation parameters (updated by liveLearning)
-    spawnBias: 'random',        // 'left', 'right', 'random'
+    spawnBias: 'random',
     enemySpeedMultiplier: 1.0,
     forceSinePattern: false,
 
-    // Increment wave count (called from game.js on level up)
     startWave() {
         this.waveCount++;
         console.log(`Wave ${this.waveCount} started`);
     },
 
-    // Apply cross‑game learning profile at game start
     applyLearning() {
         this.learningProfile = playerProfile.totalGames > 0 ? playerProfile : null;
         if (this.learningProfile) {
@@ -202,7 +191,6 @@ const waveManager = {
         }
     },
 
-    // Reset for new game (optional)
     reset() {
         this.waveCount = 0;
         this.spawnBias = 'random';
@@ -213,7 +201,6 @@ const waveManager = {
     }
 };
 
-// Expose globally
 window.waveManager = waveManager;
 window.liveLearning = liveLearning;
-window.Enemy = Enemy; // so game.js can use it
+window.Enemy = Enemy;
