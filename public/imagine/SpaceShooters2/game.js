@@ -285,6 +285,7 @@ function startGame() {
         }
         sectorEnemies.set(key, enemies);
         loadedSectors.add(key);
+        console.log(`Generated sector ${key} with ${enemies.length} enemies`);
     }
 
     function updateSector() {
@@ -298,7 +299,6 @@ function startGame() {
                     generateSector(sx + dx, sy + dy);
                 }
             }
-            // Optionally unload far sectors (not implemented for simplicity)
         }
     }
 
@@ -309,6 +309,9 @@ function startGame() {
         }
         return nearby;
     }
+
+    // Generate initial sectors around player
+    updateSector();
 
     // ========== GAME LOOP ==========
     function gameLoop() {
@@ -399,16 +402,19 @@ function startGame() {
             const dy = touchY - worldY;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > 5) { // dead zone
-                const angle = Math.atan2(dy, dx);
-                moveX += Math.cos(angle);
-                moveY += Math.sin(angle);
+                // Normalize direction
+                const normX = dx / dist;
+                const normY = dy / dist;
+                moveX += normX;
+                moveY += normY;
             }
         }
 
         // Normalize diagonal speed
         if (moveX !== 0 && moveY !== 0) {
-            moveX *= 0.707; // 1/√2
-            moveY *= 0.707;
+            const length = Math.sqrt(moveX*moveX + moveY*moveY);
+            moveX = moveX / length;
+            moveY = moveY / length;
         }
 
         worldX += moveX * player.speed;
@@ -460,7 +466,7 @@ function startGame() {
         // Get all enemies near player
         const allEnemies = getNearbyEnemies();
 
-        // Update enemies (only those near player? For simplicity, update all)
+        // Update enemies
         allEnemies.forEach(e => e.update(worldX, worldY));
 
         // Update player bullets
