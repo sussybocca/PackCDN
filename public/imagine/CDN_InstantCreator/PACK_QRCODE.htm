@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackCDN · CDN Pack Maker</title>
+    <!-- QR Code library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a14;
+            color: #fff;
+            padding: 20px;
+        }
+        .glass-container {
+            max-width: 700px;
+            width: 100%;
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 60px;
+            padding: 40px 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05) inset, 0 0 40px rgba(100,150,255,0.2);
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.6);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            border-bottom: 1px dashed rgba(255,255,255,0.2);
+            padding-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+        }
+        input {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 50px;
+            font-size: 1rem;
+            color: white;
+            transition: 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.3);
+        }
+        input::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
+        button {
+            background: linear-gradient(145deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            width: 100%;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+        button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px #8b5cf6;
+        }
+        button:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .result-area {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            transition: opacity 0.3s;
+        }
+        .result-area.hidden {
+            display: none;
+        }
+        .cdn-link {
+            background: rgba(0,0,0,0.5);
+            padding: 15px 20px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+            word-break: break-all;
+            margin-bottom: 30px;
+        }
+        .cdn-link span {
+            font-family: monospace;
+            font-size: 0.95rem;
+            color: #a78bfa;
+        }
+        .copy-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 40px;
+            padding: 8px 20px;
+            font-size: 0.9rem;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .copy-btn:hover {
+            background: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        #qrCanvas {
+            border-radius: 30px;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .edit-token {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 20px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            border: 1px dashed #8b5cf6;
+        }
+        .edit-token code {
+            background: #1e1e2f;
+            padding: 5px 10px;
+            border-radius: 30px;
+            display: inline-block;
+            margin: 10px 0;
+            word-break: break-all;
+            color: #a78bfa;
+        }
+        .info-note {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            border-bottom: 1px dotted;
+        }
+        .back-link:hover {
+            color: white;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-message {
+            color: #f87171;
+            background: rgba(127,29,29,0.3);
+            padding: 15px;
+            border-radius: 30px;
+            margin-top: 20px;
+            border: 1px solid #f87171;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container">
+        <h1>📦 CDN Pack Maker</h1>
+        <div class="subtitle">turn any link into a shareable pack</div>
+
+        <div class="input-group">
+            <label for="urlInput">🔗 URL to pack</label>
+            <input type="url" id="urlInput" placeholder="https://example.com/game.html" required>
+        </div>
+        <div class="input-group">
+            <label for="nameInput">📛 Pack name (optional, auto‑generated if empty)</label>
+            <input type="text" id="nameInput" placeholder="my-awesome-pack">
+        </div>
+
+        <button id="generateBtn">✨ Generate CDN Pack</button>
+
+        <div id="resultArea" class="result-area hidden">
+            <div class="cdn-link">
+                <span id="cdnUrl">https://pack-cdn.vercel.app/pack/abc123</span>
+                <button class="copy-btn" id="copyBtn">📋 Copy</button>
+            </div>
+            <div class="qr-container">
+                <canvas id="qrCanvas"></canvas>
+            </div>
+            <div class="edit-token" id="editTokenBox" style="display: none;">
+                <strong>🔑 Edit token (save this to update later):</strong>
+                <br>
+                <code id="editToken"></code>
+            </div>
+            <div class="info-note">
+                Scan QR code or share the link – your pack is live on our CDN.
+            </div>
+        </div>
+
+        <div id="errorArea" class="error-message hidden"></div>
+
+        <a href="index.html" class="back-link">← Back to catalog</a>
+    </div>
+
+    <script>
+        (function() {
+            const urlInput = document.getElementById('urlInput');
+            const nameInput = document.getElementById('nameInput');
+            const generateBtn = document.getElementById('generateBtn');
+            const resultArea = document.getElementById('resultArea');
+            const errorArea = document.getElementById('errorArea');
+            const cdnUrlSpan = document.getElementById('cdnUrl');
+            const copyBtn = document.getElementById('copyBtn');
+            const qrCanvas = document.getElementById('qrCanvas');
+            const editTokenBox = document.getElementById('editTokenBox');
+            const editTokenSpan = document.getElementById('editToken');
+
+            // API endpoint – use the real publish endpoint
+            const PUBLISH_API = '/api/publish';
+
+            // Helper to show/hide elements
+            function showResult() {
+                resultArea.classList.remove('hidden');
+                errorArea.classList.add('hidden');
+            }
+            function showError(message) {
+                errorArea.textContent = message;
+                errorArea.classList.remove('hidden');
+                resultArea.classList.add('hidden');
+            }
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    generateBtn.disabled = true;
+                    generateBtn.innerHTML = '<span class="loading-spinner"></span> Generating...';
+                } else {
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = '✨ Generate CDN Pack';
+                }
+            }
+
+            // Sanitize string to create a valid pack name
+            function sanitizeName(str) {
+                return str.toLowerCase()
+                    .replace(/https?:\/\//, '')
+                    .replace(/[^a-z0-9]/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '') || 'pack';
+            }
+
+            // Derive filename from URL
+            function getFilenameFromUrl(url) {
+                const urlObj = new URL(url);
+                const path = urlObj.pathname;
+                const parts = path.split('/');
+                let file = parts.pop() || 'index.html';
+                if (!file.includes('.')) file += '.html';
+                return file;
+            }
+
+            // Guess content type from URL extension
+            function getContentType(url) {
+                const ext = url.split('.').pop().toLowerCase();
+                const textExts = ['html', 'htm', 'js', 'mjs', 'cjs', 'ts', 'jsx', 'tsx', 'css', 'scss', 'json', 'txt', 'md', 'xml', 'yaml', 'yml'];
+                return textExts.includes(ext) ? 'text' : 'binary';
+            }
+
+            // Convert binary string to base64
+            function arrayBufferToBase64(buffer) {
+                let binary = '';
+                const bytes = new Uint8Array(buffer);
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary);
+            }
+
+            // Main action
+            generateBtn.addEventListener('click', async () => {
+                const url = urlInput.value.trim();
+                if (!url) {
+                    alert('Please enter a URL');
+                    return;
+                }
+                // Validate URL
+                try {
+                    new URL(url);
+                } catch {
+                    showError('Please enter a valid URL (include http:// or https://)');
+                    return;
+                }
+
+                setLoading(true);
+                showError(''); // clear previous error
+
+                try {
+                    // 1. Fetch the URL content
+                    const response = await fetch(url, {
+                        mode: 'cors',
+                        credentials: 'omit',
+                        headers: { 'Accept': '*/*' }
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+                    }
+
+                    // Determine content type
+                    const contentTypeHeader = response.headers.get('content-type') || '';
+                    const isText = contentTypeHeader.startsWith('text/') || 
+                                   contentTypeHeader.includes('javascript') ||
+                                   contentTypeHeader.includes('json') ||
+                                   contentTypeHeader.includes('xml') ||
+                                   contentTypeHeader.includes('html') ||
+                                   getContentType(url) === 'text';
+
+                    let fileContent;
+                    let fileEncoding = 'utf8';
+                    if (isText) {
+                        fileContent = await response.text();
+                    } else {
+                        // Binary: get as ArrayBuffer and base64 encode
+                        const buffer = await response.arrayBuffer();
+                        fileContent = arrayBufferToBase64(buffer);
+                        fileEncoding = 'base64';
+                    }
+
+                    // 2. Create pack name
+                    let packName = nameInput.value.trim();
+                    if (!packName) {
+                        packName = sanitizeName(url);
+                    }
+
+                    // 3. Create filename
+                    const filename = getFilenameFromUrl(url);
+
+                    // 4. Build minimal pack.json
+                    const packJson = {
+                        name: packName,
+                        version: '1.0.0',
+                        description: `Pack created from ${url}`,
+                        main: filename,
+                        complexity: 'low',
+                        license: 'MIT',
+                        pack: {
+                            type: 'basic',
+                            sandbox: { level: 'strict' }
+                        }
+                    };
+
+                    // 5. Prepare files object
+                    const files = {};
+                    files[filename] = fileContent;
+
+                    // 6. Call publish API
+                    const publishResponse = await fetch(PUBLISH_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: packName,
+                            packJson: JSON.stringify(packJson),
+                            files: files,
+                            isPublic: true,
+                            packageType: 'basic',
+                            version: '1.0.0',
+                            isNewVersion: false
+                        })
+                    });
+
+                    const publishData = await publishResponse.json();
+
+                    if (!publishData.success) {
+                        throw new Error(publishData.error || 'Publish failed');
+                    }
+
+                    // 7. Display results
+                    cdnUrlSpan.textContent = publishData.cdnUrl;
+
+                    // Generate QR code
+                    QRCode.toCanvas(qrCanvas, publishData.cdnUrl, { width: 200 }, (err) => {
+                        if (err) console.warn('QR error', err);
+                    });
+
+                    // Show edit token if present
+                    if (publishData.editToken) {
+                        editTokenSpan.textContent = publishData.editToken;
+                        editTokenBox.style.display = 'block';
+                    } else {
+                        editTokenBox.style.display = 'none';
+                    }
+
+                    showResult();
+                } catch (err) {
+                    console.error('Error:', err);
+                    showError(err.message || 'An unexpected error occurred');
+                } finally {
+                    setLoading(false);
+                }
+            });
+
+            // Copy button
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(cdnUrlSpan.textContent).then(() => {
+                    const original = copyBtn.textContent;
+                    copyBtn.textContent = '✅ Copied!';
+                    setTimeout(() => { copyBtn.textContent = original; }, 2000);
+                }).catch(() => alert('Could not copy'));
+            });
+        })();
+    </script>
+</body>
+</html>
