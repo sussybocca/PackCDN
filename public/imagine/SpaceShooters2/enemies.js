@@ -1,5 +1,5 @@
 // ==================== ENEMIES.JS ====================
-console.log('enemies.js loaded (with learning AI + real‑time adaptation + multiplayer)');
+console.log('enemies.js loaded (learning AI + real‑time adaptation)');
 
 // ========== GLOBAL FRAME COUNTER (set by game.js) ==========
 let globalFrame = 0;
@@ -71,16 +71,19 @@ window.enemyLearning = {
 loadProfile();
 
 // ========== REAL‑TIME LIVE LEARNING ==========
+// Adapts enemy spawn parameters based on player's on‑screen behaviour
 const liveLearning = {
-    playerPositions: [],      // last 60 normalized positions
+    playerPositions: [],      // last 60 normalized screen positions
     playerShots: [],          // frame numbers of recent shots
     lastAnalysisFrame: 0,
     analysisInterval: 60,     // analyse every 60 frames
 
-    // Called every frame with current player data
-    update(playerX, playerY, shotThisFrame) {
-        // Store normalized position
-        this.playerPositions.push({ x: playerX / 1024, y: playerY / 768, frame: globalFrame });
+    // Called every frame with player's screen coordinates (0..1024, 0..768)
+    update(screenX, screenY, shotThisFrame) {
+        // Normalize to 0..1
+        const normX = screenX / 1024;
+        const normY = screenY / 768;
+        this.playerPositions.push({ x: normX, y: normY, frame: globalFrame });
         if (this.playerPositions.length > 60) this.playerPositions.shift();
 
         if (shotThisFrame) {
@@ -88,7 +91,6 @@ const liveLearning = {
             if (this.playerShots.length > 20) this.playerShots.shift();
         }
 
-        // Analyse at intervals
         if (globalFrame - this.lastAnalysisFrame >= this.analysisInterval) {
             this.analyse();
             this.lastAnalysisFrame = globalFrame;
@@ -98,15 +100,12 @@ const liveLearning = {
     analyse() {
         if (this.playerPositions.length < 10) return;
 
-        // Average X (left/right bias)
         const avgX = this.playerPositions.reduce((sum, p) => sum + p.x, 0) / this.playerPositions.length;
-        // Average Y (vertical bias)
         const avgY = this.playerPositions.reduce((sum, p) => sum + p.y, 0) / this.playerPositions.length;
-        // Recent shot rate (shots per frame over last 60 frames)
         const recentShots = this.playerShots.filter(ts => globalFrame - ts < 60).length;
         const shotRate = recentShots / 60;
 
-        // Adjust waveManager parameters for NEXT spawns
+        // Update waveManager parameters (used when generating new enemies)
         if (avgX < 0.3) {
             waveManager.spawnBias = 'right';   // player stays left → spawn enemies from right
         } else if (avgX > 0.7) {
@@ -115,10 +114,7 @@ const liveLearning = {
             waveManager.spawnBias = 'random';
         }
 
-        // If player stays high (avgY < 0.5), make enemies faster
         waveManager.enemySpeedMultiplier = (avgY < 0.5) ? 1.3 : 1.0;
-
-        // If player shoots a lot, use erratic sine patterns
         waveManager.forceSinePattern = (shotRate > 0.1);
     },
 
@@ -129,26 +125,8 @@ const liveLearning = {
     }
 };
 
-// ========== MULTIPLAYER SUPPORT ==========
-let multiplayerMode = false;
-let remotePlayer = null; // { x, y, width, height, ... } if opponent appears as enemy
-
-function setMultiplayer(enabled) {
-    multiplayerMode = enabled;
-}
-
-function updateRemotePlayer(data) {
-    remotePlayer = data;
-}
-
-// Serialize enemies for network transmission (only positions/types)
-function serializeEnemies() {
-    return waveManager.enemies.map(e => ({
-        x: e.x, y: e.y, type: e.type, pattern: e.pattern, speed: e.speed
-    }));
-}
-
 // ========== ENEMY CLASS ==========
+// Used by game.js to create enemies in sectors
 class Enemy {
     constructor(x, y, type = 'enemy1', learning = null, speedMultiplier = 1.0) {
         this.x = x;
@@ -179,7 +157,8 @@ class Enemy {
         }
     }
 
-    update(playerX, playerY) {
+    // Simple update: move downward, optionally sine wave
+    update() {
         this.y += this.speed;
         if (this.pattern === 'sine') {
             this.x += Math.sin(this.frame * 0.1) * 1.5;
@@ -198,83 +177,24 @@ class Enemy {
     }
 }
 
-// ========== WAVE MANAGER ==========
+// ========== SIMPLIFIED WAVE MANAGER ==========
+// Now only holds wave count and adaptation parameters.
+// Enemy spawning is handled by game.js via sectors.
 const waveManager = {
-    enemies: [],
     waveCount: 0,
-    spawnTimer: 0,
-    spawnInterval: 30,
-    enemiesPerWave: 5,
-    active: true,
     learningProfile: null,
-    // Real‑time adaptation parameters
+    // Real‑time adaptation parameters (updated by liveLearning)
     spawnBias: 'random',        // 'left', 'right', 'random'
     enemySpeedMultiplier: 1.0,
     forceSinePattern: false,
 
-    update() {
-        if (!this.active) return;
-
-        this.spawnTimer--;
-
-        if (this.spawnTimer <= 0 && this.enemies.length < 20) {
-            this.spawnEnemy();
-            this.spawnTimer = this.spawnInterval;
-        }
-
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const e = this.enemies[i];
-            e.update();
-
-            if (e.y > 768) {
-                this.enemies.splice(i, 1);
-            }
-        }
-    },
-
-    spawnEnemy() {
-        let x;
-        switch (this.spawnBias) {
-            case 'left':  x = 50 + Math.random() * 200; break;
-            case 'right': x = 800 + Math.random() * 200; break;
-            default:      x = 50 + Math.random() * (1024 - 100);
-        }
-        const y = -40;
-        const type = Math.random() < 0.7 ? 'enemy1' : 'enemy2';
-        const enemy = new Enemy(x, y, type, this.learningProfile, this.enemySpeedMultiplier);
-
-        // Override pattern based on wave and live learning
-        if (this.forceSinePattern) {
-            enemy.pattern = 'sine';
-        } else {
-            enemy.pattern = this.waveCount % 2 === 0 ? 'down' : 'sine';
-        }
-        this.enemies.push(enemy);
-        console.log(`Spawned enemy at (${x}, ${y}), type: ${type}, speed: ${enemy.speed}, pattern: ${enemy.pattern}`);
-    },
-
+    // Increment wave count (called from game.js on level up)
     startWave() {
         this.waveCount++;
-        this.spawnInterval = Math.max(20, 60 - this.waveCount * 2);
-        if (this.learningProfile && this.learningProfile.shotsPerFrame > 0.05) {
-            this.spawnInterval = Math.max(15, this.spawnInterval - 5);
-        }
-        this.enemiesPerWave = 5 + this.waveCount;
-        this.spawnTimer = 30;
-        console.log(`Wave ${this.waveCount} started, spawnInterval: ${this.spawnInterval}`);
+        console.log(`Wave ${this.waveCount} started`);
     },
 
-    reset() {
-        this.enemies = [];
-        this.waveCount = 0;
-        this.spawnTimer = 0;
-        this.spawnBias = 'random';
-        this.enemySpeedMultiplier = 1.0;
-        this.forceSinePattern = false;
-        liveLearning.reset();
-        console.log('waveManager reset');
-    },
-
+    // Apply cross‑game learning profile at game start
     applyLearning() {
         this.learningProfile = playerProfile.totalGames > 0 ? playerProfile : null;
         if (this.learningProfile) {
@@ -282,30 +202,18 @@ const waveManager = {
         }
     },
 
-    // Multiplayer sync: get enemies for network
-    getSerializedEnemies() {
-        return serializeEnemies();
-    },
-
-    // For host: optionally inject remote player as an enemy
-    getRemotePlayerEnemy() {
-        return remotePlayer ? [{
-            x: remotePlayer.x,
-            y: remotePlayer.y,
-            width: remotePlayer.width || 40,
-            height: remotePlayer.height || 40,
-            type: 'remote',
-            isRemote: true
-        }] : [];
+    // Reset for new game (optional)
+    reset() {
+        this.waveCount = 0;
+        this.spawnBias = 'random';
+        this.enemySpeedMultiplier = 1.0;
+        this.forceSinePattern = false;
+        liveLearning.reset();
+        console.log('waveManager reset');
     }
 };
 
-// Expose multiplayer controls
-window.multiplayer = {
-    setMultiplayer,
-    updateRemotePlayer,
-    serializeEnemies
-};
-
+// Expose globally
 window.waveManager = waveManager;
-window.liveLearning = liveLearning; // for game.js to call update()
+window.liveLearning = liveLearning;
+window.Enemy = Enemy; // so game.js can use it
