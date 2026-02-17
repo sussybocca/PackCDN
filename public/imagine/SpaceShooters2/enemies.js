@@ -126,7 +126,8 @@ const liveLearning = {
 };
 
 // ========== ENEMY CLASS ==========
-// Used by game.js to create enemies in sectors
+// Used by game.js to create enemies in sectors.
+// All values (position, speed multiplier, pattern) are passed in – no internal overrides.
 class Enemy {
     constructor(x, y, type = 'enemy1', learning = null, speedMultiplier = 1.0, pattern = 'down') {
         this.x = x;
@@ -134,27 +135,11 @@ class Enemy {
         this.type = type;
         this.width = 40;
         this.height = 40;
-        this.speed = 2 * speedMultiplier;
+        this.speed = 2 * speedMultiplier;   // base speed multiplied by learning factor
         this.hp = 1;
-        this.pattern = pattern;   // now set from parameter
+        this.pattern = pattern;
         this.frame = 0;
         this.lastShot = 0;
-
-        // Apply cross‑game learning (historical profile) - may override pattern
-        if (learning) {
-            if (learning.leftBias > 0.6) {
-                this.x = 800 + Math.random() * 200;
-            } else if (learning.leftBias < 0.4) {
-                this.x = 50 + Math.random() * 200;
-            }
-            if (learning.upBias > 0.7) {
-                this.speed *= 1.25;
-            }
-            if (learning.shotsPerFrame > 0.05) {
-                this.speed *= 1.4;
-                this.pattern = 'sine';   // learning overrides pattern if player is spammy
-            }
-        }
     }
 
     // Simple update: move downward, optionally sine wave
@@ -216,4 +201,4 @@ const waveManager = {
 // Expose globally
 window.waveManager = waveManager;
 window.liveLearning = liveLearning;
-window.Enemy = Enemy; // so game.js can use it
+window.Enemy = Enemy;
