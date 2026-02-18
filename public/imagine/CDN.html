@@ -5,18 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDN Game Editor & Explore</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Ace Editor CSS (optional, but we include the theme) -->
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; flex-direction: column; background: #1e1e1e; color: #ccc; }
         #tabs { display: flex; background: #2d2d2d; border-bottom: 1px solid #3e3e3e; }
         .tab { padding: 10px 20px; cursor: pointer; background: #2d2d2d; border-right: 1px solid #3e3e3e; }
         .tab.active { background: #1e1e1e; border-bottom: 2px solid #007acc; }
-        #toolbar { background: #2d2d2d; padding: 8px; display: flex; gap: 8px; border-bottom: 1px solid #3e3e3e; flex-wrap: wrap; }
+        #toolbar { background: #2d2d2d; padding: 8px; display: flex; gap: 8px; border-bottom: 1px solid #3e3e3e; }
         #toolbar button { background: #3e3e3e; border: none; color: white; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; }
         #toolbar button:hover { background: #4e4e4e; }
-        #toolbar input, #toolbar label { background: #3e3e3e; border: 1px solid #555; color: white; padding: 4px 8px; border-radius: 3px; }
-        #toolbar label { display: flex; align-items: center; gap: 5px; background: transparent; border: none; }
-        #toolbar input[type="checkbox"] { width: auto; }
+        #toolbar input { background: #3e3e3e; border: 1px solid #555; color: white; padding: 4px 8px; border-radius: 3px; }
         #main { display: flex; flex: 1; overflow: hidden; }
         #sidebar { width: 250px; background: #252526; border-right: 1px solid #3e3e3e; display: flex; flex-direction: column; overflow: hidden; }
         #tree-header { padding: 8px; background: #2d2d2d; font-weight: bold; border-bottom: 1px solid #3e3e3e; }
@@ -42,14 +41,6 @@
         .game-card a { color: #007acc; text-decoration: none; font-size: 13px; margin-right: 15px; }
         .game-card a:hover { text-decoration: underline; }
         .game-card small { color: #666; }
-        .game-card .multiplayer-badge { background: #007acc; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; margin-left: 10px; }
-        .game-card .room-controls { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .game-card .room-controls button { background: #3e3e3e; border: none; color: white; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-        .game-card .room-controls button:hover { background: #4e4e4e; }
-        .game-card .rooms-list { margin-top: 10px; background: #1e1e1e; padding: 10px; border-radius: 4px; display: none; }
-        .game-card .rooms-list .room-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; }
-        .game-card .rooms-list .room-item:last-child { border-bottom: none; }
-        .game-card .rooms-list .room-item button { background: #007acc; border: none; color: white; padding: 2px 8px; border-radius: 3px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -64,8 +55,6 @@
         <span style="flex:1"></span>
         <input type="text" id="game-name" placeholder="Game name" value="My Game">
         <input type="text" id="game-description" placeholder="Short description">
-        <label><input type="checkbox" id="multiplayer-checkbox"> Multiplayer</label>
-        <input type="number" id="max-players" placeholder="Max players" value="4" min="2" max="16" style="width: 80px;">
     </div>
     <div id="main">
         <!-- Editor View -->
@@ -89,12 +78,11 @@
         <div id="ctx-delete">Delete</div>
     </div>
 
-    <!-- Libraries: Ace Editor, JSZip, FileSaver, Colyseus -->
+    <!-- Libraries: Ace Editor, JSZip, FileSaver -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.0/dist/colyseus.js"></script>
 
     <script>
         // ---------- File System State ----------
@@ -107,8 +95,6 @@
         let editor = null;
         let contextNode = null;
         let contextMenu = document.getElementById('context-menu');
-        // Colyseus client
-        let colyseusClient = null;
 
         // ---------- Utility ----------
         function findNodeByPath(path) {
@@ -329,12 +315,10 @@
             }
         }
 
-        // Publish: Zip and send to the SAME API (POST) with multiplayer options
+        // Publish: Zip and send to the SAME API (POST)
         async function publishGame() {
             let gameName = document.getElementById('game-name').value.trim() || 'MyGame';
             let description = document.getElementById('game-description').value.trim() || '';
-            let multiplayer = document.getElementById('multiplayer-checkbox').checked;
-            let maxPlayers = document.getElementById('max-players').value;
 
             let zip = new JSZip();
             function addToZip(node, path) {
@@ -355,8 +339,6 @@
             let formData = new FormData();
             formData.append('name', gameName);
             formData.append('description', description);
-            formData.append('multiplayer', multiplayer);
-            formData.append('maxPlayers', maxPlayers);
             formData.append('file', content, gameName + '.zip');
 
             let res = await fetch('/api/publish-game', {
@@ -365,74 +347,6 @@
             });
             let result = await res.json();
             alert('Published! ID: ' + result.id + (result.token ? ' Token: ' + result.token : ''));
-        }
-
-        // ---------- Multiplayer Functions ----------
-        function initColyseus() {
-            if (!colyseusClient) {
-                colyseusClient = new Colyseus.Client('wss://' + window.location.host + '/api/publish-game');
-            }
-        }
-
-        async function createRoom(gameId, gameName) {
-            initColyseus();
-            let roomName = prompt('Enter room name:', gameName + ' Room');
-            if (!roomName) return;
-            try {
-                let res = await fetch('/api/publish-game?action=createRoom', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ gameId, roomName })
-                });
-                let data = await res.json();
-                if (res.ok) {
-                    alert('Room created! Room ID: ' + data.roomId);
-                    // Optionally join the room
-                    joinRoom(data.roomId);
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            } catch (err) {
-                alert('Failed to create room: ' + err);
-            }
-        }
-
-        async function listRooms(gameId, cardElement) {
-            try {
-                let res = await fetch('/api/publish-game?action=listRooms&gameId=' + encodeURIComponent(gameId));
-                let rooms = await res.json();
-                let roomsDiv = cardElement.querySelector('.rooms-list');
-                roomsDiv.innerHTML = '';
-                if (rooms.length === 0) {
-                    roomsDiv.innerHTML = '<p>No active rooms.</p>';
-                } else {
-                    rooms.forEach(room => {
-                        let roomItem = document.createElement('div');
-                        roomItem.className = 'room-item';
-                        roomItem.innerHTML = `
-                            <span>${room.roomId} (${room.clients}/${room.maxClients})</span>
-                            <button onclick="joinRoom('${room.roomId}')">Join</button>
-                        `;
-                        roomsDiv.appendChild(roomItem);
-                    });
-                }
-                roomsDiv.style.display = 'block';
-            } catch (err) {
-                alert('Failed to list rooms: ' + err);
-            }
-        }
-
-        function joinRoom(roomId) {
-            initColyseus();
-            colyseusClient.joinById(roomId).then(room => {
-                alert('Joined room ' + roomId);
-                // You can now handle room events
-                room.onStateChange((state) => {
-                    console.log('State update:', state);
-                });
-            }).catch(err => {
-                alert('Failed to join room: ' + err);
-            });
         }
 
         // Explore: Load games from the SAME API (GET)
@@ -448,29 +362,13 @@
             games.forEach(game => {
                 let card = document.createElement('div');
                 card.className = 'game-card';
-                card.dataset.gameId = game.id;
-                // Note: multiplayer info not in response, we'll add placeholder
-                let multiplayerBadge = ''; // Could be fetched later
                 card.innerHTML = `
-                    <h3>${escapeHtml(game.name)} <span class="multiplayer-badge" style="display: none;">Multiplayer</span></h3>
+                    <h3>${escapeHtml(game.name)}</h3>
                     <p>${escapeHtml(game.description || 'No description')}</p>
                     <a href="${game.storage_path}" target="_blank">Download ZIP</a>
-                    <div class="room-controls">
-                        <button class="create-room-btn">Create Room</button>
-                        <button class="show-rooms-btn">Show Rooms</button>
-                    </div>
-                    <div class="rooms-list" style="display: none;"></div>
                     <small>Published: ${new Date(game.created_at).toLocaleString()}</small>
                 `;
                 exploreDiv.appendChild(card);
-
-                // Add event listeners for multiplayer buttons
-                card.querySelector('.create-room-btn').addEventListener('click', () => {
-                    createRoom(game.id, game.name);
-                });
-                card.querySelector('.show-rooms-btn').addEventListener('click', () => {
-                    listRooms(game.id, card);
-                });
             });
         }
 
