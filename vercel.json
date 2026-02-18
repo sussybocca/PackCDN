@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/selector.html"
-    },
-    {
       "source": "/home",
       "destination": "/home/index.html"
     },
@@ -195,10 +191,6 @@
     {
       "source": "/imagine/:path*",
       "destination": "/imagine/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/wildcard-redirect"
     }
   ],
   "redirects": [
