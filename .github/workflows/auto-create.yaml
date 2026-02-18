@@ -27,6 +27,101 @@ jobs:
       - name: Install HTML parser
         run: npm install --no-save --no-package-lock node-html-parser
 
+      - name: Install JSX dependencies
+        run: |
+          # Find all JSX files and extract dependencies
+          JSX_DIR="public/imagine/JSX"
+          if [ -d "$JSX_DIR" ]; then
+            echo "🔍 Scanning for JSX files to check dependencies..."
+            
+            # Create a temporary file to collect all dependencies
+            TEMP_DEPS_FILE=$(mktemp)
+            
+            # Find all .jsx and .tsx files
+            find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) | while read -r file; do
+              echo "Checking $file for dependencies..."
+              
+              # Look for import statements
+              grep -E "^import.*from|^import.*['\"]" "$file" | while read -r line; do
+                # Extract package name from import statements
+                if [[ $line =~ from[[:space:]]+[\'\"]([^\./][^\'\"]*)[\'\"] ]]; then
+                  pkg="${BASH_REMATCH[1]}"
+                  # Handle scoped packages
+                  if [[ $pkg == @*/* ]]; then
+                    echo "$pkg" >> "$TEMP_DEPS_FILE"
+                  else
+                    # Get the base package name (before any slash)
+                    base_pkg=$(echo "$pkg" | cut -d'/' -f1)
+                    echo "$base_pkg" >> "$TEMP_DEPS_FILE"
+                  fi
+                fi
+              done
+            done
+            
+            # Sort unique dependencies
+            if [ -s "$TEMP_DEPS_FILE" ]; then
+              sort -u "$TEMP_DEPS_FILE" > "${TEMP_DEPS_FILE}_unique"
+              DEPS_TO_INSTALL=$(cat "${TEMP_DEPS_FILE}_unique" | tr '\n' ' ')
+              
+              if [ -n "$DEPS_TO_INSTALL" ]; then
+                echo "📦 Dependencies found: $DEPS_TO_INSTALL"
+                
+                # Install dependencies with version detection
+                for pkg in $DEPS_TO_INSTALL; do
+                  echo "🔧 Installing $pkg..."
+                  
+                  # Try to get the latest compatible version based on existing packages
+                  if npm list "$pkg" --depth=0 2>/dev/null | grep -q "$pkg"; then
+                    echo "✅ $pkg already installed, skipping..."
+                  else
+                    # Try to find the best version to install
+                    if npm show "$pkg" version --json 2>/dev/null; then
+                      npm install --save-exact "$pkg" --no-package-lock || \
+                      npm install "$pkg" --no-package-lock
+                    else
+                      echo "⚠️ Could not find package $pkg, trying npm install anyway..."
+                      npm install "$pkg" --no-package-lock || true
+                    fi
+                  fi
+                done
+                
+                # Update package-lock.json if it exists
+                if [ -f "package-lock.json" ]; then
+                  npm install --package-lock-only
+                fi
+              fi
+            else
+              echo "No dependencies found in JSX files."
+            fi
+            
+            # Cleanup
+            rm -f "$TEMP_DEPS_FILE" "${TEMP_DEPS_FILE}_unique"
+          else
+            echo "📁 JSX folder not found, skipping dependency installation."
+          fi
+
+      - name: Install additional JSX/React dependencies
+        run: |
+          # Install common JSX/React dependencies if they're needed
+          JSX_DIR="public/imagine/JSX"
+          if [ -d "$JSX_DIR" ] && find "$JSX_DIR" -name "*.jsx" -o -name "*.tsx" | grep -q .; then
+            echo "🔄 Checking for common JSX dependencies..."
+            
+            # Check if React is needed (look for React imports or JSX syntax)
+            if find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) -exec grep -l "React" {} \; | grep -q .; then
+              if ! npm list react --depth=0 2>/dev/null | grep -q react; then
+                echo "📦 Installing React..."
+                npm install --save-exact react react-dom --no-package-lock || \
+                npm install react react-dom --no-package-lock
+              fi
+            fi
+            
+            # Update package-lock.json after all installations
+            if [ -f "package-lock.json" ]; then
+              npm install --package-lock-only
+            fi
+          fi
+
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
         with:
@@ -57,7 +152,7 @@ jobs:
               return;
             }
 
-            // 3. Parse the existing cardsData array (simple but works for this structure)
+            // 3. Parse the existing cardsData array
             const scriptContent = cardsDataScript.textContent;
             const match = scriptContent.match(/const cardsData = (\[[\s\S]*?\]);/);
             if (!match) {
@@ -67,23 +162,23 @@ jobs:
             const cardsDataStr = match[1];
             let cardsData;
             try {
-              // Use eval carefully – we trust the content
               cardsData = eval('(' + cardsDataStr + ')');
             } catch (e) {
               core.setFailed('Error parsing cardsData: ' + e.message);
               return;
             }
 
-            // 4. Recursively get all HTML/HTM files inside imagine/
-            function getAllHtmlFiles(dir, baseDir = dir) {
+            // 4. Recursively get all HTML/HTM/JSX/TSX files inside imagine/
+            function getAllFiles(dir, baseDir = dir) {
               let results = [];
               const list = fs.readdirSync(dir);
               for (const item of list) {
                 const fullPath = path.join(dir, item);
                 const stat = fs.statSync(fullPath);
                 if (stat.isDirectory()) {
-                  results = results.concat(getAllHtmlFiles(fullPath, baseDir));
-                } else if (item.endsWith('.html') || item.endsWith('.htm')) {
+                  results = results.concat(getAllFiles(fullPath, baseDir));
+                } else if (item.endsWith('.html') || item.endsWith('.htm') || 
+                          item.endsWith('.jsx') || item.endsWith('.tsx')) {
                   const relativePath = path.relative(baseDir, fullPath);
                   results.push({ fullPath, relativePath });
                 }
@@ -96,55 +191,120 @@ jobs:
               return;
             }
 
-            const files = getAllHtmlFiles(imagineDir);
+            const files = getAllFiles(imagineDir);
             if (files.length === 0) {
-              console.log('No HTML files found in imagine/ – nothing to do.');
+              console.log('No files found in imagine/ – nothing to do.');
               return;
             }
 
-            // Helper: extract title
+            // Helper functions for different file types
             function extractTitle(filePath) {
               try {
                 const content = fs.readFileSync(filePath, 'utf8');
-                const doc = parse(content);
-                const titleTag = doc.querySelector('title');
-                return titleTag ? titleTag.text.trim() : null;
+                
+                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                  // For JSX/TSX files, look for component name or comment
+                  const componentMatch = content.match(/export\s+(default\s+)?function\s+(\w+)|const\s+(\w+)\s*=\s*\(?/);
+                  if (componentMatch) {
+                    return componentMatch[2] || componentMatch[3] || 'React Component';
+                  }
+                  
+                  // Look for title in comments
+                  const commentMatch = content.match(/\/\/\s*@title\s*(.+)|<!--\s*title:\s*(.+)\s*-->/);
+                  if (commentMatch) {
+                    return (commentMatch[1] || commentMatch[2]).trim();
+                  }
+                } else {
+                  // HTML files
+                  const doc = parse(content);
+                  const titleTag = doc.querySelector('title');
+                  return titleTag ? titleTag.text.trim() : null;
+                }
               } catch {
                 return null;
               }
+              return null;
             }
 
-            // Helper: extract description
             function extractDescription(filePath) {
               try {
                 const content = fs.readFileSync(filePath, 'utf8');
-                const doc = parse(content);
-                const metaDesc = doc.querySelector('meta[name="description"]');
-                if (metaDesc) {
-                  return metaDesc.getAttribute('content') || '';
-                }
-                const firstP = doc.querySelector('p');
-                if (firstP) {
-                  return firstP.text.trim().substring(0, 150) + '…';
+                
+                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                  // Look for description in comments
+                  const descMatch = content.match(/\/\/\s*@description\s*(.+)|<!--\s*description:\s*(.+)\s*-->/);
+                  if (descMatch) {
+                    return (descMatch[1] || descMatch[2]).trim();
+                  }
+                  
+                  // Default description for JSX
+                  return 'Interactive React component.';
+                } else {
+                  // HTML files
+                  const doc = parse(content);
+                  const metaDesc = doc.querySelector('meta[name="description"]');
+                  if (metaDesc) {
+                    return metaDesc.getAttribute('content') || '';
+                  }
+                  const firstP = doc.querySelector('p');
+                  if (firstP) {
+                    return firstP.text.trim().substring(0, 150) + '…';
+                  }
                 }
               } catch {}
               return 'Explore this immersive experience.';
             }
 
-            // Helper: extract category from meta tag (default: "demos")
             function extractCategory(filePath) {
               try {
                 const content = fs.readFileSync(filePath, 'utf8');
-                const doc = parse(content);
-                const metaCat = doc.querySelector('meta[name="category"]');
-                if (metaCat) {
-                  return metaCat.getAttribute('content') || 'demos';
+                
+                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                  // Look for category in comments
+                  const catMatch = content.match(/\/\/\s*@category\s*(.+)|<!--\s*category:\s*(.+)\s*-->/);
+                  if (catMatch) {
+                    return (catMatch[1] || catMatch[2]).trim();
+                  }
+                  return 'jsx'; // Special category for JSX files
+                } else {
+                  const doc = parse(content);
+                  const metaCat = doc.querySelector('meta[name="category"]');
+                  if (metaCat) {
+                    return metaCat.getAttribute('content') || 'demos';
+                  }
                 }
               } catch {}
-              return 'demos'; // fallback category
+              return filePath.endsWith('.jsx') || filePath.endsWith('.tsx') ? 'jsx' : 'demos';
             }
 
-            // Helper: check if a card with the same link already exists
+            function extractIcon(filePath) {
+              if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                return '⚛️'; // React icon for JSX files
+              }
+              return '📄'; // Default icon for HTML
+            }
+
+            function extractFeatures(filePath) {
+              const features = [];
+              
+              if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                features.push('React component');
+                features.push('Interactive UI');
+                
+                // Check if it's TypeScript
+                if (filePath.endsWith('.tsx')) {
+                  features.push('TypeScript');
+                }
+              } else {
+                features.push('Immersive experience');
+                features.push('New dimension');
+                features.push('Interactive content');
+              }
+              
+              return features;
+            }
+
+            // Check if a card with the same link already exists
             function cardExists(link) {
               return cardsData.some(card => card.link === link);
             }
@@ -163,23 +323,18 @@ jobs:
                 ' ' + path.extname(relativePath).substring(1).toUpperCase();
               const description = extractDescription(fullPath);
               const category = extractCategory(fullPath);
+              const icon = extractIcon(fullPath);
+              const features = extractFeatures(fullPath);
 
-              // Default icon (you could also extract from meta)
-              const icon = '📄';
-
-              // Build a new card object matching the structure in cardsData
+              // Build a new card object
               const newCard = {
                 icon: icon,
                 title: title,
                 description: description,
-                features: [
-                  'Immersive experience',
-                  'New dimension',
-                  'Interactive content'
-                ],
+                features: features,
                 link: link,
                 category: category,
-                highlight: false
+                highlight: category === 'jsx' // Highlight JSX components
               };
 
               cardsData.push(newCard);
@@ -194,7 +349,7 @@ jobs:
 
             // 6. Replace the cardsData array in the script
             const newCardsDataStr = JSON.stringify(cardsData, null, 2)
-              .replace(/"([^"]+)":/g, '$1:'); // remove quotes around keys to match original style
+              .replace(/"([^"]+)":/g, '$1:'); // remove quotes around keys
 
             const updatedScriptContent = scriptContent.replace(
               /const cardsData = \[[\s\S]*?\];/,
@@ -205,16 +360,21 @@ jobs:
 
             // 7. Write the updated HTML back
             fs.writeFileSync(selectorPath, root.toString());
-            console.log('selector.html updated successfully.');
+            console.log('✅ selector.html updated successfully.');
 
-      - name: Commit and push changes (only if selector.html changed)
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add all changes
           git add public/selector.html
+          git add package.json
+          git add package-lock.json 2>/dev/null || true
+          
           if ! git diff --staged --quiet; then
-            git commit -m "Auto‑add imagine file links [skip ci]"
+            git commit -m "Auto‑update: add imagine files and JSX dependencies [skip ci]"
             git push
           else
-            echo "No changes to selector.html; skipping commit."
+            echo "No changes to commit; skipping."
           fi
