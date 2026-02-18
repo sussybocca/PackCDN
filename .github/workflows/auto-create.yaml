@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install HTML parser
-        run: npm install --no-save --no-package-lock node-html-parser
+      # We no longer install node-html-parser here; it will be installed on‑demand in the script step.
+      # This avoids potential removal by later npm installs.
 
       - name: Install JSX dependencies
         run: |
@@ -125,17 +125,30 @@ jobs:
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
         env:
-          NODE_PATH: ${{ github.workspace }}/node_modules
+          NODE_PATH: ${{ github.workspace }}/node_modules   # still set for good measure
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const util = require('util');
+            const exec = util.promisify(require('child_process').exec);
 
-            // Manually add the workspace node_modules to the require paths
-            const nodeModulesPath = path.resolve(process.cwd(), 'node_modules');
-            require('module').globalPaths.push(nodeModulesPath);
+            const workspace = process.env.GITHUB_WORKSPACE;
+            console.log('Workspace:', workspace);
+            const nodeModulesPath = path.join(workspace, 'node_modules');
+            console.log('Node modules path:', nodeModulesPath);
 
-            // Now require should find node-html-parser
+            // Ensure node-html-parser is installed
+            try {
+              require.resolve('node-html-parser', { paths: [nodeModulesPath] });
+              console.log('node-html-parser is already installed.');
+            } catch (e) {
+              console.log('node-html-parser not found, installing now...');
+              await exec('npm install --no-save --no-package-lock node-html-parser', { cwd: workspace });
+              console.log('Installation complete.');
+            }
+
+            // Now require the parser (it will be found because we either had it or just installed it)
             const { parse } = require('node-html-parser');
 
             const selectorPath = 'public/selector.html';
