@@ -19,7 +19,7 @@ function startGame() {
         };
     }
 
-    // Apply learning from previous games (enemies adapt to your style)
+    // Apply learning from previous games
     if (waveManager.applyLearning) {
         waveManager.applyLearning();
     }
@@ -31,37 +31,38 @@ function startGame() {
     // ========== PERFORMANCE MODE ==========
     const performanceMode = localStorage.getItem('spaceShooters_performance') === 'true';
 
-    // ========== INFINITE WORLD PARAMETERS ==========
-    // No WORLD_SIZE – world is infinite
-    let worldX = 512;                                 // player's absolute X in world
-    let worldY = 650;                                 // player's absolute Y in world
-    const SECTOR_SIZE = 1024;                         // size of one sector (matches canvas)
-    let currentSector = { x: 0, y: 0 };
-    let loadedSectors = new Set();                    // track loaded sectors
-    let sectorEnemies = new Map();                     // key "x,y" -> array of enemies (world coordinates)
-
-    // Camera: top‑left corner of viewport in world coordinates
-    let camera = { x: 0, y: 0 };
-
     // ========== GAME STATE ==========
     let player = {
+        x: 512 - 25,
+        y: 650,
         width: 50,
         height: 50,
         speed: 5,
         lives: 3,
-        invincible: 0
+        invincible: 0,
+        // NEW: Power-up states
+        shield: 0,
+        rapidFire: 0,
+        spreadShot: 0,
+        homingShot: 0,
+        speedBoost: 0
     };
 
     let bullets = [];
     let enemyBullets = [];
+    let enemies = [];
+    let powerups = []; // NEW: Power-ups array
+    let particles = []; // NEW: Particle effects
     let score = 0;
     let gameOver = false;
     let frame = 0;
 
-    // Kill count for bullet progression (unlimited)
+    // Kill count for bullet progression
     let killCount = 0;
+    let killStreak = 0;
+    let maxKillStreak = 0;
 
-    // Level tracking - classic arcade progression (global)
+    // Level tracking
     let currentLevel = 1;
     let levelMessage = '';
     let levelMessageTimer = 0;
@@ -69,15 +70,15 @@ function startGame() {
     // Cheat system integration
     let cheatMenuOpen = false;
 
-    // Input handling (keyboard + touch)
+    // Input handling
     const keys = {};
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
-    // ========== MOBILE TOUCH CONTROLS ==========
+    // ========== ENHANCED MOBILE TOUCH CONTROLS ==========
     let touchActive = false;
-    let touchX = 0, touchY = 0;          // target position (world coordinates)
-    let fireTouch = false;                 // fire on next update
+    let touchX = 0, touchY = 0;
+    let fireTouch = false;
 
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -92,8 +93,8 @@ function startGame() {
 
             if (canvasX < canvas.width / 2) {
                 touchActive = true;
-                touchX = camera.x + canvasX;
-                touchY = camera.y + canvasY;
+                touchX = canvasX;
+                touchY = canvasY;
             } else {
                 fireTouch = true;
             }
@@ -113,8 +114,8 @@ function startGame() {
 
             if (canvasX < canvas.width / 2) {
                 touchActive = true;
-                touchX = camera.x + canvasX;
-                touchY = camera.y + canvasY;
+                touchX = canvasX;
+                touchY = canvasY;
                 break;
             }
         }
@@ -129,7 +130,6 @@ function startGame() {
             let hasMovement = false;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
             for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
                 const canvasX = (touch.clientX - rect.left) * scaleX;
@@ -152,7 +152,7 @@ function startGame() {
 
     let shootCooldown = 0;
 
-    // ========== PLAYER STATS TRACKING ==========
+    // ========== ENHANCED PLAYER STATS TRACKING ==========
     let gameStats = {
         avgX: 0,
         avgY: 0,
@@ -161,7 +161,12 @@ function startGame() {
         rightMoves: 0,
         upMoves: 0,
         downMoves: 0,
-        totalFrames: 0
+        totalFrames: 0,
+        // NEW: Enhanced stats
+        kills: 0,
+        hits: 0,
+        killStreak: 0,
+        powerups: 0
     };
 
     // ========== MULTIPLAYER ==========
@@ -208,6 +213,16 @@ function startGame() {
                 levelMessage = 'EXTRA LIFE!';
                 levelMessageTimer = 60;
                 break;
+            // NEW: More cheat effects
+            case 'maxpower':
+                player.rapidFire = 300;
+                player.spreadShot = 300;
+                player.homingShot = 300;
+                player.shield = 300;
+                break;
+            case 'killall':
+                enemies = [];
+                break;
         }
     };
 
@@ -246,91 +261,61 @@ function startGame() {
         });
     }
 
-    // Start first level
+    // Initialize wave manager
+    waveManager.enemies = enemies; // Link enemies array
     waveManager.waveCount = currentLevel;
     waveManager.startWave();
     if (window.cheatSystem) window.cheatSystem.updateUnlocks(currentLevel);
     levelMessage = `LEVEL ${currentLevel}`;
     levelMessageTimer = 60;
 
-    // ========== SECTOR MANAGEMENT ==========
-    function getSectorKey(wx, wy) {
-        return `${Math.floor(wx / SECTOR_SIZE)},${Math.floor(wy / SECTOR_SIZE)}`;
-    }
-
-    function generateSector(sx, sy) {
-        const key = `${sx},${sy}`;
-        if (sectorEnemies.has(key)) return;
-
-        const enemies = [];
-        // Procedurally generate enemies based on sector coordinates and level
-        const enemyCount = 3 + Math.floor(Math.random() * 5) + currentLevel;
-        for (let i = 0; i < enemyCount; i++) {
-            let x;
-            // Apply spawn bias from live learning
-            switch (waveManager.spawnBias) {
-                case 'left':   x = sx * SECTOR_SIZE + Math.random() * 200; break;
-                case 'right':  x = (sx + 1) * SECTOR_SIZE - 200 + Math.random() * 200; break;
-                default:       x = sx * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
-            }
-            const y = sy * SECTOR_SIZE + Math.random() * SECTOR_SIZE;
-            const type = Math.random() < 0.7 ? 'enemy1' : 'enemy2';
-            const pattern = waveManager.forceSinePattern ? 'sine' : (waveManager.waveCount % 2 === 0 ? 'down' : 'sine');
-            const enemy = new Enemy(x, y, type, waveManager.learningProfile, waveManager.enemySpeedMultiplier, pattern);
-            enemies.push(enemy);
+    // ========== NEW: POWER-UP SYSTEM ==========
+    const powerUpTypes = ['health', 'rapidfire', 'spread', 'homing', 'shield', 'points'];
+    
+    class PowerUp {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.width = 20;
+            this.height = 20;
+            this.type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+            this.speed = 2;
+            this.angle = 0;
         }
-        sectorEnemies.set(key, enemies);
-        loadedSectors.add(key);
-        console.log(`Generated sector ${key} with ${enemies.length} enemies`);
-    }
-
-    function updateSector() {
-        const sx = Math.floor(worldX / SECTOR_SIZE);
-        const sy = Math.floor(worldY / SECTOR_SIZE);
-        if (currentSector.x !== sx || currentSector.y !== sy) {
-            currentSector = { x: sx, y: sy };
-            // Generate current and adjacent sectors (9 sectors)
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    generateSector(sx + dx, sy + dy);
-                }
-            }
+        
+        update() {
+            this.angle += 0.05;
+            this.x += Math.sin(this.angle) * 0.5;
+            this.y += this.speed;
         }
     }
 
-    function getNearbyEnemies() {
-        const nearby = [];
-        for (let enemies of sectorEnemies.values()) {
-            nearby.push(...enemies);
+    // ========== NEW: PARTICLE SYSTEM ==========
+    function createExplosion(x, y) {
+        for (let i = 0; i < 10; i++) {
+            particles.push({
+                x: x + Math.random() * 40 - 20,
+                y: y + Math.random() * 40 - 20,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 30 + Math.random() * 20,
+                color: `hsl(${Math.random() * 60 + 20}, 100%, 50%)`
+            });
         }
-        return nearby;
     }
 
-    // Clean up enemies that have fallen off the bottom of the world
-    function cleanupOffWorldEnemies() {
-        for (let [key, enemies] of sectorEnemies.entries()) {
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                // Remove if far below bottom (no upper bound)
-                if (enemies[i].y > worldY + 5000) { // arbitrary limit to prevent memory leak
-                    enemies.splice(i, 1);
-                }
-            }
-            if (enemies.length === 0) {
-                sectorEnemies.delete(key);
-                loadedSectors.delete(key);
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1; // gravity
+            p.life--;
+            if (p.life <= 0) {
+                particles.splice(i, 1);
             }
         }
     }
-
-    // FORCE generate starting sectors (this is the key fix!)
-    const startSx = Math.floor(worldX / SECTOR_SIZE);
-    const startSy = Math.floor(worldY / SECTOR_SIZE);
-    for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-            generateSector(startSx + dx, startSy + dy);
-        }
-    }
-    currentSector = { x: startSx, y: startSy };
 
     // ========== GAME LOOP ==========
     function gameLoop() {
@@ -349,26 +334,28 @@ function startGame() {
         requestAnimationFrame(gameLoop);
     }
 
-    // ========== BULLET HELPER ==========
-    function createBullets(playerX, playerY, playerWidth, baseSpeed, rapidFireActive) {
+    // ========== ENHANCED BULLET GENERATION ==========
+    function createBullets(playerX, playerY, playerWidth) {
         const bulletsArray = [];
         let baseWidth = 4;
         let baseHeight = 15;
-        let baseSpeedValue = -8;
+        let baseSpeed = -8;
 
         const scale = 1 + killCount * 0.02;
         const bulletWidth = baseWidth * scale;
         const bulletHeight = baseHeight * scale;
-        const bulletSpeed = baseSpeedValue * (1 + killCount * 0.01);
+        const bulletSpeed = baseSpeed * (1 + killCount * 0.01);
+
+        // Apply power-up effects
+        const rapidFireActive = player.rapidFire > 0 || (window.cheatSystem && window.cheatSystem.isCheatActive('rapidfire'));
+        const spreadActive = player.spreadShot > 0;
+        const homingActive = player.homingShot > 0;
 
         let bulletCount = 1 + Math.floor(killCount / 10);
-        if (performanceMode) {
-            bulletCount = Math.min(bulletCount, 10);
-        } else if (bulletCount > 20) {
-            bulletCount = 20;
-        }
+        if (rapidFireActive) bulletCount += 2;
+        if (bulletCount > 20) bulletCount = 20;
 
-        const spreadAngle = 0.1;
+        const spreadAngle = spreadActive ? 0.15 : 0.1;
         const centerX = playerX + playerWidth / 2;
         const startY = playerY - 10;
 
@@ -378,7 +365,8 @@ function startGame() {
                 y: startY,
                 w: bulletWidth,
                 h: bulletHeight,
-                speed: bulletSpeed
+                speed: bulletSpeed,
+                homing: homingActive
             });
         } else {
             for (let i = 0; i < bulletCount; i++) {
@@ -391,7 +379,8 @@ function startGame() {
                     w: bulletWidth,
                     h: bulletHeight,
                     speedX: speedX,
-                    speedY: speedY
+                    speedY: speedY,
+                    homing: homingActive
                 });
             }
         }
@@ -408,156 +397,230 @@ function startGame() {
         const upPressed = keys['ArrowUp'] || keys['KeyW'];
         const downPressed = keys['ArrowDown'] || keys['KeyS'];
 
-        let moveX = 0, moveY = 0;
-        if (leftPressed) moveX -= 1;
-        if (rightPressed) moveX += 1;
-        if (upPressed) moveY -= 1;
-        if (downPressed) moveY += 1;
+        // Apply speed boost
+        const currentSpeed = player.speed + (player.speedBoost > 0 ? 3 : 0);
 
-        // Mobile touch movement
+        if (leftPressed) player.x = Math.max(0, player.x - currentSpeed);
+        if (rightPressed) player.x = Math.min(1024 - player.width, player.x + currentSpeed);
+        if (upPressed) player.y = Math.max(0, player.y - currentSpeed);
+        if (downPressed) player.y = Math.min(768 - player.height, player.y + currentSpeed);
+
+        // Touch movement
         if (touchActive) {
-            const dx = touchX - worldX;
-            const dy = touchY - worldY;
+            const dx = touchX - (player.x + player.width/2);
+            const dy = touchY - (player.y + player.height/2);
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > 5) {
-                const normX = dx / dist;
-                const normY = dy / dist;
-                moveX += normX;
-                moveY += normY;
+                player.x += (dx / dist) * currentSpeed;
+                player.y += (dy / dist) * currentSpeed;
+                player.x = Math.max(0, Math.min(1024 - player.width, player.x));
+                player.y = Math.max(0, Math.min(768 - player.height, player.y));
             }
         }
 
-        // Normalize diagonal
-        if (moveX !== 0 && moveY !== 0) {
-            const length = Math.sqrt(moveX*moveX + moveY*moveY);
-            moveX = moveX / length;
-            moveY = moveY / length;
-        }
-
-        worldX += moveX * player.speed;
-        worldY += moveY * player.speed;
-
-        // NO WORLD BOUNDARIES – infinite movement
-
-        // Update camera (no clamping)
-        camera.x = worldX - canvas.width / 2;
-        camera.y = worldY - canvas.height / 2;
-
-        // Update sector based on new position
-        updateSector();
-
-        // Stats
+        // Update stats
         gameStats.totalFrames++;
-        gameStats.avgX = (gameStats.avgX * (gameStats.totalFrames - 1) + (worldX / 10000)) / gameStats.totalFrames; // normalize roughly
-        gameStats.avgY = (gameStats.avgY * (gameStats.totalFrames - 1) + (worldY / 10000)) / gameStats.totalFrames;
+        gameStats.avgX = (gameStats.avgX * (gameStats.totalFrames - 1) + (player.x / canvas.width)) / gameStats.totalFrames;
+        gameStats.avgY = (gameStats.avgY * (gameStats.totalFrames - 1) + (player.y / canvas.height)) / gameStats.totalFrames;
         if (leftPressed) gameStats.leftMoves++;
         if (rightPressed) gameStats.rightMoves++;
         if (upPressed) gameStats.upMoves++;
         if (downPressed) gameStats.downMoves++;
 
-        // Cheats
-        const rapidFireActive = window.cheatSystem ? window.cheatSystem.isCheatActive('rapidfire') : false;
+        // Check cheats
         const invincibleActive = window.cheatSystem ? window.cheatSystem.isCheatActive('invincible') : false;
         const autoAimActive = window.cheatSystem ? window.cheatSystem.isCheatActive('autotarget') : false;
-        const oneHitKillActive = window.cheatSystem ? window.cheatSystem.isCheatActive('onehitkill') : false;
 
         // Shooting
+        const rapidFireActive = player.rapidFire > 0 || (window.cheatSystem && window.cheatSystem.isCheatActive('rapidfire'));
         const shotThisFrame = (keys['Space'] || fireTouch) && shootCooldown <= 0;
+        
         if (shotThisFrame) {
-            const newBullets = createBullets(worldX, worldY, player.width, -8, rapidFireActive);
+            const newBullets = createBullets(player.x, player.y, player.width);
             bullets.push(...newBullets);
             playSound('laser', 0.5);
-            shootCooldown = rapidFireActive ? 5 : 10;
+            shootCooldown = rapidFireActive ? 3 : 10;
             gameStats.shotsFired += newBullets.length;
             fireTouch = false;
         }
         if (shootCooldown > 0) shootCooldown--;
 
-        // Live learning (screen coordinates)
+        // Update power-up timers
+        if (player.rapidFire > 0) player.rapidFire--;
+        if (player.spreadShot > 0) player.spreadShot--;
+        if (player.homingShot > 0) player.homingShot--;
+        if (player.shield > 0) player.shield--;
+        if (player.speedBoost > 0) player.speedBoost--;
+
+        // Live learning update
         if (window.liveLearning) {
-            const screenX = worldX - camera.x;
-            const screenY = worldY - camera.y;
-            window.liveLearning.update(screenX, screenY, shotThisFrame);
+            const hitThisFrame = false; // Would need collision tracking
+            const killThisFrame = gameStats.kills < (gameStats.kills + (killCount - gameStats.kills));
+            window.liveLearning.update(player.x, player.y, shotThisFrame, hitThisFrame, killThisFrame);
         }
 
-        // Get all enemies
-        const allEnemies = getNearbyEnemies();
+        // Wave manager update
+        waveManager.update();
+
+        // Spawn enemies if waveManager has spawn function
+        if (waveManager.spawnEnemy && Math.random() < 0.02) {
+            waveManager.spawnEnemy();
+            if (window.liveLearning) window.liveLearning.recordEnemySpawn();
+        }
 
         // Update enemies
-        allEnemies.forEach(e => e.update());
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            e.update(player.x, player.y);
+            
+            // Remove if off screen
+            if (e.y > canvas.height + 100 || e.y < -100) {
+                enemies.splice(i, 1);
+            }
+        }
 
-        // Cleanup off‑world enemies (below a certain distance)
-        cleanupOffWorldEnemies();
-
-        // Update player bullets – remove if too far (infinite world, just keep them)
+        // Update player bullets with homing
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
+            
+            // Homing logic
+            if (b.homing && enemies.length > 0) {
+                let closest = null;
+                let closestDist = Infinity;
+                for (let e of enemies) {
+                    const dx = (e.x + e.width/2) - (b.x + b.w/2);
+                    const dy = (e.y + e.height/2) - (b.y + b.h/2);
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = e;
+                    }
+                }
+                if (closest) {
+                    const dx = (closest.x + closest.width/2) - (b.x + b.w/2);
+                    const dy = (closest.y + closest.height/2) - (b.y + b.h/2);
+                    const angle = Math.atan2(dy, dx);
+                    const speed = Math.sqrt(b.speedX*b.speedX + b.speedY*b.speedY) || 5;
+                    b.speedX = Math.cos(angle) * speed * 0.98;
+                    b.speedY = Math.sin(angle) * speed * 0.98;
+                }
+            }
+
+            // Move bullet
             if (b.speedX !== undefined) {
                 b.x += b.speedX;
                 b.y += b.speedY;
             } else {
                 b.y += b.speed;
             }
-            // Remove if too far from player to save memory
-            if (Math.abs(b.x - worldX) > 5000 || Math.abs(b.y - worldY) > 5000) {
+
+            // Remove if off screen
+            if (b.y + b.h < 0 || b.y > canvas.height || b.x + b.w < 0 || b.x > canvas.width) {
                 bullets.splice(i, 1);
             }
         }
 
         // Enemy shooting
-        let enemyShootRate = Math.min(0.5, 0.2 + currentLevel * 0.03);
-        if (window.enemyLearning && window.enemyLearning.getProfile().shotsPerFrame > 0.05) {
-            enemyShootRate += 0.1;
-        }
         if (frame % 30 === 0) {
-            allEnemies.forEach(enemy => {
-                if (Math.random() < enemyShootRate) {
-                    const eb = enemy.shoot();
-                    enemyBullets.push(eb);
+            enemies.forEach(enemy => {
+                let shootProb = 0.2 + currentLevel * 0.02;
+                if (Math.random() < shootProb) {
+                    const newBullets = enemy.shoot(player.x, player.y);
+                    if (newBullets) {
+                        if (Array.isArray(newBullets)) {
+                            enemyBullets.push(...newBullets);
+                        } else {
+                            enemyBullets.push(newBullets);
+                        }
+                    }
                 }
             });
         }
 
-        // Update enemy bullets – remove if too far
+        // Update enemy bullets
         for (let i = enemyBullets.length - 1; i >= 0; i--) {
-            enemyBullets[i].y += enemyBullets[i].speed;
-            if (Math.abs(enemyBullets[i].y - worldY) > 5000) {
-                enemyBullets.splice(i, 1);
+            const eb = enemyBullets[i];
+            
+            // Homing for enemy bullets
+            if (eb.homing) {
+                const dx = player.x + player.width/2 - (eb.x + eb.w/2);
+                const dy = player.y + player.height/2 - (eb.y + eb.h/2);
+                const angle = Math.atan2(dy, dx);
+                const speed = Math.sqrt(eb.speedX*eb.speedX + eb.speedY*eb.speedY) || 4;
+                eb.speedX = Math.cos(angle) * speed * 0.98;
+                eb.speedY = Math.sin(angle) * speed * 0.98;
             }
+
+            // Move bullet
+            if (eb.speedX !== undefined) {
+                eb.x += eb.speedX;
+                eb.y += eb.speedY;
+            } else {
+                eb.y += eb.speed;
+            }
+
+            // Remove if off screen
+            if (eb.y > canvas.height) enemyBullets.splice(i, 1);
         }
+
+        // Update powerups
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            powerups[i].update();
+            if (powerups[i].y > canvas.height) powerups.splice(i, 1);
+        }
+
+        // Update particles
+        updateParticles();
 
         // Collisions: player bullets vs enemies
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
-            for (let j = allEnemies.length - 1; j >= 0; j--) {
-                const e = allEnemies[j];
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const e = enemies[j];
                 if (b.x < e.x + e.width &&
                     b.x + b.w > e.x &&
                     b.y < e.y + e.height &&
                     b.y + b.h > e.y) {
+                    
                     bullets.splice(i, 1);
-                    const key = getSectorKey(e.x, e.y);
-                    const sectorList = sectorEnemies.get(key);
-                    if (sectorList) {
-                        const idx = sectorList.indexOf(e);
-                        if (idx !== -1) sectorList.splice(idx, 1);
+                    e.hp--;
+                    
+                    if (e.hp <= 0) {
+                        enemies.splice(j, 1);
+                        score += 10;
+                        killCount++;
+                        gameStats.kills++;
+                        killStreak++;
+                        gameStats.killStreak = killStreak;
+                        maxKillStreak = Math.max(maxKillStreak, killStreak);
+                        
+                        if (window.liveLearning) window.liveLearning.recordEnemyKill();
+                        
+                        // Create explosion
+                        createExplosion(e.x, e.y);
+                        
+                        // Chance to drop powerup
+                        if (Math.random() < 0.1) {
+                            powerups.push(new PowerUp(e.x, e.y));
+                        }
+                        
+                        playSound('explode', 0.7);
                     }
-                    score += 10;
-                    killCount++;
-                    playSound('explode', 0.7);
                     break;
                 }
             }
         }
 
         // Enemy bullets vs player
-        if (player.invincible <= 0 && !invincibleActive) {
+        if (player.invincible <= 0 && !invincibleActive && player.shield <= 0) {
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 const eb = enemyBullets[i];
-                if (eb.x < worldX + player.width && eb.x + eb.w > worldX &&
-                    eb.y < worldY + player.height && eb.y + eb.h > worldY) {
+                if (eb.x < player.x + player.width && eb.x + eb.w > player.x &&
+                    eb.y < player.y + player.height && eb.y + eb.h > player.y) {
                     enemyBullets.splice(i, 1);
                     player.lives--;
+                    gameStats.hits++;
+                    killStreak = 0;
                     player.invincible = 60;
                     playSound('explode', 1);
                     if (player.lives <= 0) gameOver = true;
@@ -565,22 +628,19 @@ function startGame() {
                 }
             }
         } else {
-            player.invincible--;
+            if (player.invincible > 0) player.invincible--;
         }
 
         // Enemies vs player
-        if (player.invincible <= 0 && !invincibleActive) {
-            for (let i = allEnemies.length - 1; i >= 0; i--) {
-                const e = allEnemies[i];
-                if (e.x < worldX + player.width && e.x + e.width > worldX &&
-                    e.y < worldY + player.height && e.y + e.height > worldY) {
-                    const key = getSectorKey(e.x, e.y);
-                    const sectorList = sectorEnemies.get(key);
-                    if (sectorList) {
-                        const idx = sectorList.indexOf(e);
-                        if (idx !== -1) sectorList.splice(idx, 1);
-                    }
+        if (player.invincible <= 0 && !invincibleActive && player.shield <= 0) {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                if (e.x < player.x + player.width && e.x + e.width > player.x &&
+                    e.y < player.y + player.height && e.y + e.height > player.y) {
+                    enemies.splice(i, 1);
                     player.lives--;
+                    gameStats.hits++;
+                    killStreak = 0;
                     player.invincible = 60;
                     playSound('explode', 1);
                     if (player.lives <= 0) gameOver = true;
@@ -589,20 +649,57 @@ function startGame() {
             }
         }
 
+        // Power-up collection
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            const p = powerups[i];
+            if (p.x < player.x + player.width && p.x + p.width > player.x &&
+                p.y < player.y + player.height && p.y + p.height > player.y) {
+                
+                gameStats.powerups++;
+                
+                switch(p.type) {
+                    case 'health':
+                        player.lives = Math.min(5, player.lives + 1);
+                        levelMessage = 'HP+';
+                        break;
+                    case 'rapidfire':
+                        player.rapidFire = 300;
+                        levelMessage = 'RAPID FIRE!';
+                        break;
+                    case 'spread':
+                        player.spreadShot = 300;
+                        levelMessage = 'SPREAD SHOT!';
+                        break;
+                    case 'homing':
+                        player.homingShot = 300;
+                        levelMessage = 'HOMING!';
+                        break;
+                    case 'shield':
+                        player.shield = 300;
+                        levelMessage = 'SHIELD!';
+                        break;
+                    case 'points':
+                        score += 50;
+                        levelMessage = '+50 POINTS';
+                        break;
+                }
+                levelMessageTimer = 60;
+                powerups.splice(i, 1);
+                playSound('powerup', 0.8);
+            }
+        }
+
         // Multiplayer sync
         if (multiplayerActive && window.network) {
             window.network.sendPlayerState({
-                x: worldX, y: worldY,
+                x: player.x, y: player.y,
                 width: player.width, height: player.height,
                 lives: player.lives
             });
             if (isHost && window.network.sendEnemyState) {
-                const nearbyEnemies = allEnemies.filter(e => {
-                    const dx = e.x - worldX;
-                    const dy = e.y - worldY;
-                    return Math.abs(dx) < 2000 && Math.abs(dy) < 2000;
-                }).map(e => ({ x: e.x, y: e.y, type: e.type }));
-                window.network.sendEnemyState(nearbyEnemies);
+                window.network.sendEnemyState(enemies.map(e => ({
+                    x: e.x, y: e.y, type: e.type
+                })));
             }
         }
 
@@ -610,8 +707,8 @@ function startGame() {
         document.getElementById('lives').textContent = player.lives;
         document.getElementById('score').textContent = score;
 
-        // Level progression (based on kills)
-        if (killCount > currentLevel * 10) {
+        // Level progression
+        if (enemies.length === 0 && (!waveManager.bossFight || waveManager.bossDefeated)) {
             currentLevel++;
             waveManager.waveCount = currentLevel;
             waveManager.startWave();
@@ -624,22 +721,22 @@ function startGame() {
         if (levelMessageTimer > 0) levelMessageTimer--;
 
         // Auto‑aim cheat
-        if (autoAimActive && allEnemies.length > 0) {
+        if (autoAimActive && enemies.length > 0) {
             bullets.forEach(b => {
+                let closest = null;
                 let closestDist = Infinity;
-                let closestEnemy = null;
-                allEnemies.forEach(e => {
+                enemies.forEach(e => {
                     const dx = (e.x + e.width/2) - (b.x + b.w/2);
                     const dy = (e.y + e.height/2) - (b.y + b.h/2);
                     const dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist < closestDist) {
                         closestDist = dist;
-                        closestEnemy = e;
+                        closest = e;
                     }
                 });
-                if (closestEnemy) {
-                    const targetX = closestEnemy.x + closestEnemy.width/2;
-                    const targetY = closestEnemy.y + closestEnemy.height/2;
+                if (closest) {
+                    const targetX = closest.x + closest.width/2;
+                    const targetY = closest.y + closest.height/2;
                     const dx = targetX - (b.x + b.w/2);
                     const dy = targetY - (b.y + b.h/2);
                     if (b.speedX !== undefined) {
@@ -660,20 +757,21 @@ function startGame() {
         frame++;
     }
 
-    // ========== DRAW ==========
+    // ========== ENHANCED DRAW ==========
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Background (video or starfield)
+        // Background
         if (assets.videos && assets.videos.background && assets.videos.background.readyState >= 2) {
             ctx.drawImage(assets.videos.background, 0, 0, canvas.width, canvas.height);
         } else {
+            // Enhanced starfield
             ctx.fillStyle = 'white';
-            const starCount = performanceMode ? 30 : 100;
-            for (let i = 0; i < starCount; i++) {
-                let sx = (i * 73 + camera.x * 0.2) % canvas.width;
-                let sy = (frame * 0.5 + i * 23 + camera.y * 0.2) % canvas.height;
-                ctx.fillRect(sx, sy, 2, 2);
+            for (let i = 0; i < (performanceMode ? 50 : 200); i++) {
+                let sx = (i * 73 + frame) % canvas.width;
+                let sy = (frame * 0.5 + i * 23) % canvas.height;
+                let size = Math.sin(i) * 2 + 1;
+                ctx.fillRect(sx, sy, size, size);
             }
         }
 
@@ -686,75 +784,112 @@ function startGame() {
         }
 
         // Player
-        const playerScreenX = worldX - camera.x;
-        const playerScreenY = worldY - camera.y;
         if (player.invincible <= 0 || Math.floor(frame / 5) % 2 === 0) {
             if (assets.images && assets.images.player) {
-                ctx.drawImage(assets.images.player, playerScreenX, playerScreenY, player.width, player.height);
+                ctx.drawImage(assets.images.player, player.x, player.y, player.width, player.height);
             } else {
                 ctx.fillStyle = 'cyan';
-                ctx.fillRect(playerScreenX, playerScreenY, player.width, player.height);
+                ctx.fillRect(player.x, player.y, player.width, player.height);
             }
+        }
+        
+        // Shield effect
+        if (player.shield > 0) {
+            ctx.globalAlpha = 0.3 + Math.sin(frame * 0.1) * 0.1;
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + player.height/2, 35, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
         }
 
         // Enemies
-        const allEnemies = getNearbyEnemies();
-        allEnemies.forEach(e => {
-            const ex = e.x - camera.x;
-            const ey = e.y - camera.y;
-            if (ex + e.width > 0 && ex < canvas.width && ey + e.height > 0 && ey < canvas.height) {
-                if (assets.images && assets.images[e.type]) {
-                    ctx.drawImage(assets.images[e.type], ex, ey, e.width, e.height);
-                } else {
-                    ctx.fillStyle = 'red';
-                    ctx.fillRect(ex, ey, e.width, e.height);
+        enemies.forEach(e => {
+            if (assets.images && assets.images[e.type]) {
+                ctx.drawImage(assets.images[e.type], e.x, e.y, e.width, e.height);
+            } else {
+                // Color code by type
+                switch(e.type) {
+                    case 'enemy1': ctx.fillStyle = 'red'; break;
+                    case 'enemy2': ctx.fillStyle = 'darkred'; break;
+                    case 'enemy3': ctx.fillStyle = 'purple'; break;
+                    case 'miniboss': ctx.fillStyle = 'orange'; break;
+                    case 'boss': ctx.fillStyle = 'darkorange'; break;
+                    default: ctx.fillStyle = 'red';
                 }
+                ctx.fillRect(e.x, e.y, e.width, e.height);
+            }
+            
+            // Health bar for tougher enemies
+            if (e.hp > 1) {
+                ctx.fillStyle = 'green';
+                ctx.fillRect(e.x, e.y - 10, e.width * (e.hp / e.getHPForType()), 5);
             }
         });
 
         // Remote player
         if (multiplayerActive && remotePlayer) {
-            const rx = remotePlayer.x - camera.x;
-            const ry = remotePlayer.y - camera.y;
-            if (rx + 50 > 0 && rx < canvas.width && ry + 50 > 0 && ry < canvas.height) {
-                if (assets.images && assets.images.player) {
-                    ctx.globalAlpha = 0.7;
-                    ctx.drawImage(assets.images.player, rx, ry, remotePlayer.width || 50, remotePlayer.height || 50);
-                    ctx.globalAlpha = 1.0;
-                } else {
-                    ctx.fillStyle = 'purple';
-                    ctx.fillRect(rx, ry, remotePlayer.width || 50, remotePlayer.height || 50);
-                }
+            if (assets.images && assets.images.player) {
+                ctx.globalAlpha = 0.7;
+                ctx.drawImage(assets.images.player, remotePlayer.x, remotePlayer.y, remotePlayer.width || 50, remotePlayer.height || 50);
+                ctx.globalAlpha = 1.0;
+            } else {
+                ctx.fillStyle = 'purple';
+                ctx.fillRect(remotePlayer.x, remotePlayer.y, remotePlayer.width || 50, remotePlayer.height || 50);
             }
         }
 
         // Player bullets
         bullets.forEach(b => {
-            const bx = b.x - camera.x;
-            const by = b.y - camera.y;
-            if (bx + b.w > 0 && bx < canvas.width && by + b.h > 0 && by < canvas.height) {
-                if (assets.images && assets.images.bullet) {
-                    ctx.drawImage(assets.images.bullet, bx, by, b.w, b.h);
-                } else {
-                    ctx.fillStyle = 'yellow';
-                    ctx.fillRect(bx, by, b.w, b.h);
-                }
+            if (assets.images && assets.images.bullet) {
+                ctx.drawImage(assets.images.bullet, b.x, b.y, b.w, b.h);
+            } else {
+                ctx.fillStyle = b.homing ? 'cyan' : 'yellow';
+                ctx.fillRect(b.x, b.y, b.w, b.h);
             }
         });
 
         // Enemy bullets
         enemyBullets.forEach(b => {
-            const bx = b.x - camera.x;
-            const by = b.y - camera.y;
-            if (bx + b.w > 0 && bx < canvas.width && by + b.h > 0 && by < canvas.height) {
-                if (assets.images && assets.images.enemyBullet) {
-                    ctx.drawImage(assets.images.enemyBullet, bx, by, b.w, b.h);
-                } else {
-                    ctx.fillStyle = 'orange';
-                    ctx.fillRect(bx, by, b.w, b.h);
-                }
+            if (assets.images && assets.images.enemyBullet) {
+                ctx.drawImage(assets.images.enemyBullet, b.x, b.y, b.w, b.h);
+            } else {
+                ctx.fillStyle = b.homing ? 'red' : 'orange';
+                ctx.fillRect(b.x, b.y, b.w, b.h);
             }
         });
+
+        // Power-ups
+        powerups.forEach(p => {
+            // Pulsing effect
+            const pulse = Math.sin(frame * 0.1) * 0.2 + 0.8;
+            ctx.globalAlpha = pulse;
+            
+            // Color by type
+            switch(p.type) {
+                case 'health': ctx.fillStyle = 'lime'; break;
+                case 'rapidfire': ctx.fillStyle = 'yellow'; break;
+                case 'spread': ctx.fillStyle = 'orange'; break;
+                case 'homing': ctx.fillStyle = 'cyan'; break;
+                case 'shield': ctx.fillStyle = 'blue'; break;
+                case 'points': ctx.fillStyle = 'gold'; break;
+            }
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+            
+            // Letter indicator
+            ctx.fillStyle = 'white';
+            ctx.font = '14px monospace';
+            ctx.fillText(p.type[0].toUpperCase(), p.x + 5, p.y + 15);
+            ctx.globalAlpha = 1.0;
+        });
+
+        // Particles
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life / 50;
+            ctx.fillRect(p.x, p.y, 3, 3);
+        });
+        ctx.globalAlpha = 1.0;
 
         // Cheat menu
         if (cheatMenuOpen && window.cheatSystem) {
@@ -769,17 +904,38 @@ function startGame() {
             ctx.fillText('MULTIPLAYER', canvas.width - 20, 40);
         }
 
-        // Kill count
+        // Stats display
         ctx.font = '16px "Press Start 2P", monospace';
         ctx.fillStyle = '#ff0';
         ctx.textAlign = 'left';
         ctx.fillText(`KILLS: ${killCount}`, 20, 100);
-
-        // Level
-        ctx.font = '16px "Press Start 2P", monospace';
+        ctx.fillText(`STREAK: ${killStreak}`, 20, 130);
+        
         ctx.fillStyle = '#0ff';
         ctx.textAlign = 'right';
         ctx.fillText(`LEVEL: ${currentLevel}`, canvas.width - 20, 100);
+        
+        // Power-up timers
+        let yOffset = 160;
+        if (player.rapidFire > 0) {
+            ctx.fillStyle = 'yellow';
+            ctx.fillText(`RAPID: ${Math.floor(player.rapidFire/60)}s`, 20, yOffset);
+            yOffset += 25;
+        }
+        if (player.spreadShot > 0) {
+            ctx.fillStyle = 'orange';
+            ctx.fillText(`SPREAD: ${Math.floor(player.spreadShot/60)}s`, 20, yOffset);
+            yOffset += 25;
+        }
+        if (player.homingShot > 0) {
+            ctx.fillStyle = 'cyan';
+            ctx.fillText(`HOMING: ${Math.floor(player.homingShot/60)}s`, 20, yOffset);
+            yOffset += 25;
+        }
+        if (player.shield > 0) {
+            ctx.fillStyle = 'blue';
+            ctx.fillText(`SHIELD: ${Math.floor(player.shield/60)}s`, 20, yOffset);
+        }
 
         // Touch hint
         if ('ontouchstart' in window) {
