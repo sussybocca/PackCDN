@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>HSX Advanced Project Editor</title>
+    <title>HSX Advanced Project Editor (Fixed)</title>
     <!-- Ace Editor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <!-- Interact.js (touch & drag) -->
@@ -11,6 +11,7 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        /* ... (keep all existing styles) ... */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -31,7 +32,6 @@
             height: 100vh;
         }
 
-        /* Header */
         #header {
             background: #0a0a14;
             padding: 10px 20px;
@@ -80,7 +80,6 @@
             background: #1e88e5;
         }
 
-        /* Main area */
         #main {
             display: flex;
             flex: 1;
@@ -88,7 +87,6 @@
             min-height: 0;
         }
 
-        /* File Explorer */
         #explorer {
             width: 280px;
             background: #25253a;
@@ -186,7 +184,6 @@
             visibility: visible;
         }
 
-        /* Context menu (mobile long-press) */
         #context-menu {
             position: fixed;
             background: #2a2a3a;
@@ -216,7 +213,6 @@
             background: #3a4a6a;
         }
 
-        /* Editor */
         #editor-container {
             flex: 1;
             display: flex;
@@ -266,7 +262,6 @@
             width: 100%;
         }
 
-        /* Preview iframe */
         #preview-container {
             width: 400px;
             background: #fff;
@@ -290,7 +285,6 @@
             background: white;
         }
 
-        /* Mobile adjustments */
         @media (max-width: 768px) {
             #main {
                 flex-direction: column;
@@ -305,6 +299,14 @@
                 border-left: none;
                 border-top: 1px solid #333;
             }
+        }
+
+        #status-bar {
+            background: #0a0a14;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            color: #aaa;
+            border-top: 1px solid #333;
         }
     </style>
 </head>
@@ -343,14 +345,30 @@
                 <iframe id="preview-frame" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
             </div>
         </div>
+        <div id="status-bar">Ready</div>
     </div>
 
-    <!-- Context menu (hidden by default) -->
+    <!-- Context menu -->
     <div id="context-menu"></div>
 
     <script type="module">
-        // --- HSX Runtime import (external) ---
-        import HSXRuntime from './hsx-runtime.js';  // adjust path if needed
+        // --- Dynamically import the HSX runtime (named export) with fallback ---
+        let HSXRuntime;
+        try {
+            const module = await import('./hsx-runtime.js');
+            HSXRuntime = module.HSXRuntime; // named export
+            console.log('HSXRuntime loaded successfully');
+            document.getElementById('status-bar').innerText = 'HSX Runtime loaded';
+        } catch (e) {
+            console.error('Failed to load hsx-runtime.js:', e);
+            document.getElementById('status-bar').innerText = 'Error loading runtime';
+            // Provide a minimal dummy runtime so the editor still works (preview will fail)
+            HSXRuntime = class {
+                constructor() { console.warn('Dummy HSXRuntime'); }
+                async load() { console.warn('Dummy load'); }
+                async execute() { console.warn('Dummy execute'); }
+            };
+        }
 
         // --- Custom Runtime that uses our virtual file system ---
         class EditorHSXRuntime extends HSXRuntime {
@@ -359,63 +377,37 @@
                 this.fileSystem = fileSystem; // { path: content }
             }
 
-            // Override load to use virtual FS first
             async load(filePath) {
-                // If file exists in our virtual FS, execute it directly
                 if (this.fileSystem[filePath]) {
                     console.log(`Loading virtual file: ${filePath}`);
                     await this.execute(this.fileSystem[filePath]);
                     return;
                 }
-                // Fall back to fetch (for external imports)
                 return super.load(filePath);
             }
         }
 
         // --- Application State ---
         const state = {
-            files: {},           // path -> content
-            openFiles: [],       // array of paths
-            activeFile: null,    // current path
-            selectedItem: null,  // for context menu
-            treeElement: null,
+            files: {},
+            openFiles: [],
+            activeFile: null,
+            selectedItem: null,
             editor: null,
         };
 
-        // Load from localStorage or create default project
+        // Load from localStorage or default
         function loadProject() {
-            const saved = localStorage.getItem('hsx-project');
+            const saved = localStorage.getItem('hsx-project-fixed');
             if (saved) {
                 try {
                     state.files = JSON.parse(saved);
                 } catch (e) {
                     console.warn('Failed to parse saved project', e);
-                    state.files = {
-                        'main.hsx': `// Welcome to HSX!
-hsx define component hello
-<h1>Hello, HSX!</h1>
-hsx end
-
-hsx render hello
-
-{js
-  console.log("Project running!");
-}`
-                    };
+                    setDefaultFiles();
                 }
             } else {
-                state.files = {
-                    'main.hsx': `// Welcome to HSX!
-hsx define component hello
-<h1>Hello, HSX!</h1>
-hsx end
-
-hsx render hello
-
-{js
-  console.log("Project running!");
-}`
-                };
+                setDefaultFiles();
             }
             // Ensure at least one file is open
             if (Object.keys(state.files).length > 0 && !state.activeFile) {
@@ -429,10 +421,25 @@ hsx render hello
             openFileInEditor(state.activeFile);
         }
 
-        // Save to localStorage
+        function setDefaultFiles() {
+            state.files = {
+                'main.hsx': `// Welcome to HSX!
+hsx define component hello
+<h1>Hello, HSX!</h1>
+hsx end
+
+hsx render hello
+
+{js
+  console.log("Project running!");
+}`
+            };
+        }
+
         function saveProject() {
-            localStorage.setItem('hsx-project', JSON.stringify(state.files));
-            console.log('Project saved to browser storage');
+            localStorage.setItem('hsx-project-fixed', JSON.stringify(state.files));
+            document.getElementById('status-bar').innerText = 'Project saved';
+            setTimeout(() => { document.getElementById('status-bar').innerText = 'Ready'; }, 1500);
         }
 
         // --- File Tree Rendering ---
@@ -441,7 +448,7 @@ hsx render hello
             const root = buildTree(state.files);
             tree.innerHTML = renderTreeNodes(root);
             attachTreeEvents();
-            initDragDrop(); // reinitialize interact after re-render
+            initDragDrop(); // re-attach drag after render
         }
 
         function buildTree(files) {
@@ -492,8 +499,10 @@ hsx render hello
 
         function attachTreeEvents() {
             document.querySelectorAll('#file-tree .item-content').forEach(el => {
+                // Click to select file
                 el.addEventListener('click', (e) => {
                     if (e.target.classList.contains('menu-icon')) return;
+                    e.stopPropagation();
                     const path = el.dataset.path;
                     const type = el.dataset.type;
                     if (type === 'file') {
@@ -504,12 +513,12 @@ hsx render hello
                         renderTabs();
                         openFileInEditor(path);
                     }
-                    // update selected style
+                    // Update selected style
                     document.querySelectorAll('#file-tree .item-content').forEach(x => x.classList.remove('selected'));
                     el.classList.add('selected');
                 });
 
-                // Long press for context menu (mobile/desktop)
+                // Long press for context menu (mobile)
                 let longPressTimer;
                 el.addEventListener('touchstart', (e) => {
                     longPressTimer = setTimeout(() => {
@@ -530,6 +539,7 @@ hsx render hello
         const menu = document.getElementById('context-menu');
         function showContextMenu(event, path, type) {
             event.preventDefault();
+            event.stopPropagation();
             state.selectedItem = { path, type };
             const x = event.touches ? event.touches[0].clientX : event.clientX;
             const y = event.touches ? event.touches[0].clientY : event.clientY;
@@ -537,7 +547,6 @@ hsx render hello
             menu.style.top = y + 'px';
             menu.style.display = 'block';
 
-            // Build menu based on type
             let html = '';
             if (type === 'file') {
                 html += `<button data-action="rename"><i class="fas fa-pencil-alt"></i> Rename</button>`;
@@ -551,23 +560,25 @@ hsx render hello
             }
             menu.innerHTML = html;
 
-            // Add click handlers
             menu.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const action = btn.dataset.action;
                     handleContextAction(action);
                     menu.style.display = 'none';
                 });
             });
 
-            // Hide on outside click
+            // Hide menu on click outside
+            const hideListener = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.style.display = 'none';
+                    window.removeEventListener('click', hideListener);
+                }
+            };
             setTimeout(() => {
-                window.addEventListener('click', hideMenu, { once: true });
+                window.addEventListener('click', hideListener);
             }, 0);
-        }
-
-        function hideMenu() {
-            menu.style.display = 'none';
         }
 
         function handleContextAction(action) {
@@ -588,9 +599,7 @@ hsx render hello
                     delete state.files[path];
                     // Update open files
                     const idx = state.openFiles.indexOf(path);
-                    if (idx !== -1) {
-                        state.openFiles[idx] = newPath;
-                    }
+                    if (idx !== -1) state.openFiles[idx] = newPath;
                     if (state.activeFile === path) state.activeFile = newPath;
                 } else {
                     // Rename folder: move all children
@@ -599,11 +608,8 @@ hsx render hello
                             const newChildPath = newPath + oldPath.substring(path.length);
                             state.files[newChildPath] = state.files[oldPath];
                             delete state.files[oldPath];
-                            // Update open files
                             const idx = state.openFiles.indexOf(oldPath);
-                            if (idx !== -1) {
-                                state.openFiles[idx] = newChildPath;
-                            }
+                            if (idx !== -1) state.openFiles[idx] = newChildPath;
                             if (state.activeFile === oldPath) state.activeFile = newChildPath;
                         }
                     }
@@ -639,6 +645,8 @@ hsx render hello
                     counter++;
                 }
                 state.files[newPath] = state.files[path];
+                state.openFiles.push(newPath);
+                state.activeFile = newPath;
             } else if (action === 'new-file') {
                 const name = prompt('Enter file name (e.g., script.hsx):');
                 if (!name) return;
@@ -654,13 +662,11 @@ hsx render hello
                 const name = prompt('Enter folder name:');
                 if (!name) return;
                 const newPath = path + '/' + name;
-                // Folders are implicit, no entry needed
-                // Just ensure we don't conflict with existing file
                 if (state.files[newPath]) {
                     alert('Item already exists');
                     return;
                 }
-                // Optionally create a placeholder file? Not needed.
+                // Folders are implicit; no content needed
             }
 
             renderTree();
@@ -681,9 +687,15 @@ hsx render hello
                 ],
                 autoScroll: true,
                 listeners: {
-                    move: dragMoveListener,
+                    move(event) {
+                        const target = event.target;
+                        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                        target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+                        target.setAttribute('data-x', x);
+                        target.setAttribute('data-y', y);
+                    },
                     end(event) {
-                        // Get drop target
                         const dropTarget = event.interaction.dropState?.element;
                         if (dropTarget) {
                             const targetPath = dropTarget.dataset.path;
@@ -692,7 +704,6 @@ hsx render hello
                             const draggedType = event.target.dataset.type;
 
                             if (targetType === 'folder' && draggedPath !== targetPath) {
-                                // Move file/folder into target folder
                                 const newPath = targetPath + '/' + draggedPath.split('/').pop();
                                 if (draggedType === 'file') {
                                     state.files[newPath] = state.files[draggedPath];
@@ -720,8 +731,10 @@ hsx render hello
                                 saveProject();
                             }
                         }
-                        // Reset transform
-                        event.target.style.transform = 'none';
+                        // Reset transform and clear data attributes
+                        event.target.style.transform = '';
+                        event.target.removeAttribute('data-x');
+                        event.target.removeAttribute('data-y');
                     }
                 }
             });
@@ -745,15 +758,6 @@ hsx render hello
                     event.target.classList.remove('drop-active');
                 }
             });
-
-            function dragMoveListener(event) {
-                const target = event.target;
-                const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-                target.setAttribute('data-x', x);
-                target.setAttribute('data-y', y);
-            }
         }
 
         // --- Editor Tabs ---
@@ -767,7 +771,7 @@ hsx render hello
                 tab.innerHTML = `<span>${path.split('/').pop()}</span> <i class="fas fa-times close" data-path="${path}"></i>`;
                 tab.addEventListener('click', (e) => {
                     if (e.target.classList.contains('close')) {
-                        // Close tab
+                        e.stopPropagation();
                         const closePath = e.target.dataset.path;
                         const idx = state.openFiles.indexOf(closePath);
                         if (idx !== -1) state.openFiles.splice(idx, 1);
@@ -777,9 +781,7 @@ hsx render hello
                         renderTabs();
                         openFileInEditor(state.activeFile);
                         saveProject();
-                        e.stopPropagation();
                     } else {
-                        // Switch tab
                         state.activeFile = path;
                         renderTabs();
                         openFileInEditor(path);
@@ -793,7 +795,7 @@ hsx render hello
         function initEditor() {
             state.editor = ace.edit('ace-editor');
             state.editor.setTheme('ace/theme/monokai');
-            state.editor.session.setMode('ace/mode/text'); // Basic; you can define a custom HSX mode
+            state.editor.session.setMode('ace/mode/text');
             state.editor.setFontSize(14);
             state.editor.on('change', () => {
                 if (state.activeFile) {
@@ -818,8 +820,23 @@ hsx render hello
         // --- Run Project in iframe ---
         async function runProject() {
             const frame = document.getElementById('preview-frame');
-            // Generate an HTML document that includes the HSX runtime and all files
-            const runtimeScript = await fetch('./hsx-runtime.js').then(r => r.text()); // load runtime source
+            document.getElementById('status-bar').innerText = 'Running project...';
+
+            // Try to fetch the runtime source for embedding
+            let runtimeSrc;
+            try {
+                const response = await fetch('./hsx-runtime.js');
+                runtimeSrc = await response.text();
+            } catch (e) {
+                console.warn('Could not fetch runtime source, using fallback.', e);
+                // Fallback: use a minimal HSXRuntime stub (preview may not work fully)
+                runtimeSrc = `export class HSXRuntime {
+                    constructor() {}
+                    async execute(code) { console.log(code); }
+                    async load() {}
+                }`;
+            }
+
             const filesJSON = JSON.stringify(state.files);
             const mainFile = state.activeFile || 'main.hsx';
 
@@ -831,9 +848,9 @@ hsx render hello
     <style>body { background: #f5f5f5; font-family: sans-serif; padding: 20px; }</style>
 </head>
 <body>
-    <script>
+    <script type="module">
         // HSX Runtime (embedded)
-        ${runtimeScript}
+        ${runtimeSrc}
 
         // Virtual file system
         const virtualFiles = ${filesJSON};
@@ -855,7 +872,6 @@ hsx render hello
 
         window.onload = async () => {
             const hsx = new IframeHSXRuntime();
-            // Run the main file
             if (hsx.files['${mainFile}']) {
                 await hsx.execute(hsx.files['${mainFile}']);
             } else {
@@ -867,6 +883,7 @@ hsx render hello
 </html>`;
 
             frame.srcdoc = html;
+            document.getElementById('status-bar').innerText = 'Project running in preview';
         }
 
         // --- Initialize ---
@@ -895,19 +912,17 @@ hsx render hello
             document.getElementById('new-folder-btn').addEventListener('click', () => {
                 const name = prompt('Enter folder name:');
                 if (!name) return;
-                // No direct folder entry needed; we'll create a placeholder file inside?
-                // For simplicity, just inform user to create files inside via context menu.
+                // Create a placeholder file to represent the folder? Not needed, folder is implicit.
                 alert('Folder created. Use context menu on folder to add files.');
             });
             document.getElementById('collapse-all').addEventListener('click', () => {
-                // Simple collapse: just re-render tree without expanding
-                renderTree();
+                renderTree(); // simple collapse by re-rendering
             });
             document.getElementById('refresh-tree').addEventListener('click', renderTree);
 
             // Hide context menu on scroll/resize
-            window.addEventListener('scroll', hideMenu);
-            window.addEventListener('resize', hideMenu);
+            window.addEventListener('scroll', () => { menu.style.display = 'none'; });
+            window.addEventListener('resize', () => { menu.style.display = 'none'; });
         });
     </script>
 </body>
