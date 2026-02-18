@@ -45,7 +45,6 @@
     "@wasmer/wasi": "^1.2.2",
     "@wasmer/wasm-transformer": "^0.12.0",
     "bcryptjs": "^2.4.3",
-    "cmbn": "^1.0.0",
     "colyseus": "^0.15.0",
     "cookie": "^0.5.0",
     "cors": "^2.8.5",
@@ -58,7 +57,7 @@
     "jsonwebtoken": "^9.0.2",
     "lance-gg": "^2.0.0",
     "nodemailer": "^6.9.7",
-    "shoehive": "^1.0.0",
+    "shoehive": "^0.0.6",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
