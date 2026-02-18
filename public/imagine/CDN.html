@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDN Game Editor & Explore</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* (styles unchanged from previous version, keep them as is) */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; flex-direction: column; background: #1e1e1e; color: #ccc; }
+        #tabs { display: flex; background: #2d2d2d; border-bottom: 1px solid #3e3e3e; }
+        .tab { padding: 10px 20px; cursor: pointer; background: #2d2d2d; border-right: 1px solid #3e3e3e; }
+        .tab.active { background: #1e1e1e; border-bottom: 2px solid #007acc; }
+        #toolbar { background: #2d2d2d; padding: 8px; display: flex; gap: 8px; border-bottom: 1px solid #3e3e3e; }
+        #toolbar button { background: #3e3e3e; border: none; color: white; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; }
+        #toolbar button:hover { background: #4e4e4e; }
+        #toolbar input { background: #3e3e3e; border: 1px solid #555; color: white; padding: 4px 8px; border-radius: 3px; }
+        #main { display: flex; flex: 1; overflow: hidden; }
+        #sidebar { width: 250px; background: #252526; border-right: 1px solid #3e3e3e; display: flex; flex-direction: column; overflow: hidden; }
+        #tree-header { padding: 8px; background: #2d2d2d; font-weight: bold; border-bottom: 1px solid #3e3e3e; }
+        #tree-container { flex: 1; overflow-y: auto; padding: 5px; }
+        #editor-container { flex: 1; display: flex; flex-direction: column; background: #1e1e1e; }
+        #editor-header { background: #2d2d2d; padding: 4px 8px; border-bottom: 1px solid #3e3e3e; font-size: 13px; }
+        #monaco-editor { flex: 1; }
+        .tree-item { display: flex; align-items: center; padding: 4px 0; cursor: pointer; user-select: none; font-size: 13px; }
+        .tree-item:hover { background: #2a2d2e; }
+        .tree-item i { width: 20px; margin-right: 4px; color: #bebebe; }
+        .tree-item .name { flex: 1; }
+        .tree-item.folder { color: #e0e0e0; }
+        .tree-item.file { color: #b5b5b5; margin-left: 24px; }
+        .tree-children { margin-left: 20px; }
+        .dropzone { border: 2px dashed #4e4e4e; margin: 4px; border-radius: 4px; }
+        .context-menu { position: absolute; background: #2d2d2d; border: 1px solid #3e3e3e; border-radius: 4px; padding: 4px 0; display: none; z-index: 1000; }
+        .context-menu div { padding: 8px 20px; cursor: pointer; }
+        .context-menu div:hover { background: #3e3e3e; }
+        #explore-view { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+        .game-card { background: #2d2d2d; border-radius: 5px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #007acc; }
+        .game-card h3 { margin: 0 0 5px; color: white; }
+        .game-card p { color: #aaa; font-size: 14px; margin-bottom: 10px; }
+        .game-card a { color: #007acc; text-decoration: none; font-size: 13px; margin-right: 15px; }
+        .game-card a:hover { text-decoration: underline; }
+        .game-card small { color: #666; }
+    </style>
+</head>
+<body>
+    <div id="tabs">
+        <div class="tab active" data-tab="editor">Editor</div>
+        <div class="tab" data-tab="explore">Explore</div>
+    </div>
+    <div id="toolbar">
+        <button id="new-file"><i class="fas fa-file"></i> New File</button>
+        <button id="new-folder"><i class="fas fa-folder"></i> New Folder</button>
+        <button id="publish"><i class="fas fa-upload"></i> Publish Game</button>
+        <span style="flex:1"></span>
+        <input type="text" id="game-name" placeholder="Game name" value="My Game">
+        <input type="text" id="game-description" placeholder="Short description">
+    </div>
+    <div id="main">
+        <!-- Editor View -->
+        <div id="editor-view" style="display: flex; width: 100%;">
+            <div id="sidebar">
+                <div id="tree-header">EXPLORER</div>
+                <div id="tree-container" ondragover="handleDragOver(event)" ondrop="handleDropOnRoot(event)"></div>
+            </div>
+            <div id="editor-container">
+                <div id="editor-header"><span id="current-file">Select a file</span></div>
+                <div id="monaco-editor"></div>
+            </div>
+        </div>
+        <!-- Explore View -->
+        <div id="explore-view"></div>
+    </div>
+
+    <!-- Context menu -->
+    <div id="context-menu" class="context-menu">
+        <div id="ctx-rename">Rename</div>
+        <div id="ctx-delete">Delete</div>
+    </div>
+
+    <!-- Load Monaco and libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.34.1/min/vs/loader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+        // ---------- File System State ----------
+        let root = {
+            name: 'MyGame',
+            type: 'folder',
+            children: []
+        };
+        let selectedNode = null;
+        let editor = null;
+        let contextNode = null;
+        let contextMenu = document.getElementById('context-menu');
+
+        // ---------- Utility ----------
+        function findNodeByPath(path) {
+            let parts = path.split('/').filter(p => p);
+            let current = root;
+            for (let part of parts) {
+                if (!current.children) return null;
+                current = current.children.find(c => c.name === part);
+                if (!current) return null;
+            }
+            return current;
+        }
+
+        function getNodePath(node) {
+            let path = [];
+            function traverse(current, nameAccum) {
+                if (current === node) return true;
+                if (current.children) {
+                    for (let child of current.children) {
+                        nameAccum.push(child.name);
+                        if (traverse(child, nameAccum)) return true;
+                        nameAccum.pop();
+                    }
+                }
+                return false;
+            }
+            let acc = [];
+            traverse(root, acc);
+            return acc.join('/');
+        }
+
+        // ---------- Render Tree ----------
+        function renderTree() {
+            let container = document.getElementById('tree-container');
+            container.innerHTML = '';
+            renderNode(root, container, 0);
+        }
+
+        function renderNode(node, parentElement, depth) {
+            let itemDiv = document.createElement('div');
+            itemDiv.className = 'tree-item ' + node.type;
+            itemDiv.dataset.path = getNodePath(node);
+            itemDiv.style.paddingLeft = (depth * 20) + 'px';
+            itemDiv.innerHTML = `
+                <i class="fas ${node.type === 'folder' ? 'fa-folder' : 'fa-file'}"></i>
+                <span class="name">${node.name}</span>
+            `;
+            if (node.type === 'file') {
+                itemDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openFile(node);
+                });
+            } else {
+                itemDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    let childContainer = itemDiv.nextElementSibling;
+                    if (childContainer && childContainer.classList.contains('tree-children')) {
+                        childContainer.style.display = childContainer.style.display === 'none' ? 'block' : 'none';
+                    }
+                });
+            }
+            // Drag and drop
+            itemDiv.draggable = true;
+            itemDiv.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', getNodePath(node));
+            });
+            itemDiv.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (node.type === 'folder') {
+                    itemDiv.classList.add('dropzone');
+                }
+            });
+            itemDiv.addEventListener('dragleave', () => {
+                itemDiv.classList.remove('dropzone');
+            });
+            itemDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                itemDiv.classList.remove('dropzone');
+                if (node.type !== 'folder') return;
+                let srcPath = e.dataTransfer.getData('text/plain');
+                let srcNode = findNodeByPath(srcPath);
+                if (srcNode && srcNode !== node) {
+                    moveNode(srcNode, node);
+                }
+            });
+            // Context menu
+            itemDiv.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                contextNode = node;
+                contextMenu.style.display = 'block';
+                contextMenu.style.left = e.pageX + 'px';
+                contextMenu.style.top = e.pageY + 'px';
+            });
+
+            parentElement.appendChild(itemDiv);
+
+            if (node.type === 'folder' && node.children) {
+                let childContainer = document.createElement('div');
+                childContainer.className = 'tree-children';
+                for (let child of node.children) {
+                    renderNode(child, childContainer, depth + 1);
+                }
+                parentElement.appendChild(childContainer);
+            }
+        }
+
+        function moveNode(node, targetFolder) {
+            let oldParentPath = getNodePath(node).split('/').slice(0,-1).join('/');
+            let oldParent = oldParentPath ? findNodeByPath(oldParentPath) : root;
+            if (oldParent && oldParent.children) {
+                oldParent.children = oldParent.children.filter(c => c !== node);
+            }
+            if (!targetFolder.children) targetFolder.children = [];
+            targetFolder.children.push(node);
+            renderTree();
+        }
+
+        function createItem(type) {
+            let name = prompt(`Enter ${type} name:`);
+            if (!name) return;
+            let newNode = { name, type, ...(type==='folder'?{children:[]}:{content:''}) };
+            if (!selectedNode) {
+                root.children.push(newNode);
+            } else if (selectedNode.type === 'folder') {
+                selectedNode.children.push(newNode);
+            } else {
+                let parentPath = getNodePath(selectedNode).split('/').slice(0,-1).join('/');
+                let parent = parentPath ? findNodeByPath(parentPath) : root;
+                parent.children.push(newNode);
+            }
+            renderTree();
+        }
+
+        function openFile(node) {
+            selectedNode = node;
+            document.getElementById('current-file').innerText = node.name;
+            if (!editor) {
+                require(['vs/editor/editor.main'], () => {
+                    editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                        value: node.content || '',
+                        language: 'javascript',
+                        theme: 'vs-dark',
+                        automaticLayout: true
+                    });
+                    editor.onDidChangeModelContent(() => {
+                        node.content = editor.getValue();
+                    });
+                });
+            } else {
+                editor.setValue(node.content || '');
+            }
+        }
+
+        function handleDragOver(e) { e.preventDefault(); }
+        function handleDropOnRoot(e) { e.preventDefault(); handleDropOnFolder(e, root); }
+
+        function handleDropOnFolder(e, folderNode) {
+            let files = e.dataTransfer.files;
+            if (files.length === 0) return;
+            for (let file of files) {
+                let reader = new FileReader();
+                reader.onload = (event) => {
+                    let newNode = {
+                        name: file.name,
+                        type: 'file',
+                        content: event.target.result
+                    };
+                    if (!folderNode.children) folderNode.children = [];
+                    folderNode.children.push(newNode);
+                    renderTree();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // Publish: Zip and send to the SAME API (POST)
+        async function publishGame() {
+            let gameName = document.getElementById('game-name').value.trim() || 'MyGame';
+            let description = document.getElementById('game-description').value.trim() || '';
+
+            let zip = new JSZip();
+            function addToZip(node, path) {
+                if (node.type === 'file') {
+                    zip.file(path + node.name, node.content || '');
+                } else if (node.type === 'folder') {
+                    let folderPath = path + node.name + '/';
+                    for (let child of node.children || []) {
+                        addToZip(child, folderPath);
+                    }
+                }
+            }
+            for (let child of root.children || []) {
+                addToZip(child, '');
+            }
+
+            let content = await zip.generateAsync({ type: 'blob' });
+            let formData = new FormData();
+            formData.append('name', gameName);
+            formData.append('description', description);
+            formData.append('file', content, gameName + '.zip');
+
+            let res = await fetch('/api/publish-game', {
+                method: 'POST',
+                body: formData
+            });
+            let result = await res.json();
+            alert('Published! ID: ' + result.id + (result.token ? ' Token: ' + result.token : ''));
+        }
+
+        // Explore: Load games from the SAME API (GET)
+        async function loadGames() {
+            let res = await fetch('/api/publish-game');
+            let games = await res.json();
+            let exploreDiv = document.getElementById('explore-view');
+            exploreDiv.innerHTML = '';
+            if (games.length === 0) {
+                exploreDiv.innerHTML = '<p>No games published yet.</p>';
+                return;
+            }
+            games.forEach(game => {
+                let card = document.createElement('div');
+                card.className = 'game-card';
+                card.innerHTML = `
+                    <h3>${escapeHtml(game.name)}</h3>
+                    <p>${escapeHtml(game.description || 'No description')}</p>
+                    <a href="${game.storage_path}" target="_blank">Download ZIP</a>
+                    <small>Published: ${new Date(game.created_at).toLocaleString()}</small>
+                `;
+                exploreDiv.appendChild(card);
+            });
+        }
+
+        function escapeHtml(text) {
+            let div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                let view = tab.dataset.tab;
+                if (view === 'editor') {
+                    document.getElementById('editor-view').style.display = 'flex';
+                    document.getElementById('explore-view').style.display = 'none';
+                } else {
+                    document.getElementById('editor-view').style.display = 'none';
+                    document.getElementById('explore-view').style.display = 'block';
+                    loadGames();
+                }
+            });
+        });
+
+        // Context menu actions
+        document.getElementById('ctx-rename').addEventListener('click', () => {
+            if (!contextNode) return;
+            let newName = prompt('New name:', contextNode.name);
+            if (newName) {
+                contextNode.name = newName;
+                renderTree();
+            }
+            contextMenu.style.display = 'none';
+        });
+
+        document.getElementById('ctx-delete').addEventListener('click', () => {
+            if (!contextNode) return;
+            let path = getNodePath(contextNode);
+            let parentPath = path.split('/').slice(0,-1).join('/');
+            let parent = parentPath ? findNodeByPath(parentPath) : root;
+            if (parent && parent.children) {
+                parent.children = parent.children.filter(c => c !== contextNode);
+            }
+            if (selectedNode === contextNode) {
+                selectedNode = null;
+                editor?.setValue('');
+            }
+            renderTree();
+            contextMenu.style.display = 'none';
+        });
+
+        document.addEventListener('click', () => {
+            contextMenu.style.display = 'none';
+        });
+
+        // Initial render
+        root.children.push({ name: 'index.html', type: 'file', content: '<h1>Hello World</h1>' });
+        root.children.push({ name: 'script.js', type: 'file', content: 'console.log("hello");' });
+        renderTree();
+
+        // Event listeners
+        document.getElementById('new-file').addEventListener('click', () => createItem('file'));
+        document.getElementById('new-folder').addEventListener('click', () => createItem('folder'));
+        document.getElementById('publish').addEventListener('click', publishGame);
+    </script>
+</body>
+</html>
