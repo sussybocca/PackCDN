@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HSX Editor · multi‑file workspace</title>
+    <!-- CodeMirror 6 core & themes (CDN, no server needed) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.min.css">
     <style>
         * {
             margin: 0;
@@ -155,6 +157,11 @@
         #editor-container {
             flex: 1;
             min-height: 0;
+            background: #1e1e1e;
+            overflow: hidden;
+        }
+        .cm-editor {
+            height: 100%;
         }
         .preview-panel {
             height: 240px;
@@ -185,9 +192,6 @@
             border: none;
         }
     </style>
-    <!-- Monaco editor from CDN -->
-    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>
     <div class="toolbar">
@@ -219,6 +223,14 @@
         </div>
     </div>
 
+    <!-- CodeMirror 6 dependencies (CDN, no server) -->
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/state@6.4.0/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/view@6.26.0/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/commands@6.5.0/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/language@6.10.0/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/basic-setup@0.20.0/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.min.js"></script>
+
     <script>
         (function() {
             // ---------- state: files array, current index ----------
@@ -232,31 +244,43 @@
             const filenameInput = document.getElementById('filename-input');
             const editorContainer = document.getElementById('editor-container');
             const previewFrame = document.getElementById('preview-frame');
-            let editor = null;
+            let editorView = null;
 
-            // ---------- monaco initialization ----------
-            require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-            require(['vs/editor/editor.main'], function () {
-                editor = monaco.editor.create(editorContainer, {
-                    value: files[currentIndex].content,
-                    language: 'plaintext', // we can treat as plain, but syntax might be added later
-                    theme: 'vs-dark',
-                    automaticLayout: true,
-                    fontSize: 13,
-                    minimap: { enabled: false }
+            // ---------- CodeMirror initialization (synchronous, no async) ----------
+            function initEditor(initialContent) {
+                if (editorView) editorView.destroy();
+
+                // Create basic setup with one-dark theme
+                const startState = basicSetup?.["basicSetup"] ? 
+                    basicSetup.basicSetup : 
+                    [basicSetup.default ? basicSetup.default() : []]; // fallback
+
+                // Manual configuration
+                const { EditorState } = cmState;
+                const { EditorView } = cmView;
+                const { basicSetup } = cmBasicSetup;
+                const { oneDark } = cmOneDark;
+
+                const state = EditorState.create({
+                    doc: initialContent,
+                    extensions: [
+                        basicSetup,
+                        oneDark,
+                        EditorView.updateListener.of(update => {
+                            if (update.docChanged) {
+                                if (files[currentIndex]) {
+                                    files[currentIndex].content = update.state.doc.toString();
+                                }
+                            }
+                        })
+                    ]
                 });
 
-                // update model when content changes
-                editor.onDidChangeModelContent(() => {
-                    if (files[currentIndex]) {
-                        files[currentIndex].content = editor.getValue();
-                    }
+                editorView = new EditorView({
+                    state,
+                    parent: editorContainer
                 });
-
-                // initial render of file list
-                renderFileList();
-                updateFilenameInput();
-            });
+            }
 
             // ---------- helpers ----------
             function renderFileList() {
@@ -288,12 +312,15 @@
 
             function switchToFile(index) {
                 if (index < 0 || index >= files.length) return;
-                // save current content (already auto-saved via event, but double-check)
-                if (files[currentIndex]) {
-                    files[currentIndex].content = editor.getValue();
-                }
+                // Save current content (editor already auto-saves via listener)
                 currentIndex = index;
-                editor.setValue(files[currentIndex].content);
+                if (editorView) {
+                    editorView.dispatch({
+                        changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
+                    });
+                } else {
+                    initEditor(files[currentIndex].content);
+                }
                 updateFilenameInput();
                 renderFileList();
             }
@@ -332,7 +359,11 @@
                 files.splice(index, 1);
                 if (currentIndex >= index) currentIndex = Math.max(0, currentIndex - 1);
                 if (currentIndex >= files.length) currentIndex = files.length - 1;
-                editor.setValue(files[currentIndex].content);
+                if (editorView) {
+                    editorView.dispatch({
+                        changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
+                    });
+                }
                 renderFileList();
                 updateFilenameInput();
             }
@@ -352,40 +383,27 @@
                 renderFileList();
             });
 
-            // ---------- build preview HTML (with embedded files and runtime override) ----------
+            // ---------- build preview HTML ----------
             function generatePreviewHTML() {
-                // create a map of filename -> content for the override
                 const filesMap = {};
                 files.forEach(f => { filesMap[f.name] = f.content; });
-
-                // stringify safely
                 const filesMapJson = JSON.stringify(filesMap, null, 2);
 
                 return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><title>HSX preview</title></head>
 <body style="margin:0; padding:8px; font-family:sans-serif">
-<!-- HSX output will appear here -->
-
 <script>
-// ----- embedded HSX files (virtual) -----
 const HSX_FILES = ${filesMapJson};
-
-// Patch HSXRuntime.prototype.load to serve embedded files without fetch
 if (typeof HSXRuntime !== 'undefined') {
     const originalLoad = HSXRuntime.prototype.load;
     HSXRuntime.prototype.load = async function(filePath) {
-        // if filePath exists in our map, serve via loadFromText
         if (HSX_FILES[filePath]) {
-            console.log('[HSX editor] serving embedded:', filePath);
             return this.loadFromText(HSX_FILES[filePath]);
         }
-        // otherwise fallback to original (might fetch from server)
         return originalLoad.call(this, filePath);
     };
 } else {
-    console.warn('HSXRuntime not yet loaded, will patch after script load');
-    // if runtime loads later, we can patch when it exists
     Object.defineProperty(window, 'HSXRuntime', {
         set: function(val) {
             delete window.HSXRuntime;
@@ -406,28 +424,22 @@ if (typeof HSXRuntime !== 'undefined') {
 <\/script>
 <script src="hsx-runtime.js"></script>
 <script>
-// now instantiate runtime and load all files
 (async function() {
     const runtime = new HSXRuntime();
-    // load each file in order (you can change order if needed)
     for (const [name, content] of Object.entries(HSX_FILES)) {
-        console.log('Loading HSX:', name);
         await runtime.loadFromText(content);
     }
-    console.log('✅ HSX preview ready');
 })();
 <\/script>
 </body>
 </html>`;
             }
 
-            // run: write preview blob into iframe
             function runPreview() {
                 const html = generatePreviewHTML();
                 const blob = new Blob([html], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 previewFrame.src = url;
-                // clean up after a while
                 setTimeout(() => URL.revokeObjectURL(url), 10000);
             }
 
@@ -439,26 +451,40 @@ if (typeof HSXRuntime !== 'undefined') {
             });
             document.getElementById('btn-run').addEventListener('click', runPreview);
             document.getElementById('btn-refresh-preview').addEventListener('click', () => {
-                if (previewFrame.src) previewFrame.src = previewFrame.src; // reload
+                if (previewFrame.src) previewFrame.src = previewFrame.src;
                 else runPreview();
             });
 
-            // sync filename changes when typing quickly (optional blur)
             filenameInput.addEventListener('blur', () => {
-                // trigger change event manually
-                const ev = new Event('change', { bubbles: true });
-                filenameInput.dispatchEvent(ev);
+                filenameInput.dispatchEvent(new Event('change', { bubbles: true }));
             });
 
-            // initial preview run (optional)
-            window.addEventListener('load', () => {
-                setTimeout(runPreview, 300);
-            });
+            // ---------- initialize first file and editor ----------
+            renderFileList();
+            updateFilenameInput();
+            // Wait for DOM and CodeMirror scripts to be ready
+            if (typeof cmState !== 'undefined' && typeof cmView !== 'undefined' && typeof cmBasicSetup !== 'undefined' && typeof cmOneDark !== 'undefined') {
+                initEditor(files[currentIndex].content);
+            } else {
+                // If scripts not loaded, show fallback textarea
+                console.error('CodeMirror failed to load – using fallback textarea');
+                const textarea = document.createElement('textarea');
+                textarea.style.width = '100%';
+                textarea.style.height = '100%';
+                textarea.style.background = '#1e1e1e';
+                textarea.style.color = '#ccc';
+                textarea.style.border = 'none';
+                textarea.style.padding = '10px';
+                textarea.value = files[currentIndex].content;
+                textarea.addEventListener('input', (e) => {
+                    if (files[currentIndex]) files[currentIndex].content = e.target.value;
+                });
+                editorContainer.innerHTML = '';
+                editorContainer.appendChild(textarea);
+            }
 
-            // save before unload warning (optional)
-            window.addEventListener('beforeunload', (e) => {
-                // no big data loss, but we can notify
-            });
+            // initial preview
+            setTimeout(runPreview, 300);
         })();
     </script>
 </body>
