@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDN Game Editor & Explore</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Ace Editor CSS (optional, but we include the theme) -->
     <style>
-        /* (styles unchanged from previous version, keep them as is) */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; flex-direction: column; background: #1e1e1e; color: #ccc; }
         #tabs { display: flex; background: #2d2d2d; border-bottom: 1px solid #3e3e3e; }
@@ -22,7 +22,7 @@
         #tree-container { flex: 1; overflow-y: auto; padding: 5px; }
         #editor-container { flex: 1; display: flex; flex-direction: column; background: #1e1e1e; }
         #editor-header { background: #2d2d2d; padding: 4px 8px; border-bottom: 1px solid #3e3e3e; font-size: 13px; }
-        #monaco-editor { flex: 1; }
+        #ace-editor { flex: 1; width: 100%; }
         .tree-item { display: flex; align-items: center; padding: 4px 0; cursor: pointer; user-select: none; font-size: 13px; }
         .tree-item:hover { background: #2a2d2e; }
         .tree-item i { width: 20px; margin-right: 4px; color: #bebebe; }
@@ -65,7 +65,7 @@
             </div>
             <div id="editor-container">
                 <div id="editor-header"><span id="current-file">Select a file</span></div>
-                <div id="monaco-editor"></div>
+                <div id="ace-editor"></div>
             </div>
         </div>
         <!-- Explore View -->
@@ -78,8 +78,9 @@
         <div id="ctx-delete">Delete</div>
     </div>
 
-    <!-- Load Monaco and libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.34.1/min/vs/loader.js"></script>
+    <!-- Libraries: Ace Editor, JSZip, FileSaver -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -227,24 +228,69 @@
             renderTree();
         }
 
+        // Get Ace mode from file extension
+        function getAceMode(filename) {
+            let ext = filename.split('.').pop().toLowerCase();
+            const modes = {
+                'html': 'html',
+                'htm': 'html',
+                'css': 'css',
+                'js': 'javascript',
+                'jsx': 'jsx',
+                'json': 'json',
+                'md': 'markdown',
+                'py': 'python',
+                'rb': 'ruby',
+                'php': 'php',
+                'java': 'java',
+                'c': 'c_cpp',
+                'cpp': 'c_cpp',
+                'h': 'c_cpp',
+                'hpp': 'c_cpp',
+                'rs': 'rust',
+                'go': 'golang',
+                'swift': 'swift',
+                'kt': 'kotlin',
+                'ts': 'typescript',
+                'tsx': 'typescript',
+                'xml': 'xml',
+                'svg': 'svg',
+                'sql': 'sql',
+                'sh': 'sh',
+                'bash': 'sh',
+                'yml': 'yaml',
+                'yaml': 'yaml',
+                'txt': 'text'
+            };
+            return modes[ext] || 'text';
+        }
+
         function openFile(node) {
             selectedNode = node;
             document.getElementById('current-file').innerText = node.name;
             if (!editor) {
-                require(['vs/editor/editor.main'], () => {
-                    editor = monaco.editor.create(document.getElementById('monaco-editor'), {
-                        value: node.content || '',
-                        language: 'javascript',
-                        theme: 'vs-dark',
-                        automaticLayout: true
-                    });
-                    editor.onDidChangeModelContent(() => {
-                        node.content = editor.getValue();
-                    });
+                // Initialize Ace editor
+                editor = ace.edit('ace-editor');
+                editor.setTheme('ace/theme/monokai');
+                editor.session.setMode('ace/mode/javascript'); // default, will change
+                editor.setOptions({
+                    enableBasicAutocompletion: true,
+                    enableSnippets: true,
+                    enableLiveAutocompletion: true,
+                    fontSize: '14px',
+                    showPrintMargin: false,
+                    wrap: true
                 });
+                editor.session.on('change', () => {
+                    node.content = editor.getValue();
+                });
+                editor.setValue(node.content || '', -1);
+                editor.session.setMode('ace/mode/' + getAceMode(node.name));
             } else {
-                editor.setValue(node.content || '');
+                editor.setValue(node.content || '', -1);
+                editor.session.setMode('ace/mode/' + getAceMode(node.name));
             }
+            editor.focus();
         }
 
         function handleDragOver(e) { e.preventDefault(); }
@@ -370,7 +416,7 @@
             }
             if (selectedNode === contextNode) {
                 selectedNode = null;
-                editor?.setValue('');
+                if (editor) editor.setValue('');
             }
             renderTree();
             contextMenu.style.display = 'none';
