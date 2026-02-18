@@ -3,17 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Custom CDN system for publishing and sharing advanced Unity WebGL games, 3D graphics, npm packages, Python, and WebAssembly with automatic CDN generation",
-  "main": "selector.html",
   "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "deploy": "vercel --prod",
-    "build": "echo 'No build step required for static site'",
     "test": "echo \"No tests specified\" && exit 0",
-    "setup": "node scripts/setup-db.js",
-    "next-dev": "next dev",
-    "next-build": "next build",
-    "next-start": "next start"
+    "setup": "node scripts/setup-db.js"
   },
   "keywords": [
     "cdn",
