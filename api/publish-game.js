@@ -1,8 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import formidable from 'formidable';
 import fs from 'fs';
-import { Server as ColyseusServer, Room } from 'colyseus';
-import { WebSocketTransport } from '@colyseus/ws-transport';
+
+// Fix CommonJS imports for colyseus
+import colyseusPkg from 'colyseus';
+const { Server: ColyseusServer, Room } = colyseusPkg;
+
+import wsTransportPkg from '@colyseus/ws-transport';
+const { WebSocketTransport } = wsTransportPkg;
 
 export const config = {
   api: {
