@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SPACESHOOTERS · 1970s COLOR TV</title>
+    <title>◀ SPACE SHOOTERS ▶ · ANALOG HORROR · CRT-3000</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -10,21 +10,36 @@
             box-sizing: border-box;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             margin: 0;
             min-height: 100vh;
-            background: #0a0c0f;
-            background-image: radial-gradient(circle at 30% 30%, #1a2a3a 0%, #030405 90%);
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
             font-family: 'Press Start 2P', 'Courier New', monospace;
             position: relative;
+            overflow: hidden;
         }
 
-        /* Arcade cabinet bezel */
+        /* Three.js canvas background */
+        #three-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.6;
+            filter: blur(2px) hue-rotate(45deg);
+        }
+
+        /* Main cabinet - now floating above Three.js */
         .cabinet {
             background: #2a1e0e;
             padding: 30px 40px 60px 40px;
@@ -36,9 +51,18 @@
                 inset 0 10px 20px #5c3f1e;
             border: 4px solid #aa7e55;
             position: relative;
+            z-index: 10;
+            transform: perspective(1000px) rotateX(2deg);
+            animation: cabinetVibrate 8s infinite;
         }
 
-        /* Marquee / top sign */
+        @keyframes cabinetVibrate {
+            0%, 100% { transform: perspective(1000px) rotateX(2deg) translate(0, 0); }
+            25% { transform: perspective(1000px) rotateX(2.1deg) translate(1px, -1px); }
+            75% { transform: perspective(1000px) rotateX(1.9deg) translate(-1px, 1px); }
+        }
+
+        /* Marquee with RGB splitting */
         .cabinet::before {
             content: "◀ SPACE SHOOTERS ▶";
             position: absolute;
@@ -56,16 +80,19 @@
             white-space: nowrap;
             border: 3px solid #fa0;
             font-family: 'Press Start 2P', monospace;
-            animation: marqueePulse 2s infinite;
+            animation: marqueeGlitch 3s infinite;
+            z-index: 20;
         }
 
-        @keyframes marqueePulse {
-            0% { box-shadow: 0 8px 0 #b8860b, inset 0 2px 15px #ffeeaa, 0 0 30px #ffaa00; }
+        @keyframes marqueeGlitch {
+            0%, 100% { box-shadow: 0 8px 0 #b8860b, inset 0 2px 15px #ffeeaa, 0 0 30px #ffaa00; }
+            10% { transform: translateX(-50%) skew(2deg); text-shadow: 5px 3px 0 #f00, -3px -1px 0 #00f; }
+            20% { transform: translateX(-50%) skew(-2deg); text-shadow: -4px 2px 0 #f00, 4px -2px 0 #00f; }
+            30% { transform: translateX(-50%) skew(0); text-shadow: 3px 3px 0 #aa7e55; }
             50% { box-shadow: 0 8px 0 #b8860b, inset 0 2px 20px #ffffaa, 0 0 50px #ffdd55; }
-            100% { box-shadow: 0 8px 0 #b8860b, inset 0 2px 15px #ffeeaa, 0 0 30px #ffaa00; }
+            80% { box-shadow: 0 8px 0 #b8860b, inset 0 2px 15px #ffeeaa, 0 0 30px #ffaa00; }
         }
 
-        /* Screen bezel */
         .screen-bezel {
             background: #1e160e;
             padding: 25px;
@@ -74,14 +101,16 @@
                 inset 0 0 0 4px #7b5f3f,
                 inset 0 0 20px #000;
             border: 2px solid #ad8b67;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* CRT screen container */
         .crt-container {
             position: relative;
+            border-radius: 20px;
+            overflow: hidden;
         }
 
-        /* Canvas */
         #gameCanvas {
             display: block;
             width: 1024px;
@@ -94,10 +123,12 @@
                 0 20px 30px black;
             image-rendering: crisp-edges;
             cursor: none;
-            transition: filter 0.1s ease;
+            transition: all 0.1s ease;
+            position: relative;
+            z-index: 2;
         }
 
-        /* Scanlines & CRT glow */
+        /* CRT effect layers */
         .crt::after {
             content: " ";
             display: block;
@@ -115,7 +146,7 @@
             );
             pointer-events: none;
             border-radius: 20px;
-            z-index: 5;
+            z-index: 10;
             animation: scanlines 8s linear infinite;
         }
 
@@ -130,7 +161,7 @@
             background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(0, 40, 80, 0.3) 90%);
             border-radius: 20px;
             pointer-events: none;
-            z-index: 4;
+            z-index: 9;
         }
 
         @keyframes scanlines {
@@ -138,27 +169,33 @@
             100% { background-position: 0 10px; }
         }
 
-        /* Static overlay */
+        /* Enhanced static overlay */
         .static-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48ZmlsdGVyIGlkPSJmIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjk4IiBudW1PY3RhdmVzPSIzIiAvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNmKSIgb3BhY2l0eT0iMC4xIiAvPjwvc3ZnPg==');
+            background: repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,0.1) 0px, transparent 2px, rgba(0,0,0,0.3) 3px);
             opacity: 0;
             pointer-events: none;
             border-radius: 20px;
-            z-index: 6;
-            transition: opacity 0.1s;
+            z-index: 11;
             mix-blend-mode: screen;
+            transition: opacity 0.05s;
         }
 
         .static-overlay.active {
-            opacity: 0.3 !important;
+            opacity: 0.4 !important;
+            animation: staticIntense 0.1s infinite;
         }
 
-        /* Color fringing */
+        @keyframes staticIntense {
+            0% { background-position: 0 0; }
+            100% { background-position: 10px 10px; }
+        }
+
+        /* Color fringing - more intense */
         .color-fringe {
             position: absolute;
             top: 0;
@@ -167,20 +204,34 @@
             height: 100%;
             pointer-events: none;
             border-radius: 20px;
-            z-index: 7;
+            z-index: 12;
             mix-blend-mode: screen;
-            opacity: 0.2;
+            opacity: 0.3;
         }
         .color-fringe.red {
-            background: rgba(255, 0, 0, 0.1);
-            transform: translate(2px, 1px);
+            background: rgba(255, 0, 0, 0.15);
+            transform: translate(3px, 2px);
+            animation: redDrift 7s infinite;
         }
         .color-fringe.blue {
-            background: rgba(0, 0, 255, 0.1);
-            transform: translate(-2px, -1px);
+            background: rgba(0, 0, 255, 0.15);
+            transform: translate(-3px, -2px);
+            animation: blueDrift 7s infinite;
         }
 
-        /* Rolling vertical lines */
+        @keyframes redDrift {
+            0%, 100% { transform: translate(3px, 2px); }
+            25% { transform: translate(5px, 1px); }
+            75% { transform: translate(1px, 4px); }
+        }
+
+        @keyframes blueDrift {
+            0%, 100% { transform: translate(-3px, -2px); }
+            25% { transform: translate(-5px, -1px); }
+            75% { transform: translate(-1px, -4px); }
+        }
+
+        /* Vertical roll with noise */
         .vertical-roll {
             position: absolute;
             top: -100%;
@@ -191,72 +242,100 @@
                 0deg,
                 transparent 0px,
                 transparent 4px,
-                rgba(255, 255, 255, 0.1) 5px,
-                transparent 6px
+                rgba(255, 255, 255, 0.15) 5px,
+                transparent 6px,
+                rgba(255, 0, 255, 0.05) 7px,
+                transparent 8px
             );
             animation: roll 2s linear infinite;
             pointer-events: none;
-            z-index: 8;
+            z-index: 13;
             opacity: 0;
             transition: opacity 0.2s;
         }
         .vertical-roll.active {
-            opacity: 0.3;
+            opacity: 0.5;
+            animation-duration: 0.5s;
         }
+
         @keyframes roll {
             0% { transform: translateY(0); }
             100% { transform: translateY(50%); }
         }
 
-        /* Hue rotation */
+        /* Hue shift with distortion */
         .hue-shift {
-            animation: hueRotate 0.5s ease;
-        }
-        @keyframes hueRotate {
-            0% { filter: hue-rotate(0deg); }
-            50% { filter: hue-rotate(30deg); }
-            100% { filter: hue-rotate(0deg); }
+            animation: hueRotateFull 0.3s ease;
         }
 
-        /* Out-of-service glitch */
+        @keyframes hueRotateFull {
+            0% { filter: hue-rotate(0deg) brightness(1); }
+            25% { filter: hue-rotate(90deg) brightness(1.5); }
+            50% { filter: hue-rotate(180deg) brightness(0.5); }
+            75% { filter: hue-rotate(270deg) brightness(1.5); }
+            100% { filter: hue-rotate(360deg) brightness(1); }
+        }
+
+        /* Glitch overlay with error codes */
         .glitch-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: black;
+            background: rgba(0, 0, 0, 0.95);
             color: #0ff;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 3rem;
+            font-size: 2rem;
             text-align: center;
             z-index: 20;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s;
-            text-shadow: 0 0 20px cyan;
+            transition: opacity 0.2s;
+            text-shadow: 0 0 20px cyan, 2px 2px 0 #f00, -2px -2px 0 #00f;
             border: 4px solid cyan;
             box-shadow: inset 0 0 50px cyan;
             border-radius: 20px;
+            font-family: monospace;
         }
 
         .glitch-overlay.active {
-            opacity: 0.9;
-            animation: glitchText 0.2s infinite;
+            opacity: 0.95;
+            animation: glitchText 0.05s infinite;
+        }
+
+        .glitch-overlay .error-code {
+            font-size: 4rem;
+            color: #f44;
+            text-shadow: 0 0 30px #f00, 2px 2px 0 #0ff;
+            margin-bottom: 20px;
+        }
+
+        .glitch-overlay .error-message {
+            font-size: 1.2rem;
+            color: #8f8;
+            max-width: 80%;
+            line-height: 2;
         }
 
         @keyframes glitchText {
-            0% { transform: skew(0deg, 0deg); opacity: 0.9; }
-            20% { transform: skew(2deg, 1deg); opacity: 0.8; }
-            40% { transform: skew(-2deg, -1deg); opacity: 0.9; }
-            60% { transform: skew(1deg, -1deg); opacity: 0.7; }
-            80% { transform: skew(-1deg, 2deg); opacity: 0.9; }
-            100% { transform: skew(0deg, 0deg); opacity: 0.9; }
+            0% { transform: skew(0deg, 0deg); opacity: 0.95; }
+            10% { transform: skew(5deg, 2deg); opacity: 0.9; }
+            20% { transform: skew(-5deg, -2deg); opacity: 0.95; }
+            30% { transform: skew(3deg, -3deg); opacity: 0.85; }
+            40% { transform: skew(-3deg, 3deg); opacity: 0.95; }
+            50% { transform: skew(0deg, 0deg); opacity: 0.95; }
+            60% { transform: skew(-2deg, 2deg); opacity: 0.9; }
+            70% { transform: skew(2deg, -2deg); opacity: 0.95; }
+            80% { transform: skew(4deg, 1deg); opacity: 0.85; }
+            90% { transform: skew(-4deg, -1deg); opacity: 0.95; }
+            100% { transform: skew(0deg, 0deg); opacity: 0.95; }
         }
 
-        /* UI overlay */
+        /* UI overlay with retro scan */
         #ui {
             position: absolute;
             top: 50px;
@@ -266,7 +345,9 @@
             font-size: 22px;
             text-shadow: 
                 0 0 5px #0ff,
-                0 0 15px #0ff;
+                0 0 15px #0ff,
+                2px 2px 0 #f00,
+                -2px -2px 0 #00f;
             background: rgba(0, 0, 0, 0.7);
             padding: 20px 30px;
             border: 4px solid #3fa;
@@ -277,6 +358,15 @@
             letter-spacing: 2px;
             z-index: 30;
             backdrop-filter: blur(2px);
+            animation: uiFlicker 10s infinite;
+        }
+
+        @keyframes uiFlicker {
+            0%, 100% { opacity: 1; }
+            2% { opacity: 0.8; text-shadow: 0 0 5px #0ff; }
+            4% { opacity: 1; }
+            96% { opacity: 1; }
+            98% { opacity: 0.7; text-shadow: 2px 2px 0 #f00; }
         }
 
         #ui span {
@@ -285,17 +375,17 @@
 
         #lives, #score {
             color: #ff69b4;
-            text-shadow: 0 0 8px #f0f;
+            text-shadow: 0 0 8px #f0f, 1px 1px 0 #ff0;
             margin-left: 8px;
         }
 
-        /* Game Over screen */
+        /* Game Over screen with heavy distortion */
         #gameOver {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             color: #f44;
             font-size: 48px;
             padding: 3rem 5rem;
@@ -303,18 +393,22 @@
             border: 6px solid #f00;
             box-shadow: 
                 0 0 30px #f00,
-                inset 0 0 30px #f00;
+                inset 0 0 30px #f00,
+                10px 10px 0 #0ff,
+                -10px -10px 0 #ff0;
             display: none;
             z-index: 40;
             text-align: center;
             font-family: 'Press Start 2P', monospace;
-            text-shadow: 0 0 20px #f88;
-            animation: blink 1.5s step-end infinite;
+            text-shadow: 0 0 20px #f88, 2px 2px 0 #00f;
+            animation: gameOverGlitch 2s infinite;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; background: #100; }
+        @keyframes gameOverGlitch {
+            0%, 100% { transform: translate(-50%, -50%) skew(0deg); }
+            10% { transform: translate(-48%, -52%) skew(2deg); text-shadow: 4px 2px 0 #0ff; }
+            20% { transform: translate(-52%, -48%) skew(-2deg); text-shadow: -4px -2px 0 #f0f; }
+            30% { transform: translate(-50%, -50%) skew(0deg); }
         }
 
         #gameOver button {
@@ -328,18 +422,26 @@
             cursor: pointer;
             font-family: 'Press Start 2P', monospace;
             text-transform: uppercase;
-            box-shadow: 0 0 15px #0ff;
-            transition: 0.2s;
+            box-shadow: 0 0 15px #0ff, inset 0 0 10px #0ff;
+            transition: 0.1s;
+            animation: buttonWarn 3s infinite;
+        }
+
+        @keyframes buttonWarn {
+            0%, 100% { border-color: #0ff; color: #0ff; }
+            25% { border-color: #f0f; color: #f0f; box-shadow: 0 0 15px #f0f; }
+            75% { border-color: #ff0; color: #ff0; box-shadow: 0 0 15px #ff0; }
         }
 
         #gameOver button:hover {
             background: #0ff;
             color: #000;
             border-color: #fff;
-            box-shadow: 0 0 40px cyan;
+            box-shadow: 0 0 40px cyan, inset 0 0 20px white;
+            transform: scale(1.1);
         }
 
-        /* Control panel */
+        /* Control panel with warning lights */
         .real-controls {
             position: absolute;
             bottom: -20px;
@@ -354,6 +456,13 @@
             border-bottom: 4px solid #4d3a24;
             box-shadow: 0 15px 0 #1a1208, 0 20px 20px black;
             z-index: 50;
+            animation: panelGlow 5s infinite;
+        }
+
+        @keyframes panelGlow {
+            0%, 100% { border-top-color: #b88c5e; }
+            25% { border-top-color: #f88; }
+            75% { border-top-color: #8af; }
         }
 
         .arcade-button {
@@ -368,7 +477,7 @@
                 inset 0 -4px 4px #faa,
                 inset 0 4px 4px #fff5;
             cursor: pointer;
-            transition: 0.05s linear;
+            transition: 0.03s linear;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -379,6 +488,27 @@
             line-height: 1.2;
             padding: 0 5px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .arcade-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            opacity: 0;
+            animation: buttonNoise 10s infinite;
+        }
+
+        @keyframes buttonNoise {
+            0%, 100% { opacity: 0; }
+            5% { opacity: 0.3; }
+            10% { opacity: 0; }
+            50% { opacity: 0.1; }
         }
 
         .arcade-button.green {
@@ -396,10 +526,6 @@
             box-shadow: 0 2px 0 #822, 0 8px 10px black;
         }
 
-        .arcade-button.green:active { box-shadow: 0 2px 0 #282; }
-        .arcade-button.blue:active { box-shadow: 0 2px 0 #228; }
-
-        /* New ASSETS button (small style) */
         .arcade-button.small {
             width: 50px;
             height: 50px;
@@ -413,10 +539,20 @@
             border-radius: 20px;
             font-size: 20px;
             border: 2px solid #3a6ea5;
-            box-shadow: inset 0 0 10px #0f0;
+            box-shadow: inset 0 0 10px #0f0, 0 0 15px #0f0;
             min-width: 200px;
             text-align: center;
             letter-spacing: 4px;
+            animation: displayFlicker 7s infinite;
+        }
+
+        @keyframes displayFlicker {
+            0%, 100% { opacity: 1; }
+            3% { opacity: 0.5; box-shadow: inset 0 0 10px #0f0, 0 0 15px #0f0; }
+            6% { opacity: 1; }
+            92% { opacity: 1; }
+            95% { opacity: 0.3; box-shadow: inset 0 0 10px #f00, 0 0 15px #f00; color: #f00; }
+            98% { opacity: 1; box-shadow: inset 0 0 10px #0f0, 0 0 15px #0f0; color: #0f0; }
         }
 
         .status-led {
@@ -427,10 +563,28 @@
             box-shadow: 0 0 15px red;
             margin: 0 10px;
             align-self: center;
+            animation: ledFlicker 3s infinite;
         }
-        .status-led.green { background: #0f0; box-shadow: 0 0 15px #0f0; }
 
-        /* Instructions sticker */
+        @keyframes ledFlicker {
+            0%, 100% { opacity: 1; box-shadow: 0 0 15px red; }
+            5% { opacity: 0.3; box-shadow: 0 0 5px red; }
+            10% { opacity: 1; }
+        }
+
+        .status-led.green { 
+            background: #0f0; 
+            box-shadow: 0 0 15px #0f0;
+            animation: ledGreenFlicker 4s infinite;
+        }
+
+        @keyframes ledGreenFlicker {
+            0%, 100% { opacity: 1; box-shadow: 0 0 15px #0f0; }
+            8% { opacity: 0.2; box-shadow: 0 0 5px #0f0; }
+            16% { opacity: 1; }
+        }
+
+        /* Instructions with glitch */
         .instructions {
             position: absolute;
             bottom: 20px;
@@ -438,18 +592,26 @@
             color: #6f6;
             font-size: 14px;
             font-family: 'Press Start 2P', monospace;
-            text-shadow: 0 0 5px #0f0;
-            background: rgba(0,0,0,0.5);
+            text-shadow: 0 0 5px #0f0, 1px 1px 0 #f00;
+            background: rgba(0,0,0,0.7);
             padding: 15px 20px;
             border-radius: 20px;
             border: 2px solid #3a6ea5;
             z-index: 25;
             line-height: 1.8;
+            animation: instructionsGlitch 12s infinite;
         }
+
+        @keyframes instructionsGlitch {
+            0%, 100% { border-color: #3a6ea5; color: #6f6; }
+            10% { border-color: #f00; color: #ff0; text-shadow: 2px 2px 0 #00f; }
+            20% { border-color: #3a6ea5; color: #6f6; }
+        }
+
         .instructions span { color: #ffb347; }
         .instructions .multi { color: #8af; text-shadow: 0 0 8px blue; }
 
-        /* Asset selection modal */
+        /* Asset modal with retro feel */
         .asset-modal {
             position: fixed;
             top: 50%;
@@ -462,15 +624,24 @@
             padding: 30px;
             z-index: 100;
             display: none;
-            box-shadow: 0 0 50px #003366, inset 0 0 20px #0ff;
+            box-shadow: 0 0 50px #003366, inset 0 0 20px #0ff, 10px 10px 0 #f00, -10px -10px 0 #00f;
             font-family: 'Press Start 2P', monospace;
             color: #c0e4ff;
+            animation: modalGlitch 15s infinite;
         }
+
+        @keyframes modalGlitch {
+            0%, 100% { border-color: #3f78b0; }
+            7% { border-color: #f0f; box-shadow: 0 0 50px #f0f, inset 0 0 20px #f0f; }
+            14% { border-color: #3f78b0; }
+        }
+
         .asset-modal.active { display: block; }
         .asset-modal h2 {
             color: #ffd966;
             text-align: center;
             margin-top: 0;
+            text-shadow: 2px 2px 0 #f00;
         }
         .asset-modal select {
             width: 100%;
@@ -480,7 +651,15 @@
             color: #0ff;
             border: 2px solid #3a6ea5;
             font-family: inherit;
+            animation: selectFlicker 8s infinite;
         }
+
+        @keyframes selectFlicker {
+            0%, 100% { border-color: #3a6ea5; }
+            4% { border-color: #f0f; }
+            8% { border-color: #3a6ea5; }
+        }
+
         .asset-modal .btn-group {
             display: flex;
             gap: 20px;
@@ -496,13 +675,55 @@
             border-radius: 40px;
             cursor: pointer;
             font-family: 'Press Start 2P', monospace;
+            transition: 0.1s;
         }
         .asset-modal button:hover {
             background: #62482c;
+            transform: scale(1.05);
+            border-color: #f0f;
+        }
+
+        /* Random error popup */
+        .error-popup {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #f00;
+            border: 4px solid #f00;
+            padding: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            z-index: 200;
+            box-shadow: 0 0 50px #f00;
+            display: none;
+            max-width: 80%;
+            text-align: left;
+            line-height: 1.5;
+            animation: errorAppear 0.2s;
+        }
+
+        @keyframes errorAppear {
+            from { opacity: 0; transform: translateX(-50%) scale(0.5); }
+            to { opacity: 1; transform: translateX(-50%) scale(1); }
+        }
+
+        .error-popup.active {
+            display: block;
+        }
+
+        .error-popup .title {
+            color: #ff0;
+            margin-bottom: 10px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
+    <!-- Three.js canvas for retro background -->
+    <canvas id="three-canvas"></canvas>
+
     <!-- Arcade cabinet wrapper -->
     <div class="cabinet">
         <div class="screen-bezel">
@@ -517,7 +738,10 @@
                 <!-- Rolling vertical lines -->
                 <div class="vertical-roll" id="verticalRoll"></div>
                 <!-- Glitch overlay -->
-                <div class="glitch-overlay" id="glitchOverlay">📺 SIGNAL LOST<br><span style="font-size:1.5rem;">⏚ TUNE CHANNEL</span></div>
+                <div class="glitch-overlay" id="glitchOverlay">
+                    <div class="error-code" id="errorCode">0xDEADBEEF</div>
+                    <div class="error-message" id="errorMessage">VIDEO SIGNAL INTERRUPT<br>CHECK CABLE CONNECTION</div>
+                </div>
             </div>
         </div>
 
@@ -569,8 +793,15 @@
         </div>
     </div>
 
+    <!-- Random error popup -->
+    <div class="error-popup" id="errorPopup">
+        <div class="title" id="errorPopupTitle">SYSTEM ERROR</div>
+        <div id="errorPopupMessage">UNEXPECTED INTERRUPT AT VBLANK</div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="assets.js"></script>
     <script src="enemies.js"></script>
     <script src="network.js"></script>
@@ -580,7 +811,213 @@
 
     <script>
         (function() {
-            // ===== Multiplayer UI Controls =====
+            // ===== THREE.JS RETRO BACKGROUND =====
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050510);
+            
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(1);
+            
+            // Create retro grid
+            const gridHelper = new THREE.GridHelper(20, 40, 0xff00ff, 0x00ffff);
+            gridHelper.position.z = -2;
+            gridHelper.rotation.x = Math.PI / 2;
+            scene.add(gridHelper);
+            
+            // Add floating cubes (like old demos)
+            const cubes = [];
+            for (let i = 0; i < 10; i++) {
+                const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: new THREE.Color(`hsl(${i * 36}, 100%, 50%)`),
+                    wireframe: true 
+                });
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.x = Math.sin(i) * 3;
+                cube.position.y = Math.cos(i) * 2;
+                cube.position.z = -3 + Math.sin(i) * 2;
+                cube.rotation.x = i;
+                cube.rotation.y = i;
+                scene.add(cube);
+                cubes.push(cube);
+            }
+            
+            // Add random stars
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsCount = 500;
+            const starPositions = new Float32Array(starsCount * 3);
+            for (let i = 0; i < starsCount * 3; i += 3) {
+                starPositions[i] = (Math.random() - 0.5) * 30;
+                starPositions[i+1] = (Math.random() - 0.5) * 30;
+                starPositions[i+2] = (Math.random() - 5) * 5;
+            }
+            starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+            const starsMaterial = new THREE.PointsMaterial({ color: 0x88aaff, size: 0.1 });
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+            
+            // Add scanline effect via a transparent plane
+            const scanlineGeometry = new THREE.PlaneGeometry(10, 10);
+            const scanlineMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x000000, 
+                transparent: true, 
+                opacity: 0.1,
+                wireframe: true
+            });
+            const scanlinePlane = new THREE.Mesh(scanlineGeometry, scanlineMaterial);
+            scanlinePlane.position.z = 1;
+            scene.add(scanlinePlane);
+            
+            function animateBackground() {
+                requestAnimationFrame(animateBackground);
+                
+                // Rotate cubes
+                cubes.forEach((cube, i) => {
+                    cube.rotation.x += 0.01;
+                    cube.rotation.y += 0.02;
+                });
+                
+                // Rotate stars slowly
+                stars.rotation.y += 0.0005;
+                stars.rotation.x += 0.0003;
+                
+                // Move grid
+                gridHelper.position.y += 0.01;
+                if (gridHelper.position.y > 5) gridHelper.position.y = -5;
+                
+                renderer.render(scene, camera);
+            }
+            
+            animateBackground();
+
+            // ===== AUDIO GLITCH EFFECTS =====
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let audioGlitchTimer;
+            
+            function createAudioGlitch() {
+                if (!audioContext) return;
+                
+                try {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(50 + Math.random() * 400, audioContext.currentTime);
+                    
+                    gainNode.gain.setValueAtTime(0.01, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                } catch(e) {
+                    console.log('Audio glitch failed', e);
+                }
+            }
+            
+            // Random audio glitches (infrequent)
+            setInterval(() => {
+                if (Math.random() < 0.3) { // 30% chance every interval
+                    createAudioGlitch();
+                    
+                    // Also flicker screen
+                    document.getElementById('staticOverlay').classList.add('active');
+                    setTimeout(() => {
+                        document.getElementById('staticOverlay').classList.remove('active');
+                    }, 200);
+                }
+            }, 8000); // Every 8 seconds
+            
+            // Occasional volume spike
+            setInterval(() => {
+                if (Math.random() < 0.2) {
+                    // This would affect game sounds - we'll simulate by playing a loud noise
+                    const osc = audioContext.createOscillator();
+                    const gain = audioContext.createGain();
+                    osc.type = 'square';
+                    gain.gain.setValueAtTime(0.8, audioContext.currentTime); // LOUD
+                    osc.connect(gain);
+                    gain.connect(audioContext.destination);
+                    osc.start();
+                    osc.stop(audioContext.currentTime + 0.1);
+                }
+            }, 15000); // Every 15 seconds
+
+            // ===== ERROR CODES AND POPUPS =====
+            const errorCodes = [
+                { code: '0xDEADBEEF', msg: 'MEMORY CORRUPTION AT 0xB8000' },
+                { code: '0xC0FFEE', msg: 'INTERRUPT VECTOR TABLE OVERFLOW' },
+                { code: '0xBADF00D', msg: 'CRT HORIZONTAL SYNC FAILURE' },
+                { code: '0xFEEDFACE', msg: 'VRAM PARITY ERROR - CHECK VIDEO CARD' },
+                { code: '0x8BADF00D', msg: 'DMA CONTROLLER TIMEOUT' },
+                { code: '0xCAFEBABE', msg: 'STACK OVERFLOW IN VIDEO ISR' },
+                { code: '0x1BADB002', msg: 'MULTIBOOT HEADER NOT FOUND' },
+                { code: '0xDEAD2BAD', msg: 'KERNEL PANIC: VBLANK INTERRUPT LOST' }
+            ];
+            
+            const errorPopup = document.getElementById('errorPopup');
+            const errorPopupTitle = document.getElementById('errorPopupTitle');
+            const errorPopupMessage = document.getElementById('errorPopupMessage');
+            const glitchOverlay = document.getElementById('glitchOverlay');
+            const errorCode = document.getElementById('errorCode');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            function showRandomError() {
+                const err = errorCodes[Math.floor(Math.random() * errorCodes.length)];
+                
+                // Update glitch overlay
+                errorCode.textContent = err.code;
+                errorMessage.textContent = err.msg;
+                
+                // Show popup
+                errorPopupTitle.textContent = `ERROR ${err.code}`;
+                errorPopupMessage.textContent = err.msg;
+                errorPopup.classList.add('active');
+                
+                // Activate glitch overlay
+                glitchOverlay.classList.add('active');
+                
+                // Intense static
+                document.getElementById('staticOverlay').classList.add('active');
+                
+                // Audio glitch
+                createAudioGlitch();
+                
+                // Hide after a bit
+                setTimeout(() => {
+                    errorPopup.classList.remove('active');
+                }, 3000);
+                
+                setTimeout(() => {
+                    glitchOverlay.classList.remove('active');
+                    document.getElementById('staticOverlay').classList.remove('active');
+                }, 4000);
+            }
+            
+            // Show errors infrequently (every 20-45 seconds)
+            setInterval(() => {
+                if (Math.random() < 0.4) { // 40% chance
+                    showRandomError();
+                }
+            }, 25000 + Math.random() * 20000);
+            
+            // Also trigger on certain actions
+            document.getElementById('hostBtn').addEventListener('click', () => {
+                if (Math.random() < 0.2) showRandomError(); // 20% chance on host
+            });
+            
+            document.getElementById('joinBtn').addEventListener('click', () => {
+                if (Math.random() < 0.2) showRandomError();
+            });
+
+            // ===== MULTIPLAYER UI CONTROLS =====
             const hostBtn = document.getElementById('hostBtn');
             const joinBtn = document.getElementById('joinBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
@@ -633,47 +1070,48 @@
                 }
             });
 
-            // ===== RETRO TV EFFECTS =====
+            // ===== RETRO TV EFFECTS (enhanced) =====
             const staticOverlay = document.getElementById('staticOverlay');
-            const glitchOverlay = document.getElementById('glitchOverlay');
             const verticalRoll = document.getElementById('verticalRoll');
             const canvas = document.getElementById('gameCanvas');
 
+            // More frequent random static
             setInterval(() => {
                 staticOverlay.classList.add('active');
                 setTimeout(() => staticOverlay.classList.remove('active'), 100 + Math.random() * 200);
-            }, 2000 + Math.random() * 3000);
+            }, 1500 + Math.random() * 2000);
 
+            // Occasional longer static bursts
             setInterval(() => {
                 staticOverlay.classList.add('active');
-                setTimeout(() => staticOverlay.classList.remove('active'), 500 + Math.random() * 1000);
-            }, 8000 + Math.random() * 5000);
+                createAudioGlitch();
+                setTimeout(() => staticOverlay.classList.remove('active'), 500 + Math.random() * 800);
+            }, 7000 + Math.random() * 5000);
 
+            // Vertical roll
             setInterval(() => {
                 verticalRoll.classList.add('active');
-                setTimeout(() => verticalRoll.classList.remove('active'), 800 + Math.random() * 1200);
-            }, 10000 + Math.random() * 7000);
+                setTimeout(() => verticalRoll.classList.remove('active'), 600 + Math.random() * 1000);
+            }, 8000 + Math.random() * 6000);
 
-            setInterval(() => {
-                glitchOverlay.classList.add('active');
-                setTimeout(() => glitchOverlay.classList.remove('active'), 800 + Math.random() * 1500);
-            }, 15000 + Math.random() * 10000);
-
+            // Hue shifts
             setInterval(() => {
                 canvas.classList.add('hue-shift');
-                setTimeout(() => canvas.classList.remove('hue-shift'), 500);
-            }, 12000 + Math.random() * 8000);
+                setTimeout(() => canvas.classList.remove('hue-shift'), 400);
+            }, 10000 + Math.random() * 8000);
 
+            // Complete blackout
             setInterval(() => {
                 canvas.style.filter = 'brightness(0)';
-                staticOverlay.style.opacity = '0.5';
+                staticOverlay.style.opacity = '0.7';
                 staticOverlay.classList.add('active');
+                createAudioGlitch();
                 setTimeout(() => {
                     canvas.style.filter = '';
                     staticOverlay.style.opacity = '';
                     staticOverlay.classList.remove('active');
-                }, 150);
-            }, 25000 + Math.random() * 15000);
+                }, 200);
+            }, 20000 + Math.random() * 15000);
 
             // ===== ASSET SELECTOR =====
             const assetsBtn = document.getElementById('assetsBtn');
@@ -686,10 +1124,9 @@
             const explodeSelect = document.getElementById('explodeSelect');
             const bgmSelect = document.getElementById('bgmSelect');
 
-            // Built‑in asset lists (copy from assets.js)
             const builtInVideos = [
-                { name: 'nebula1', label: 'Nebula' }
-                // Add more as you have them
+                { name: 'nebula1', label: 'Nebula' },
+                { name: 'stars1', label: 'Deep Space' }
             ];
             const builtInLasers = [
                 { name: 'laser1', label: 'Classic Laser' },
@@ -705,15 +1142,12 @@
                 { name: 'bgm2', label: 'Space Ambient' }
             ];
 
-            // Populate dropdowns with built‑ins + user assets (from IndexedDB)
             async function populateDropdowns() {
-                // Clear
                 bgSelect.innerHTML = '';
                 laserSelect.innerHTML = '';
                 explodeSelect.innerHTML = '';
                 bgmSelect.innerHTML = '';
 
-                // Add built‑ins
                 builtInVideos.forEach(v => {
                     const opt = new Option(v.label, v.name);
                     bgSelect.appendChild(opt);
@@ -731,7 +1165,6 @@
                     bgmSelect.appendChild(opt);
                 });
 
-                // Add user assets (if any)
                 if (window.userAssets) {
                     const all = await window.userAssets.getAll();
                     all.forEach(asset => {
@@ -749,7 +1182,6 @@
                     });
                 }
 
-                // Set selected values from localStorage
                 const saved = JSON.parse(localStorage.getItem('spaceShooters_assetChoices') || '{}');
                 if (saved.background) bgSelect.value = saved.background;
                 if (saved.laser) laserSelect.value = saved.laser;
@@ -775,7 +1207,14 @@
                 };
                 localStorage.setItem('spaceShooters_assetChoices', JSON.stringify(choices));
                 assetModal.classList.remove('active');
-                location.reload(); // Reload to apply new assets
+                location.reload();
+            });
+
+            // Resize handler for Three.js
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
             });
         })();
     </script>
