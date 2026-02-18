@@ -23,7 +23,7 @@
     "entity-component-system",
     "ecs",
     "matterjs",
-    "planck-js",
+    "planck",
     "cannon-es",
     "game-development",
     "package-manager",
@@ -32,9 +32,7 @@
     "wasm",
     "vercel",
     "supabase",
-    "static-hosting",
-    "sandbox",
-    "secure-execution"
+    "static-hosting"
   ],
   "author": "PackCDN Team",
   "license": "MIT",
@@ -62,10 +60,10 @@
     "@types/three": "^0.174.0",
     "cannon-es": "^0.20.0",
     "matter-js": "^0.20.0",
-    "planck-js": "^1.0.0",
+    "planck": "^1.1.0",
     "ecsy": "^0.4.1",
-    "bitecs": "^0.3.39",
-    "p2": "^2.0.0"
+    "bitecs": "^0.3.40",
+    "p2": "^1.0.1"
   },
   "devDependencies": {
     "vercel": "^34.0.0",
