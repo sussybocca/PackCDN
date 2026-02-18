@@ -62,8 +62,7 @@
     "matter-js": "^0.20.0",
     "planck": "^1.1.0",
     "ecsy": "^0.4.1",
-    "bitecs": "^0.3.40",
-    "p2": "^1.0.1"
+    "bitecs": "^0.3.40"
   },
   "devDependencies": {
     "vercel": "^34.0.0",
