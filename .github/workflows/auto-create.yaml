@@ -24,9 +24,6 @@ jobs:
         with:
           node-version: 20
 
-      # We no longer install node-html-parser here; it will be installed on‑demand in the script step.
-      # This avoids potential removal by later npm installs.
-
       - name: Install JSX dependencies
         run: |
           # Find all JSX files and extract dependencies
@@ -34,23 +31,17 @@ jobs:
           if [ -d "$JSX_DIR" ]; then
             echo "🔍 Scanning for JSX files to check dependencies..."
             
-            # Create a temporary file to collect all dependencies
             TEMP_DEPS_FILE=$(mktemp)
             
-            # Find all .jsx and .tsx files
             find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) | while read -r file; do
               echo "Checking $file for dependencies..."
               
-              # Look for import statements
               grep -E "^import.*from|^import.*['\"]" "$file" | while read -r line; do
-                # Extract package name from import statements
                 if [[ $line =~ from[[:space:]]+[\'\"]([^\./][^\'\"]*)[\'\"] ]]; then
                   pkg="${BASH_REMATCH[1]}"
-                  # Handle scoped packages
                   if [[ $pkg == @*/* ]]; then
                     echo "$pkg" >> "$TEMP_DEPS_FILE"
                   else
-                    # Get the base package name (before any slash)
                     base_pkg=$(echo "$pkg" | cut -d'/' -f1)
                     echo "$base_pkg" >> "$TEMP_DEPS_FILE"
                   fi
@@ -58,7 +49,6 @@ jobs:
               done
             done
             
-            # Sort unique dependencies
             if [ -s "$TEMP_DEPS_FILE" ]; then
               sort -u "$TEMP_DEPS_FILE" > "${TEMP_DEPS_FILE}_unique"
               DEPS_TO_INSTALL=$(cat "${TEMP_DEPS_FILE}_unique" | tr '\n' ' ')
@@ -66,15 +56,12 @@ jobs:
               if [ -n "$DEPS_TO_INSTALL" ]; then
                 echo "📦 Dependencies found: $DEPS_TO_INSTALL"
                 
-                # Install dependencies with version detection
                 for pkg in $DEPS_TO_INSTALL; do
                   echo "🔧 Installing $pkg..."
                   
-                  # Try to get the latest compatible version based on existing packages
                   if npm list "$pkg" --depth=0 2>/dev/null | grep -q "$pkg"; then
                     echo "✅ $pkg already installed, skipping..."
                   else
-                    # Try to find the best version to install
                     if npm show "$pkg" version --json 2>/dev/null; then
                       npm install --save-exact "$pkg" --no-package-lock || \
                       npm install "$pkg" --no-package-lock
@@ -85,7 +72,6 @@ jobs:
                   fi
                 done
                 
-                # Update package-lock.json if it exists
                 if [ -f "package-lock.json" ]; then
                   npm install --package-lock-only
                 fi
@@ -94,7 +80,6 @@ jobs:
               echo "No dependencies found in JSX files."
             fi
             
-            # Cleanup
             rm -f "$TEMP_DEPS_FILE" "${TEMP_DEPS_FILE}_unique"
           else
             echo "📁 JSX folder not found, skipping dependency installation."
@@ -102,12 +87,10 @@ jobs:
 
       - name: Install additional JSX/React dependencies
         run: |
-          # Install common JSX/React dependencies if they're needed
           JSX_DIR="public/imagine/JSX"
           if [ -d "$JSX_DIR" ] && find "$JSX_DIR" -name "*.jsx" -o -name "*.tsx" | grep -q .; then
             echo "🔄 Checking for common JSX dependencies..."
             
-            # Check if React is needed (look for React imports or JSX syntax)
             if find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) -exec grep -l "React" {} \; | grep -q .; then
               if ! npm list react --depth=0 2>/dev/null | grep -q react; then
                 echo "📦 Installing React..."
@@ -116,7 +99,6 @@ jobs:
               fi
             fi
             
-            # Update package-lock.json after all installations
             if [ -f "package-lock.json" ]; then
               npm install --package-lock-only
             fi
@@ -125,270 +107,250 @@ jobs:
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
         env:
-          NODE_PATH: ${{ github.workspace }}/node_modules   # still set for good measure
+          NODE_PATH: ${{ github.workspace }}/node_modules
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
-            const util = require('util');
-            const exec = util.promisify(require('child_process').exec);
+            module.exports = async ({ core }) => {
+              const fs = require('fs');
+              const path = require('path');
+              const util = require('util');
+              const execAsync = util.promisify(require('child_process').exec);
 
-            const workspace = process.env.GITHUB_WORKSPACE;
-            console.log('Workspace:', workspace);
-            const nodeModulesPath = path.join(workspace, 'node_modules');
-            console.log('Node modules path:', nodeModulesPath);
+              const workspace = process.env.GITHUB_WORKSPACE;
+              console.log('Workspace:', workspace);
+              const nodeModulesPath = path.join(workspace, 'node_modules');
+              console.log('Node modules path:', nodeModulesPath);
 
-            // Ensure node-html-parser is installed
-            try {
-              require.resolve('node-html-parser', { paths: [nodeModulesPath] });
-              console.log('node-html-parser is already installed.');
-            } catch (e) {
-              console.log('node-html-parser not found, installing now...');
-              await exec('npm install --no-save --no-package-lock node-html-parser', { cwd: workspace });
-              console.log('Installation complete.');
-            }
-
-            // Now require the parser (it will be found because we either had it or just installed it)
-            const { parse } = require('node-html-parser');
-
-            const selectorPath = 'public/selector.html';
-            const imagineDir = 'public/imagine';
-
-            // 1. Read the main selector page
-            const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
-            const root = parse(selectorHtml);
-
-            // 2. Find the <script> that contains the cardsData array
-            const scripts = root.querySelectorAll('script');
-            let cardsDataScript = null;
-            for (const script of scripts) {
-              const content = script.textContent || script.innerHTML;
-              if (content.includes('const cardsData = [')) {
-                cardsDataScript = script;
-                break;
-              }
-            }
-            if (!cardsDataScript) {
-              core.setFailed('Could not find cardsData array in selector.html');
-              return;
-            }
-
-            // 3. Parse the existing cardsData array
-            const scriptContent = cardsDataScript.textContent;
-            const match = scriptContent.match(/const cardsData = (\[[\s\S]*?\]);/);
-            if (!match) {
-              core.setFailed('Failed to extract cardsData array');
-              return;
-            }
-            const cardsDataStr = match[1];
-            let cardsData;
-            try {
-              cardsData = eval('(' + cardsDataStr + ')');
-            } catch (e) {
-              core.setFailed('Error parsing cardsData: ' + e.message);
-              return;
-            }
-
-            // 4. Recursively get all HTML/HTM/JSX/TSX files inside imagine/
-            function getAllFiles(dir, baseDir = dir) {
-              let results = [];
-              const list = fs.readdirSync(dir);
-              for (const item of list) {
-                const fullPath = path.join(dir, item);
-                const stat = fs.statSync(fullPath);
-                if (stat.isDirectory()) {
-                  results = results.concat(getAllFiles(fullPath, baseDir));
-                } else if (item.endsWith('.html') || item.endsWith('.htm') || 
-                          item.endsWith('.jsx') || item.endsWith('.tsx')) {
-                  const relativePath = path.relative(baseDir, fullPath);
-                  results.push({ fullPath, relativePath });
-                }
-              }
-              return results;
-            }
-
-            if (!fs.existsSync(imagineDir)) {
-              console.log('⚠️  imagine/ folder not found – nothing to do.');
-              return;
-            }
-
-            const files = getAllFiles(imagineDir);
-            if (files.length === 0) {
-              console.log('No files found in imagine/ – nothing to do.');
-              return;
-            }
-
-            // Helper functions for different file types
-            function extractTitle(filePath) {
+              // Ensure node-html-parser is installed
               try {
-                const content = fs.readFileSync(filePath, 'utf8');
-                
-                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                  // For JSX/TSX files, look for component name or comment
-                  const componentMatch = content.match(/export\s+(default\s+)?function\s+(\w+)|const\s+(\w+)\s*=\s*\(?/);
-                  if (componentMatch) {
-                    return componentMatch[2] || componentMatch[3] || 'React Component';
-                  }
-                  
-                  // Look for title in comments
-                  const commentMatch = content.match(/\/\/\s*@title\s*(.+)|<!--\s*title:\s*(.+)\s*-->/);
-                  if (commentMatch) {
-                    return (commentMatch[1] || commentMatch[2]).trim();
-                  }
-                } else {
-                  // HTML files
-                  const doc = parse(content);
-                  const titleTag = doc.querySelector('title');
-                  return titleTag ? titleTag.text.trim() : null;
+                require.resolve('node-html-parser', { paths: [nodeModulesPath] });
+                console.log('node-html-parser is already installed.');
+              } catch (e) {
+                console.log('node-html-parser not found, installing now...');
+                await execAsync('npm install --no-save --no-package-lock node-html-parser', { cwd: workspace });
+                console.log('Installation complete.');
+              }
+
+              const { parse } = require('node-html-parser');
+
+              const selectorPath = 'public/selector.html';
+              const imagineDir = 'public/imagine';
+
+              const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
+              const root = parse(selectorHtml);
+
+              const scripts = root.querySelectorAll('script');
+              let cardsDataScript = null;
+              for (const script of scripts) {
+                const content = script.textContent || script.innerHTML;
+                if (content.includes('const cardsData = [')) {
+                  cardsDataScript = script;
+                  break;
                 }
-              } catch {
+              }
+              if (!cardsDataScript) {
+                core.setFailed('Could not find cardsData array in selector.html');
+                return;
+              }
+
+              const scriptContent = cardsDataScript.textContent;
+              const match = scriptContent.match(/const cardsData = (\[[\s\S]*?\]);/);
+              if (!match) {
+                core.setFailed('Failed to extract cardsData array');
+                return;
+              }
+              const cardsDataStr = match[1];
+              let cardsData;
+              try {
+                cardsData = eval('(' + cardsDataStr + ')');
+              } catch (e) {
+                core.setFailed('Error parsing cardsData: ' + e.message);
+                return;
+              }
+
+              function getAllFiles(dir, baseDir = dir) {
+                let results = [];
+                const list = fs.readdirSync(dir);
+                for (const item of list) {
+                  const fullPath = path.join(dir, item);
+                  const stat = fs.statSync(fullPath);
+                  if (stat.isDirectory()) {
+                    results = results.concat(getAllFiles(fullPath, baseDir));
+                  } else if (item.endsWith('.html') || item.endsWith('.htm') || 
+                            item.endsWith('.jsx') || item.endsWith('.tsx')) {
+                    const relativePath = path.relative(baseDir, fullPath);
+                    results.push({ fullPath, relativePath });
+                  }
+                }
+                return results;
+              }
+
+              if (!fs.existsSync(imagineDir)) {
+                console.log('⚠️  imagine/ folder not found – nothing to do.');
+                return;
+              }
+
+              const files = getAllFiles(imagineDir);
+              if (files.length === 0) {
+                console.log('No files found in imagine/ – nothing to do.');
+                return;
+              }
+
+              function extractTitle(filePath) {
+                try {
+                  const content = fs.readFileSync(filePath, 'utf8');
+                  
+                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                    const componentMatch = content.match(/export\s+(default\s+)?function\s+(\w+)|const\s+(\w+)\s*=\s*\(?/);
+                    if (componentMatch) {
+                      return componentMatch[2] || componentMatch[3] || 'React Component';
+                    }
+                    
+                    const commentMatch = content.match(/\/\/\s*@title\s*(.+)|<!--\s*title:\s*(.+)\s*-->/);
+                    if (commentMatch) {
+                      return (commentMatch[1] || commentMatch[2]).trim();
+                    }
+                  } else {
+                    const doc = parse(content);
+                    const titleTag = doc.querySelector('title');
+                    return titleTag ? titleTag.text.trim() : null;
+                  }
+                } catch {
+                  return null;
+                }
                 return null;
               }
-              return null;
-            }
 
-            function extractDescription(filePath) {
-              try {
-                const content = fs.readFileSync(filePath, 'utf8');
-                
-                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                  // Look for description in comments
-                  const descMatch = content.match(/\/\/\s*@description\s*(.+)|<!--\s*description:\s*(.+)\s*-->/);
-                  if (descMatch) {
-                    return (descMatch[1] || descMatch[2]).trim();
-                  }
+              function extractDescription(filePath) {
+                try {
+                  const content = fs.readFileSync(filePath, 'utf8');
                   
-                  // Default description for JSX
-                  return 'Interactive React component.';
-                } else {
-                  // HTML files
-                  const doc = parse(content);
-                  const metaDesc = doc.querySelector('meta[name="description"]');
-                  if (metaDesc) {
-                    return metaDesc.getAttribute('content') || '';
+                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                    const descMatch = content.match(/\/\/\s*@description\s*(.+)|<!--\s*description:\s*(.+)\s*-->/);
+                    if (descMatch) {
+                      return (descMatch[1] || descMatch[2]).trim();
+                    }
+                    return 'Interactive React component.';
+                  } else {
+                    const doc = parse(content);
+                    const metaDesc = doc.querySelector('meta[name="description"]');
+                    if (metaDesc) {
+                      return metaDesc.getAttribute('content') || '';
+                    }
+                    const firstP = doc.querySelector('p');
+                    if (firstP) {
+                      return firstP.text.trim().substring(0, 150) + '…';
+                    }
                   }
-                  const firstP = doc.querySelector('p');
-                  if (firstP) {
-                    return firstP.text.trim().substring(0, 150) + '…';
-                  }
-                }
-              } catch {}
-              return 'Explore this immersive experience.';
-            }
+                } catch {}
+                return 'Explore this immersive experience.';
+              }
 
-            function extractCategory(filePath) {
-              try {
-                const content = fs.readFileSync(filePath, 'utf8');
+              function extractCategory(filePath) {
+                try {
+                  const content = fs.readFileSync(filePath, 'utf8');
+                  
+                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                    const catMatch = content.match(/\/\/\s*@category\s*(.+)|<!--\s*category:\s*(.+)\s*-->/);
+                    if (catMatch) {
+                      return (catMatch[1] || catMatch[2]).trim();
+                    }
+                    return 'jsx';
+                  } else {
+                    const doc = parse(content);
+                    const metaCat = doc.querySelector('meta[name="category"]');
+                    if (metaCat) {
+                      return metaCat.getAttribute('content') || 'demos';
+                    }
+                  }
+                } catch {}
+                return filePath.endsWith('.jsx') || filePath.endsWith('.tsx') ? 'jsx' : 'demos';
+              }
+
+              function extractIcon(filePath) {
+                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
+                  return '⚛️';
+                }
+                return '📄';
+              }
+
+              function extractFeatures(filePath) {
+                const features = [];
                 
                 if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                  // Look for category in comments
-                  const catMatch = content.match(/\/\/\s*@category\s*(.+)|<!--\s*category:\s*(.+)\s*-->/);
-                  if (catMatch) {
-                    return (catMatch[1] || catMatch[2]).trim();
+                  features.push('React component');
+                  features.push('Interactive UI');
+                  if (filePath.endsWith('.tsx')) {
+                    features.push('TypeScript');
                   }
-                  return 'jsx'; // Special category for JSX files
                 } else {
-                  const doc = parse(content);
-                  const metaCat = doc.querySelector('meta[name="category"]');
-                  if (metaCat) {
-                    return metaCat.getAttribute('content') || 'demos';
-                  }
+                  features.push('Immersive experience');
+                  features.push('New dimension');
+                  features.push('Interactive content');
                 }
-              } catch {}
-              return filePath.endsWith('.jsx') || filePath.endsWith('.tsx') ? 'jsx' : 'demos';
-            }
-
-            function extractIcon(filePath) {
-              if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                return '⚛️'; // React icon for JSX files
-              }
-              return '📄'; // Default icon for HTML
-            }
-
-            function extractFeatures(filePath) {
-              const features = [];
-              
-              if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                features.push('React component');
-                features.push('Interactive UI');
                 
-                // Check if it's TypeScript
-                if (filePath.endsWith('.tsx')) {
-                  features.push('TypeScript');
+                return features;
+              }
+
+              function cardExists(link) {
+                return cardsData.some(card => card.link === link);
+              }
+
+              let addedCount = 0;
+              for (const { fullPath, relativePath } of files) {
+                const link = `imagine/${relativePath.replace(/\\/g, '/')}`;
+                if (cardExists(link)) {
+                  console.log(`Card for ${relativePath} already exists – skipping.`);
+                  continue;
                 }
-              } else {
-                features.push('Immersive experience');
-                features.push('New dimension');
-                features.push('Interactive content');
+
+                const title = extractTitle(fullPath) || 
+                  path.basename(relativePath, path.extname(relativePath)).replace(/[-_]/g, ' ') +
+                  ' ' + path.extname(relativePath).substring(1).toUpperCase();
+                const description = extractDescription(fullPath);
+                const category = extractCategory(fullPath);
+                const icon = extractIcon(fullPath);
+                const features = extractFeatures(fullPath);
+
+                const newCard = {
+                  icon: icon,
+                  title: title,
+                  description: description,
+                  features: features,
+                  link: link,
+                  category: category,
+                  highlight: category === 'jsx'
+                };
+
+                cardsData.push(newCard);
+                addedCount++;
+                console.log(`✅ Added card for ${relativePath} (category: ${category})`);
               }
-              
-              return features;
-            }
 
-            // Check if a card with the same link already exists
-            function cardExists(link) {
-              return cardsData.some(card => card.link === link);
-            }
-
-            // 5. Add new entries
-            let addedCount = 0;
-            for (const { fullPath, relativePath } of files) {
-              const link = `imagine/${relativePath.replace(/\\/g, '/')}`;
-              if (cardExists(link)) {
-                console.log(`Card for ${relativePath} already exists – skipping.`);
-                continue;
+              if (addedCount === 0) {
+                console.log('No new cards to add.');
+                return;
               }
 
-              const title = extractTitle(fullPath) || 
-                path.basename(relativePath, path.extname(relativePath)).replace(/[-_]/g, ' ') +
-                ' ' + path.extname(relativePath).substring(1).toUpperCase();
-              const description = extractDescription(fullPath);
-              const category = extractCategory(fullPath);
-              const icon = extractIcon(fullPath);
-              const features = extractFeatures(fullPath);
+              const newCardsDataStr = JSON.stringify(cardsData, null, 2)
+                .replace(/"([^"]+)":/g, '$1:');
 
-              // Build a new card object
-              const newCard = {
-                icon: icon,
-                title: title,
-                description: description,
-                features: features,
-                link: link,
-                category: category,
-                highlight: category === 'jsx' // Highlight JSX components
-              };
+              const updatedScriptContent = scriptContent.replace(
+                /const cardsData = \[[\s\S]*?\];/,
+                `const cardsData = ${newCardsDataStr};`
+              );
 
-              cardsData.push(newCard);
-              addedCount++;
-              console.log(`✅ Added card for ${relativePath} (category: ${category})`);
-            }
+              cardsDataScript.textContent = updatedScriptContent;
 
-            if (addedCount === 0) {
-              console.log('No new cards to add.');
-              return;
-            }
-
-            // 6. Replace the cardsData array in the script
-            const newCardsDataStr = JSON.stringify(cardsData, null, 2)
-              .replace(/"([^"]+)":/g, '$1:'); // remove quotes around keys
-
-            const updatedScriptContent = scriptContent.replace(
-              /const cardsData = \[[\s\S]*?\];/,
-              `const cardsData = ${newCardsDataStr};`
-            );
-
-            cardsDataScript.textContent = updatedScriptContent;
-
-            // 7. Write the updated HTML back
-            fs.writeFileSync(selectorPath, root.toString());
-            console.log('✅ selector.html updated successfully.');
+              fs.writeFileSync(selectorPath, root.toString());
+              console.log('✅ selector.html updated successfully.');
+            };
 
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add all changes
           git add public/selector.html
           git add package.json
           git add package-lock.json 2>/dev/null || true
