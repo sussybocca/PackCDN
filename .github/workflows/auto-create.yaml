@@ -110,7 +110,7 @@ jobs:
           NODE_PATH: ${{ github.workspace }}/node_modules
         with:
           script: |
-            module.exports = async ({ core }) => {
+            (async () => {
               const fs = require('fs');
               const path = require('path');
               const util = require('util');
@@ -344,7 +344,9 @@ jobs:
 
               fs.writeFileSync(selectorPath, root.toString());
               console.log('✅ selector.html updated successfully.');
-            };
+            })().catch(err => {
+              core.setFailed(err.message);
+            });
 
       - name: Commit and push changes
         run: |
