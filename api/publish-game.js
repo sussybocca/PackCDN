@@ -2,9 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import formidable from 'formidable';
 import fs from 'fs';
 
-// Fix CommonJS imports for colyseus
+// Correct CommonJS imports
 import colyseusPkg from 'colyseus';
-const { Server: ColyseusServer, Room } = colyseusPkg;
+const { Server: ColyseusServer, Room, matchMaker } = colyseusPkg;
 
 import wsTransportPkg from '@colyseus/ws-transport';
 const { WebSocketTransport } = wsTransportPkg;
@@ -15,7 +15,7 @@ export const config = {
   },
 };
 
-// ---------- Embedded Game Room (no separate file needed) ----------
+// ---------- Embedded Game Room ----------
 class GenericGameRoom extends Room {
   onCreate(options) {
     console.log('GenericGameRoom created:', options);
@@ -29,7 +29,6 @@ class GenericGameRoom extends Room {
     });
 
     this.onMessage('move', (client, data) => {
-      // Example: handle player movement
       this.state.players[client.sessionId] = data;
       this.broadcast('state', this.state);
     });
@@ -59,7 +58,6 @@ function getGameServer() {
       transport: new WebSocketTransport()
     });
 
-    // Define the generic room – will be used for all multiplayer games
     gameServer.define('game', GenericGameRoom);
     console.log('Colyseus server initialized');
   }
@@ -122,7 +120,6 @@ export default async function handler(req, res) {
     const safeName = gameName.replace(/[^a-z0-9]/gi, '_');
     const fileName = `${Date.now()}-${safeName}.zip`;
 
-    // Upload to Supabase
     const { error: uploadError } = await supabase.storage
       .from('game-zips')
       .upload(fileName, fileContent, {
@@ -140,7 +137,6 @@ export default async function handler(req, res) {
       .getPublicUrl(fileName);
     const publicUrl = urlData.publicUrl;
 
-    // Insert game metadata
     const { data: gameData, error: gameError } = await supabase
       .from('user_games')
       .insert({ name: gameName, description, storage_path: publicUrl })
@@ -152,9 +148,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database insert failed' });
     }
 
-    // If multiplayer, insert into game_metadata table (create it if not exists)
     if (multiplayer) {
-      // Create table if needed (run this SQL separately)
       await supabase
         .from('game_metadata')
         .insert({
@@ -165,7 +159,6 @@ export default async function handler(req, res) {
         });
     }
 
-    // Generate edit token
     const { data: tokenData, error: tokenError } = await supabase
       .from('game_tokens')
       .insert({ game_id: gameData.id, permissions: ['read', 'write'] })
@@ -185,17 +178,13 @@ export default async function handler(req, res) {
     });
   }
 
-  // ----- Multiplayer Room Management -----
-  const server = getGameServer();
-
-  // POST /api/publish-game?action=createRoom
+  // ----- Multiplayer Room Management (using matchMaker directly) -----
   if (req.method === 'POST' && req.query.action === 'createRoom') {
     const { gameId, roomName } = req.body;
     if (!gameId || !roomName) {
       return res.status(400).json({ error: 'gameId and roomName required' });
     }
 
-    // Fetch game metadata
     const { data: meta, error: metaError } = await supabase
       .from('game_metadata')
       .select('*')
@@ -207,13 +196,12 @@ export default async function handler(req, res) {
     }
 
     try {
-      const room = await server.matchMaker.createRoom('game', {
+      const room = await matchMaker.createRoom('game', {
         gameId,
         roomName,
         maxClients: meta.max_players,
       });
 
-      // Increment active_rooms counter
       await supabase
         .from('game_metadata')
         .update({ active_rooms: meta.active_rooms + 1 })
@@ -226,14 +214,12 @@ export default async function handler(req, res) {
     }
   }
 
-  // GET /api/publish-game?action=listRooms&gameId=xxx
   if (req.method === 'GET' && req.query.action === 'listRooms') {
     const gameId = req.query.gameId;
     if (!gameId) return res.status(400).json({ error: 'gameId required' });
 
     try {
-      // Query all rooms of type 'game' (you can filter by metadata)
-      const rooms = await server.matchMaker.query({ gameId });
+      const rooms = await matchMaker.query({ gameId });
       return res.status(200).json(rooms);
     } catch (err) {
       console.error('Failed to list rooms:', err);
