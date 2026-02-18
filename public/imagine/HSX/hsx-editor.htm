@@ -2,928 +2,464 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>HSX Advanced Project Editor (Fixed)</title>
-    <!-- Ace Editor -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
-    <!-- Interact.js (touch & drag) -->
-    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.11/dist/interact.min.js"></script>
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSX Editor · multi‑file workspace</title>
     <style>
-        /* ... (keep all existing styles) ... */
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1e1e2f;
-            color: #eee;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             height: 100vh;
-            overflow: hidden;
-        }
-
-        #app {
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            background: #1e1e1e;
+            color: #ccc;
         }
-
-        #header {
-            background: #0a0a14;
-            padding: 10px 20px;
+        .toolbar {
+            background: #2d2d2d;
+            padding: 8px 16px;
             display: flex;
+            gap: 12px;
             align-items: center;
-            gap: 20px;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #3c3c3c;
+            flex-wrap: wrap;
         }
-
-        #header h1 {
-            font-size: 1.5rem;
-            color: #aaccff;
-        }
-
-        #header button {
-            background: #2a2a3a;
+        .toolbar button {
+            background: #0e639c;
             border: none;
             color: white;
-            padding: 8px 16px;
+            padding: 6px 16px;
             border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
-            font-size: 1rem;
-            display: inline-flex;
+            transition: background 0.2s;
+            border: 1px solid #1a1a1a;
+        }
+        .toolbar button:hover {
+            background: #1177bb;
+        }
+        .toolbar button.danger {
+            background: #a12626;
+        }
+        .toolbar button.danger:hover {
+            background: #c42b2b;
+        }
+        .toolbar .filename-edit {
+            display: flex;
             align-items: center;
             gap: 8px;
-            transition: 0.2s;
+            margin-left: auto;
+            background: #3c3c3c;
+            padding: 4px 10px;
+            border-radius: 20px;
         }
-
-        #header button:hover {
-            background: #3a4a6a;
+        .filename-edit label {
+            font-size: 12px;
+            color: #aaa;
         }
-
-        #run-btn {
-            background: #4caf50;
+        .filename-edit input {
+            background: #252526;
+            border: 1px solid #3f3f46;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            width: 200px;
         }
-
-        #run-btn:hover {
-            background: #45a049;
+        .filename-edit input:focus {
+            outline: 1px solid #0e639c;
         }
-
-        #save-btn {
-            background: #2196f3;
-        }
-
-        #save-btn:hover {
-            background: #1e88e5;
-        }
-
-        #main {
+        .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
-            min-height: 0;
         }
-
-        #explorer {
-            width: 280px;
-            background: #25253a;
-            border-right: 1px solid #333;
+        .sidebar {
+            width: 220px;
+            background: #252526;
+            border-right: 1px solid #3c3c3c;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-y: auto;
         }
-
-        #explorer-header {
-            padding: 10px;
-            background: #1a1a2a;
+        .sidebar-header {
+            padding: 12px 12px 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #969696;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #333;
         }
-
-        #explorer-header span {
-            font-weight: bold;
-            color: #aaccff;
-        }
-
-        #explorer-actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        #explorer-actions button {
-            background: transparent;
-            border: none;
+        .sidebar-header button {
+            background: none;
+            border: 1px solid #3c3c3c;
             color: #ccc;
-            font-size: 1.2rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
         }
-
-        #explorer-actions button:hover {
-            background: #3a3a5a;
+        .sidebar-header button:hover {
+            background: #3c3c3c;
         }
-
-        #file-tree {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-            user-select: none;
-        }
-
-        .tree-item {
+        .file-list {
             list-style: none;
-            margin-left: 20px;
-            position: relative;
+            padding: 4px 0;
         }
-
-        .tree-item .item-content {
+        .file-item {
+            padding: 8px 12px 8px 24px;
+            cursor: pointer;
+            font-size: 13px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: 0.1s;
-            border: 1px solid transparent;
+            justify-content: space-between;
+            border-left: 3px solid transparent;
+            user-select: none;
         }
-
-        .tree-item .item-content:hover {
-            background: #3a3a5a;
+        .file-item.active {
+            background: #37373d;
+            border-left-color: #0e639c;
+            color: white;
         }
-
-        .tree-item .item-content.selected {
-            background: #4a6a9a;
-            border-color: #6a8aba;
-        }
-
-        .tree-item .item-content i {
-            width: 20px;
-            color: #aaccff;
-        }
-
-        .tree-item .item-content .name {
-            flex: 1;
+        .file-item .name {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
-        .tree-item .item-content .menu-icon {
-            opacity: 0.5;
-            font-size: 0.9rem;
+        .file-item .remove {
             visibility: hidden;
-        }
-
-        .tree-item .item-content:hover .menu-icon {
-            visibility: visible;
-        }
-
-        #context-menu {
-            position: fixed;
-            background: #2a2a3a;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 5px 0;
-            min-width: 150px;
-            z-index: 10000;
-            display: none;
-        }
-
-        #context-menu button {
-            width: 100%;
             background: none;
             border: none;
-            color: #eee;
-            padding: 8px 16px;
-            text-align: left;
+            color: #aaa;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 0.9rem;
+            padding: 0 4px;
+        }
+        .file-item:hover .remove {
+            visibility: visible;
+        }
+        .file-item .remove:hover {
+            color: #f48771;
+        }
+        .editor-area {
+            flex: 1;
             display: flex;
-            align-items: center;
-            gap: 8px;
+            flex-direction: column;
         }
-
-        #context-menu button:hover {
-            background: #3a4a6a;
-        }
-
         #editor-container {
             flex: 1;
+            min-height: 0;
+        }
+        .preview-panel {
+            height: 240px;
+            border-top: 1px solid #3c3c3c;
+            background: #1e1e1e;
             display: flex;
             flex-direction: column;
-            background: #1e1e2f;
-            overflow: hidden;
         }
-
-        #editor-tabs {
-            background: #1a1a2a;
-            padding: 5px 10px;
+        .preview-header {
+            padding: 6px 12px;
+            background: #2d2d2d;
+            font-size: 12px;
+            color: #aaa;
             display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid #333;
-            overflow-x: auto;
-            white-space: nowrap;
+            justify-content: space-between;
         }
-
-        .tab {
-            padding: 4px 12px;
-            background: #2a2a3a;
-            border-radius: 4px 4px 0 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+        .preview-header button {
+            background: none;
+            border: none;
+            color: #0e639c;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
+            font-size: 12px;
         }
-
-        .tab.active {
-            background: #3a4a6a;
-            border-bottom-color: #aaccff;
-        }
-
-        .tab .close {
-            font-size: 0.8rem;
-            opacity: 0.5;
-        }
-
-        .tab .close:hover {
-            opacity: 1;
-        }
-
-        #ace-editor {
-            flex: 1;
-            width: 100%;
-        }
-
-        #preview-container {
-            width: 400px;
-            background: #fff;
-            border-left: 1px solid #333;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #preview-header {
-            background: #1a1a2a;
-            padding: 8px;
-            font-weight: bold;
-            color: #aaccff;
-            border-bottom: 1px solid #333;
-        }
-
         #preview-frame {
             width: 100%;
             flex: 1;
-            border: none;
             background: white;
-        }
-
-        @media (max-width: 768px) {
-            #main {
-                flex-direction: column;
-            }
-            #explorer {
-                width: 100%;
-                height: 200px;
-            }
-            #preview-container {
-                width: 100%;
-                height: 250px;
-                border-left: none;
-                border-top: 1px solid #333;
-            }
-        }
-
-        #status-bar {
-            background: #0a0a14;
-            padding: 4px 10px;
-            font-size: 0.8rem;
-            color: #aaa;
-            border-top: 1px solid #333;
+            border: none;
         }
     </style>
+    <!-- Monaco editor from CDN -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>
-    <div id="app">
-        <div id="header">
-            <h1><i class="fas fa-cube"></i> HSX Project Editor</h1>
-            <button id="run-btn"><i class="fas fa-play"></i> Run Project</button>
-            <button id="save-btn"><i class="fas fa-save"></i> Save to Browser</button>
-            <button id="new-file-btn"><i class="fas fa-file"></i> New File</button>
-            <button id="new-folder-btn"><i class="fas fa-folder"></i> New Folder</button>
+    <div class="toolbar">
+        <button id="btn-new">➕ New file</button>
+        <button id="btn-run" style="background: #2b8a3e;">▶ Run project</button>
+        <button id="btn-delete" class="danger">🗑 Delete current</button>
+        <div class="filename-edit">
+            <label for="filename-input">Filename</label>
+            <input type="text" id="filename-input" placeholder="name.hsx" value="main.hsx">
         </div>
-
-        <div id="main">
-            <!-- File Explorer -->
-            <div id="explorer">
-                <div id="explorer-header">
-                    <span><i class="fas fa-folder-open"></i> Project Files</span>
-                    <div id="explorer-actions">
-                        <button id="collapse-all"><i class="fas fa-compress-alt"></i></button>
-                        <button id="refresh-tree"><i class="fas fa-sync-alt"></i></button>
-                    </div>
+    </div>
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>EXPLORER</span>
+                <button id="btn-new-side">📄</button>
+            </div>
+            <ul id="file-list" class="file-list"></ul>
+        </div>
+        <div class="editor-area">
+            <div id="editor-container"></div>
+            <div class="preview-panel">
+                <div class="preview-header">
+                    <span>📦 preview (iframe)</span>
+                    <button id="btn-refresh-preview">↻ refresh</button>
                 </div>
-                <div id="file-tree"></div>
-            </div>
-
-            <!-- Editor -->
-            <div id="editor-container">
-                <div id="editor-tabs"></div>
-                <div id="ace-editor"></div>
-            </div>
-
-            <!-- Preview -->
-            <div id="preview-container">
-                <div id="preview-header"><i class="fas fa-eye"></i> Preview</div>
-                <iframe id="preview-frame" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+                <iframe id="preview-frame" title="HSX preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
             </div>
         </div>
-        <div id="status-bar">Ready</div>
     </div>
 
-    <!-- Context menu -->
-    <div id="context-menu"></div>
+    <script>
+        (function() {
+            // ---------- state: files array, current index ----------
+            let files = [
+                { name: 'main.hsx', content: '// Welcome to HSX 🌀\nhsx define component Hello\n<h1>Hello from HSX!</h1>\nhsx end\n\nhsx render Hello\n\n:hsx: set debug on\n:hsx: fx attach fx' }
+            ];
+            let currentIndex = 0;
 
-    <script type="module">
-        // --- Dynamically import the HSX runtime (named export) with fallback ---
-        let HSXRuntime;
-        try {
-            const module = await import('./hsx-runtime.js');
-            HSXRuntime = module.HSXRuntime; // named export
-            console.log('HSXRuntime loaded successfully');
-            document.getElementById('status-bar').innerText = 'HSX Runtime loaded';
-        } catch (e) {
-            console.error('Failed to load hsx-runtime.js:', e);
-            document.getElementById('status-bar').innerText = 'Error loading runtime';
-            // Provide a minimal dummy runtime so the editor still works (preview will fail)
-            HSXRuntime = class {
-                constructor() { console.warn('Dummy HSXRuntime'); }
-                async load() { console.warn('Dummy load'); }
-                async execute() { console.warn('Dummy execute'); }
-            };
-        }
+            // references
+            const fileListEl = document.getElementById('file-list');
+            const filenameInput = document.getElementById('filename-input');
+            const editorContainer = document.getElementById('editor-container');
+            const previewFrame = document.getElementById('preview-frame');
+            let editor = null;
 
-        // --- Custom Runtime that uses our virtual file system ---
-        class EditorHSXRuntime extends HSXRuntime {
-            constructor(fileSystem) {
-                super();
-                this.fileSystem = fileSystem; // { path: content }
-            }
+            // ---------- monaco initialization ----------
+            require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+            require(['vs/editor/editor.main'], function () {
+                editor = monaco.editor.create(editorContainer, {
+                    value: files[currentIndex].content,
+                    language: 'plaintext', // we can treat as plain, but syntax might be added later
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    fontSize: 13,
+                    minimap: { enabled: false }
+                });
 
-            async load(filePath) {
-                if (this.fileSystem[filePath]) {
-                    console.log(`Loading virtual file: ${filePath}`);
-                    await this.execute(this.fileSystem[filePath]);
-                    return;
-                }
-                return super.load(filePath);
-            }
-        }
-
-        // --- Application State ---
-        const state = {
-            files: {},
-            openFiles: [],
-            activeFile: null,
-            selectedItem: null,
-            editor: null,
-        };
-
-        // Load from localStorage or default
-        function loadProject() {
-            const saved = localStorage.getItem('hsx-project-fixed');
-            if (saved) {
-                try {
-                    state.files = JSON.parse(saved);
-                } catch (e) {
-                    console.warn('Failed to parse saved project', e);
-                    setDefaultFiles();
-                }
-            } else {
-                setDefaultFiles();
-            }
-            // Ensure at least one file is open
-            if (Object.keys(state.files).length > 0 && !state.activeFile) {
-                state.activeFile = Object.keys(state.files)[0];
-                if (!state.openFiles.includes(state.activeFile)) {
-                    state.openFiles.push(state.activeFile);
-                }
-            }
-            renderTree();
-            renderTabs();
-            openFileInEditor(state.activeFile);
-        }
-
-        function setDefaultFiles() {
-            state.files = {
-                'main.hsx': `// Welcome to HSX!
-hsx define component hello
-<h1>Hello, HSX!</h1>
-hsx end
-
-hsx render hello
-
-{js
-  console.log("Project running!");
-}`
-            };
-        }
-
-        function saveProject() {
-            localStorage.setItem('hsx-project-fixed', JSON.stringify(state.files));
-            document.getElementById('status-bar').innerText = 'Project saved';
-            setTimeout(() => { document.getElementById('status-bar').innerText = 'Ready'; }, 1500);
-        }
-
-        // --- File Tree Rendering ---
-        function renderTree() {
-            const tree = document.getElementById('file-tree');
-            const root = buildTree(state.files);
-            tree.innerHTML = renderTreeNodes(root);
-            attachTreeEvents();
-            initDragDrop(); // re-attach drag after render
-        }
-
-        function buildTree(files) {
-            const root = {};
-            for (const path in files) {
-                const parts = path.split('/');
-                let current = root;
-                for (let i = 0; i < parts.length; i++) {
-                    const part = parts[i];
-                    if (i === parts.length - 1) {
-                        current[part] = { type: 'file', path };
-                    } else {
-                        if (!current[part]) current[part] = { type: 'folder', children: {} };
-                        current = current[part].children;
+                // update model when content changes
+                editor.onDidChangeModelContent(() => {
+                    if (files[currentIndex]) {
+                        files[currentIndex].content = editor.getValue();
                     }
-                }
-            }
-            return root;
-        }
-
-        function renderTreeNodes(node, basePath = '') {
-            let html = '<ul style="list-style:none; padding-left:0;">';
-            for (const name in node) {
-                const item = node[name];
-                const fullPath = basePath ? `${basePath}/${name}` : name;
-                if (item.type === 'folder') {
-                    html += `<li class="tree-item">
-                        <div class="item-content" data-path="${fullPath}" data-type="folder">
-                            <i class="fas fa-folder"></i>
-                            <span class="name">${name}</span>
-                            <i class="fas fa-ellipsis-v menu-icon"></i>
-                        </div>
-                        ${renderTreeNodes(item.children, fullPath)}
-                    </li>`;
-                } else {
-                    html += `<li class="tree-item">
-                        <div class="item-content" data-path="${fullPath}" data-type="file">
-                            <i class="fas fa-file-code"></i>
-                            <span class="name">${name}</span>
-                            <i class="fas fa-ellipsis-v menu-icon"></i>
-                        </div>
-                    </li>`;
-                }
-            }
-            html += '</ul>';
-            return html;
-        }
-
-        function attachTreeEvents() {
-            document.querySelectorAll('#file-tree .item-content').forEach(el => {
-                // Click to select file
-                el.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('menu-icon')) return;
-                    e.stopPropagation();
-                    const path = el.dataset.path;
-                    const type = el.dataset.type;
-                    if (type === 'file') {
-                        if (!state.openFiles.includes(path)) {
-                            state.openFiles.push(path);
-                        }
-                        state.activeFile = path;
-                        renderTabs();
-                        openFileInEditor(path);
-                    }
-                    // Update selected style
-                    document.querySelectorAll('#file-tree .item-content').forEach(x => x.classList.remove('selected'));
-                    el.classList.add('selected');
                 });
 
-                // Long press for context menu (mobile)
-                let longPressTimer;
-                el.addEventListener('touchstart', (e) => {
-                    longPressTimer = setTimeout(() => {
-                        showContextMenu(e, el.dataset.path, el.dataset.type);
-                    }, 500);
-                });
-                el.addEventListener('touchend', () => clearTimeout(longPressTimer));
-                el.addEventListener('touchmove', () => clearTimeout(longPressTimer));
-                // Right click for desktop
-                el.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    showContextMenu(e, el.dataset.path, el.dataset.type);
-                });
-            });
-        }
-
-        // --- Context Menu ---
-        const menu = document.getElementById('context-menu');
-        function showContextMenu(event, path, type) {
-            event.preventDefault();
-            event.stopPropagation();
-            state.selectedItem = { path, type };
-            const x = event.touches ? event.touches[0].clientX : event.clientX;
-            const y = event.touches ? event.touches[0].clientY : event.clientY;
-            menu.style.left = x + 'px';
-            menu.style.top = y + 'px';
-            menu.style.display = 'block';
-
-            let html = '';
-            if (type === 'file') {
-                html += `<button data-action="rename"><i class="fas fa-pencil-alt"></i> Rename</button>`;
-                html += `<button data-action="delete"><i class="fas fa-trash"></i> Delete</button>`;
-                html += `<button data-action="duplicate"><i class="fas fa-copy"></i> Duplicate</button>`;
-            } else {
-                html += `<button data-action="new-file"><i class="fas fa-file"></i> New File</button>`;
-                html += `<button data-action="new-folder"><i class="fas fa-folder"></i> New Folder</button>`;
-                html += `<button data-action="rename"><i class="fas fa-pencil-alt"></i> Rename</button>`;
-                html += `<button data-action="delete"><i class="fas fa-trash"></i> Delete</button>`;
-            }
-            menu.innerHTML = html;
-
-            menu.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const action = btn.dataset.action;
-                    handleContextAction(action);
-                    menu.style.display = 'none';
-                });
+                // initial render of file list
+                renderFileList();
+                updateFilenameInput();
             });
 
-            // Hide menu on click outside
-            const hideListener = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.style.display = 'none';
-                    window.removeEventListener('click', hideListener);
-                }
-            };
-            setTimeout(() => {
-                window.addEventListener('click', hideListener);
-            }, 0);
-        }
+            // ---------- helpers ----------
+            function renderFileList() {
+                fileListEl.innerHTML = '';
+                files.forEach((file, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item' + (idx === currentIndex ? ' active' : '');
+                    li.dataset.index = idx;
 
-        function handleContextAction(action) {
-            const { path, type } = state.selectedItem;
-            if (!path) return;
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'name';
+                    nameSpan.textContent = file.name;
 
-            if (action === 'rename') {
-                const newName = prompt('Enter new name:', path.split('/').pop());
-                if (!newName) return;
-                const parent = path.substring(0, path.lastIndexOf('/') + 1);
-                const newPath = parent + newName;
-                if (state.files[newPath] && newPath !== path) {
-                    alert('File already exists');
-                    return;
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove';
+                    removeBtn.innerHTML = '✕';
+                    removeBtn.title = 'delete file';
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteFile(idx);
+                    });
+
+                    li.appendChild(nameSpan);
+                    li.appendChild(removeBtn);
+                    li.addEventListener('click', () => switchToFile(idx));
+                    fileListEl.appendChild(li);
+                });
+            }
+
+            function switchToFile(index) {
+                if (index < 0 || index >= files.length) return;
+                // save current content (already auto-saved via event, but double-check)
+                if (files[currentIndex]) {
+                    files[currentIndex].content = editor.getValue();
                 }
-                if (type === 'file') {
-                    state.files[newPath] = state.files[path];
-                    delete state.files[path];
-                    // Update open files
-                    const idx = state.openFiles.indexOf(path);
-                    if (idx !== -1) state.openFiles[idx] = newPath;
-                    if (state.activeFile === path) state.activeFile = newPath;
-                } else {
-                    // Rename folder: move all children
-                    for (const oldPath in state.files) {
-                        if (oldPath.startsWith(path + '/')) {
-                            const newChildPath = newPath + oldPath.substring(path.length);
-                            state.files[newChildPath] = state.files[oldPath];
-                            delete state.files[oldPath];
-                            const idx = state.openFiles.indexOf(oldPath);
-                            if (idx !== -1) state.openFiles[idx] = newChildPath;
-                            if (state.activeFile === oldPath) state.activeFile = newChildPath;
-                        }
-                    }
+                currentIndex = index;
+                editor.setValue(files[currentIndex].content);
+                updateFilenameInput();
+                renderFileList();
+            }
+
+            function updateFilenameInput() {
+                if (files[currentIndex]) {
+                    filenameInput.value = files[currentIndex].name;
                 }
-            } else if (action === 'delete') {
-                if (!confirm(`Delete ${path}?`)) return;
-                if (type === 'file') {
-                    delete state.files[path];
-                    const idx = state.openFiles.indexOf(path);
-                    if (idx !== -1) state.openFiles.splice(idx, 1);
-                    if (state.activeFile === path) {
-                        state.activeFile = state.openFiles[0] || null;
-                    }
-                } else {
-                    for (const oldPath in state.files) {
-                        if (oldPath.startsWith(path + '/') || oldPath === path) {
-                            delete state.files[oldPath];
-                            const idx = state.openFiles.indexOf(oldPath);
-                            if (idx !== -1) state.openFiles.splice(idx, 1);
-                            if (state.activeFile === oldPath) {
-                                state.activeFile = state.openFiles[0] || null;
-                            }
-                        }
-                    }
-                }
-            } else if (action === 'duplicate') {
-                const ext = path.includes('.') ? path.split('.').pop() : '';
-                const base = path.replace(/\.[^/.]+$/, '');
-                let newPath = base + '_copy.' + ext;
+            }
+
+            function getSafeFilename(base) {
+                let name = base;
                 let counter = 1;
-                while (state.files[newPath]) {
-                    newPath = base + `_copy${counter}.` + ext;
+                while (files.some(f => f.name === name)) {
+                    const dot = base.lastIndexOf('.');
+                    if (dot === -1) name = `${base}${counter}`;
+                    else name = `${base.slice(0, dot)}${counter}${base.slice(dot)}`;
                     counter++;
                 }
-                state.files[newPath] = state.files[path];
-                state.openFiles.push(newPath);
-                state.activeFile = newPath;
-            } else if (action === 'new-file') {
-                const name = prompt('Enter file name (e.g., script.hsx):');
-                if (!name) return;
-                const newPath = path + '/' + name;
-                if (state.files[newPath]) {
-                    alert('File already exists');
-                    return;
-                }
-                state.files[newPath] = '// New HSX file';
-                state.openFiles.push(newPath);
-                state.activeFile = newPath;
-            } else if (action === 'new-folder') {
-                const name = prompt('Enter folder name:');
-                if (!name) return;
-                const newPath = path + '/' + name;
-                if (state.files[newPath]) {
-                    alert('Item already exists');
-                    return;
-                }
-                // Folders are implicit; no content needed
+                return name;
             }
 
-            renderTree();
-            renderTabs();
-            openFileInEditor(state.activeFile);
-            saveProject();
-        }
-
-        // --- Drag & Drop with Interact.js ---
-        function initDragDrop() {
-            interact('.item-content').draggable({
-                inertia: true,
-                modifiers: [
-                    interact.modifiers.restrictRect({
-                        restriction: '#file-tree',
-                        endOnly: true
-                    })
-                ],
-                autoScroll: true,
-                listeners: {
-                    move(event) {
-                        const target = event.target;
-                        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-                        target.setAttribute('data-x', x);
-                        target.setAttribute('data-y', y);
-                    },
-                    end(event) {
-                        const dropTarget = event.interaction.dropState?.element;
-                        if (dropTarget) {
-                            const targetPath = dropTarget.dataset.path;
-                            const targetType = dropTarget.dataset.type;
-                            const draggedPath = event.target.dataset.path;
-                            const draggedType = event.target.dataset.type;
-
-                            if (targetType === 'folder' && draggedPath !== targetPath) {
-                                const newPath = targetPath + '/' + draggedPath.split('/').pop();
-                                if (draggedType === 'file') {
-                                    state.files[newPath] = state.files[draggedPath];
-                                    delete state.files[draggedPath];
-                                    // Update open files
-                                    const idx = state.openFiles.indexOf(draggedPath);
-                                    if (idx !== -1) state.openFiles[idx] = newPath;
-                                    if (state.activeFile === draggedPath) state.activeFile = newPath;
-                                } else {
-                                    // Move folder contents
-                                    for (const oldPath in state.files) {
-                                        if (oldPath.startsWith(draggedPath + '/') || oldPath === draggedPath) {
-                                            const newChildPath = newPath + oldPath.substring(draggedPath.length);
-                                            state.files[newChildPath] = state.files[oldPath];
-                                            delete state.files[oldPath];
-                                            const idx = state.openFiles.indexOf(oldPath);
-                                            if (idx !== -1) state.openFiles[idx] = newChildPath;
-                                            if (state.activeFile === oldPath) state.activeFile = newChildPath;
-                                        }
-                                    }
-                                }
-                                renderTree();
-                                renderTabs();
-                                openFileInEditor(state.activeFile);
-                                saveProject();
-                            }
-                        }
-                        // Reset transform and clear data attributes
-                        event.target.style.transform = '';
-                        event.target.removeAttribute('data-x');
-                        event.target.removeAttribute('data-y');
-                    }
-                }
-            });
-
-            interact('.item-content').dropzone({
-                accept: '.item-content',
-                overlap: 0.5,
-                ondropactivate: (event) => {
-                    event.target.classList.add('drop-active');
-                },
-                ondragenter: (event) => {
-                    event.target.classList.add('drop-target');
-                },
-                ondragleave: (event) => {
-                    event.target.classList.remove('drop-target');
-                },
-                ondrop: (event) => {
-                    event.target.classList.remove('drop-target');
-                },
-                ondropdeactivate: (event) => {
-                    event.target.classList.remove('drop-active');
-                }
-            });
-        }
-
-        // --- Editor Tabs ---
-        function renderTabs() {
-            const tabsDiv = document.getElementById('editor-tabs');
-            tabsDiv.innerHTML = '';
-            state.openFiles.forEach(path => {
-                const tab = document.createElement('span');
-                tab.className = 'tab' + (path === state.activeFile ? ' active' : '');
-                tab.dataset.path = path;
-                tab.innerHTML = `<span>${path.split('/').pop()}</span> <i class="fas fa-times close" data-path="${path}"></i>`;
-                tab.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('close')) {
-                        e.stopPropagation();
-                        const closePath = e.target.dataset.path;
-                        const idx = state.openFiles.indexOf(closePath);
-                        if (idx !== -1) state.openFiles.splice(idx, 1);
-                        if (state.activeFile === closePath) {
-                            state.activeFile = state.openFiles[0] || null;
-                        }
-                        renderTabs();
-                        openFileInEditor(state.activeFile);
-                        saveProject();
-                    } else {
-                        state.activeFile = path;
-                        renderTabs();
-                        openFileInEditor(path);
-                    }
-                });
-                tabsDiv.appendChild(tab);
-            });
-        }
-
-        // --- Ace Editor ---
-        function initEditor() {
-            state.editor = ace.edit('ace-editor');
-            state.editor.setTheme('ace/theme/monokai');
-            state.editor.session.setMode('ace/mode/text');
-            state.editor.setFontSize(14);
-            state.editor.on('change', () => {
-                if (state.activeFile) {
-                    state.files[state.activeFile] = state.editor.getValue();
-                }
-            });
-        }
-
-        function openFileInEditor(path) {
-            if (!path || !state.files[path]) return;
-            state.editor.setValue(state.files[path], -1);
-            // Update selected in tree
-            document.querySelectorAll('#file-tree .item-content').forEach(el => {
-                if (el.dataset.path === path) {
-                    el.classList.add('selected');
-                } else {
-                    el.classList.remove('selected');
-                }
-            });
-        }
-
-        // --- Run Project in iframe ---
-        async function runProject() {
-            const frame = document.getElementById('preview-frame');
-            document.getElementById('status-bar').innerText = 'Running project...';
-
-            // Try to fetch the runtime source for embedding
-            let runtimeSrc;
-            try {
-                const response = await fetch('./hsx-runtime.js');
-                runtimeSrc = await response.text();
-            } catch (e) {
-                console.warn('Could not fetch runtime source, using fallback.', e);
-                // Fallback: use a minimal HSXRuntime stub (preview may not work fully)
-                runtimeSrc = `export class HSXRuntime {
-                    constructor() {}
-                    async execute(code) { console.log(code); }
-                    async load() {}
-                }`;
+            function addFile() {
+                const baseName = 'newfile.hsx';
+                const newName = getSafeFilename(baseName);
+                files.push({ name: newName, content: '// new HSX file' });
+                switchToFile(files.length - 1);
             }
 
-            const filesJSON = JSON.stringify(state.files);
-            const mainFile = state.activeFile || 'main.hsx';
+            function deleteFile(index) {
+                if (files.length === 1) {
+                    alert('Cannot delete the only file.');
+                    return;
+                }
+                if (!confirm(`Delete "${files[index].name}"?`)) return;
+                files.splice(index, 1);
+                if (currentIndex >= index) currentIndex = Math.max(0, currentIndex - 1);
+                if (currentIndex >= files.length) currentIndex = files.length - 1;
+                editor.setValue(files[currentIndex].content);
+                renderFileList();
+                updateFilenameInput();
+            }
 
-            const html = `
-<!DOCTYPE html>
+            // rename from input field
+            filenameInput.addEventListener('change', () => {
+                if (!files[currentIndex]) return;
+                const newName = filenameInput.value.trim();
+                if (!newName) return;
+                if (newName === files[currentIndex].name) return;
+                if (files.some((f, i) => i !== currentIndex && f.name === newName)) {
+                    alert('A file with that name already exists.');
+                    filenameInput.value = files[currentIndex].name;
+                    return;
+                }
+                files[currentIndex].name = newName;
+                renderFileList();
+            });
+
+            // ---------- build preview HTML (with embedded files and runtime override) ----------
+            function generatePreviewHTML() {
+                // create a map of filename -> content for the override
+                const filesMap = {};
+                files.forEach(f => { filesMap[f.name] = f.content; });
+
+                // stringify safely
+                const filesMapJson = JSON.stringify(filesMap, null, 2);
+
+                return `<!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <style>body { background: #f5f5f5; font-family: sans-serif; padding: 20px; }</style>
-</head>
-<body>
-    <script type="module">
-        // HSX Runtime (embedded)
-        ${runtimeSrc}
+<head><meta charset="UTF-8"><title>HSX preview</title></head>
+<body style="margin:0; padding:8px; font-family:sans-serif">
+<!-- HSX output will appear here -->
 
-        // Virtual file system
-        const virtualFiles = ${filesJSON};
+<script>
+// ----- embedded HSX files (virtual) -----
+const HSX_FILES = ${filesMapJson};
 
-        // Custom runtime that uses virtual FS
-        class IframeHSXRuntime extends HSXRuntime {
-            constructor() {
-                super();
-                this.files = virtualFiles;
-            }
-            async load(filePath) {
-                if (this.files[filePath]) {
-                    await this.execute(this.files[filePath]);
-                    return;
-                }
-                return super.load(filePath);
-            }
+// Patch HSXRuntime.prototype.load to serve embedded files without fetch
+if (typeof HSXRuntime !== 'undefined') {
+    const originalLoad = HSXRuntime.prototype.load;
+    HSXRuntime.prototype.load = async function(filePath) {
+        // if filePath exists in our map, serve via loadFromText
+        if (HSX_FILES[filePath]) {
+            console.log('[HSX editor] serving embedded:', filePath);
+            return this.loadFromText(HSX_FILES[filePath]);
         }
-
-        window.onload = async () => {
-            const hsx = new IframeHSXRuntime();
-            if (hsx.files['${mainFile}']) {
-                await hsx.execute(hsx.files['${mainFile}']);
-            } else {
-                document.body.innerHTML = '<h3>No main file found</h3>';
+        // otherwise fallback to original (might fetch from server)
+        return originalLoad.call(this, filePath);
+    };
+} else {
+    console.warn('HSXRuntime not yet loaded, will patch after script load');
+    // if runtime loads later, we can patch when it exists
+    Object.defineProperty(window, 'HSXRuntime', {
+        set: function(val) {
+            delete window.HSXRuntime;
+            window.HSXRuntime = val;
+            if (val && val.prototype) {
+                const orig = val.prototype.load;
+                val.prototype.load = async function(filePath) {
+                    if (HSX_FILES[filePath]) {
+                        return this.loadFromText(HSX_FILES[filePath]);
+                    }
+                    return orig.call(this, filePath);
+                };
             }
-        };
-    <\/script>
+        },
+        configurable: true
+    });
+}
+<\/script>
+<script src="hsx-runtime.js"></script>
+<script>
+// now instantiate runtime and load all files
+(async function() {
+    const runtime = new HSXRuntime();
+    // load each file in order (you can change order if needed)
+    for (const [name, content] of Object.entries(HSX_FILES)) {
+        console.log('Loading HSX:', name);
+        await runtime.loadFromText(content);
+    }
+    console.log('✅ HSX preview ready');
+})();
+<\/script>
 </body>
 </html>`;
+            }
 
-            frame.srcdoc = html;
-            document.getElementById('status-bar').innerText = 'Project running in preview';
-        }
+            // run: write preview blob into iframe
+            function runPreview() {
+                const html = generatePreviewHTML();
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                previewFrame.src = url;
+                // clean up after a while
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            }
 
-        // --- Initialize ---
-        window.addEventListener('DOMContentLoaded', () => {
-            initEditor();
-            loadProject();
-
-            // Buttons
-            document.getElementById('run-btn').addEventListener('click', runProject);
-            document.getElementById('save-btn').addEventListener('click', saveProject);
-            document.getElementById('new-file-btn').addEventListener('click', () => {
-                const name = prompt('Enter file name (e.g., new.hsx):');
-                if (!name) return;
-                if (state.files[name]) {
-                    alert('File already exists');
-                    return;
-                }
-                state.files[name] = '// New HSX file';
-                state.openFiles.push(name);
-                state.activeFile = name;
-                renderTree();
-                renderTabs();
-                openFileInEditor(name);
-                saveProject();
+            // ---------- event listeners ----------
+            document.getElementById('btn-new').addEventListener('click', addFile);
+            document.getElementById('btn-new-side').addEventListener('click', addFile);
+            document.getElementById('btn-delete').addEventListener('click', () => {
+                deleteFile(currentIndex);
             });
-            document.getElementById('new-folder-btn').addEventListener('click', () => {
-                const name = prompt('Enter folder name:');
-                if (!name) return;
-                // Create a placeholder file to represent the folder? Not needed, folder is implicit.
-                alert('Folder created. Use context menu on folder to add files.');
+            document.getElementById('btn-run').addEventListener('click', runPreview);
+            document.getElementById('btn-refresh-preview').addEventListener('click', () => {
+                if (previewFrame.src) previewFrame.src = previewFrame.src; // reload
+                else runPreview();
             });
-            document.getElementById('collapse-all').addEventListener('click', () => {
-                renderTree(); // simple collapse by re-rendering
-            });
-            document.getElementById('refresh-tree').addEventListener('click', renderTree);
 
-            // Hide context menu on scroll/resize
-            window.addEventListener('scroll', () => { menu.style.display = 'none'; });
-            window.addEventListener('resize', () => { menu.style.display = 'none'; });
-        });
+            // sync filename changes when typing quickly (optional blur)
+            filenameInput.addEventListener('blur', () => {
+                // trigger change event manually
+                const ev = new Event('change', { bubbles: true });
+                filenameInput.dispatchEvent(ev);
+            });
+
+            // initial preview run (optional)
+            window.addEventListener('load', () => {
+                setTimeout(runPreview, 300);
+            });
+
+            // save before unload warning (optional)
+            window.addEventListener('beforeunload', (e) => {
+                // no big data loss, but we can notify
+            });
+        })();
     </script>
 </body>
 </html>
