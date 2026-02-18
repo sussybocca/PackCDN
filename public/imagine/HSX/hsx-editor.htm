@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HSX Editor · multi‑file workspace</title>
-    <!-- CodeMirror 6 core & themes (CDN, no server needed) -->
+    <!-- CodeMirror 6 core & themes (CDN) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.min.css">
     <style>
         * {
@@ -223,7 +223,7 @@
         </div>
     </div>
 
-    <!-- CodeMirror 6 dependencies (CDN, no server) -->
+    <!-- CodeMirror 6 dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/@codemirror/state@6.4.0/dist/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@codemirror/view@6.26.0/dist/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@codemirror/commands@6.5.0/dist/index.min.js"></script>
@@ -233,56 +233,20 @@
 
     <script>
         (function() {
-            // ---------- state: files array, current index ----------
+            // ---------- state ----------
             let files = [
                 { name: 'main.hsx', content: '// Welcome to HSX 🌀\nhsx define component Hello\n<h1>Hello from HSX!</h1>\nhsx end\n\nhsx render Hello\n\n:hsx: set debug on\n:hsx: fx attach fx' }
             ];
             let currentIndex = 0;
 
-            // references
+            // DOM elements
             const fileListEl = document.getElementById('file-list');
             const filenameInput = document.getElementById('filename-input');
             const editorContainer = document.getElementById('editor-container');
             const previewFrame = document.getElementById('preview-frame');
             let editorView = null;
 
-            // ---------- CodeMirror initialization (synchronous, no async) ----------
-            function initEditor(initialContent) {
-                if (editorView) editorView.destroy();
-
-                // Create basic setup with one-dark theme
-                const startState = basicSetup?.["basicSetup"] ? 
-                    basicSetup.basicSetup : 
-                    [basicSetup.default ? basicSetup.default() : []]; // fallback
-
-                // Manual configuration
-                const { EditorState } = cmState;
-                const { EditorView } = cmView;
-                const { basicSetup } = cmBasicSetup;
-                const { oneDark } = cmOneDark;
-
-                const state = EditorState.create({
-                    doc: initialContent,
-                    extensions: [
-                        basicSetup,
-                        oneDark,
-                        EditorView.updateListener.of(update => {
-                            if (update.docChanged) {
-                                if (files[currentIndex]) {
-                                    files[currentIndex].content = update.state.doc.toString();
-                                }
-                            }
-                        })
-                    ]
-                });
-
-                editorView = new EditorView({
-                    state,
-                    parent: editorContainer
-                });
-            }
-
-            // ---------- helpers ----------
+            // ---------- helper functions (defined early, so buttons always work) ----------
             function renderFileList() {
                 fileListEl.innerHTML = '';
                 files.forEach((file, idx) => {
@@ -312,14 +276,20 @@
 
             function switchToFile(index) {
                 if (index < 0 || index >= files.length) return;
-                // Save current content (editor already auto-saves via listener)
+                // Save current content if editor exists
+                if (editorView) {
+                    files[currentIndex].content = editorView.state.doc.toString();
+                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
+                    files[currentIndex].content = editorContainer.firstChild.value;
+                }
                 currentIndex = index;
+                // Update editor content
                 if (editorView) {
                     editorView.dispatch({
                         changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
                     });
-                } else {
-                    initEditor(files[currentIndex].content);
+                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
+                    editorContainer.firstChild.value = files[currentIndex].content;
                 }
                 updateFilenameInput();
                 renderFileList();
@@ -359,10 +329,13 @@
                 files.splice(index, 1);
                 if (currentIndex >= index) currentIndex = Math.max(0, currentIndex - 1);
                 if (currentIndex >= files.length) currentIndex = files.length - 1;
+                // Update editor content
                 if (editorView) {
                     editorView.dispatch({
                         changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
                     });
+                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
+                    editorContainer.firstChild.value = files[currentIndex].content;
                 }
                 renderFileList();
                 updateFilenameInput();
@@ -443,7 +416,64 @@ if (typeof HSXRuntime !== 'undefined') {
                 setTimeout(() => URL.revokeObjectURL(url), 10000);
             }
 
-            // ---------- event listeners ----------
+            // ---------- CodeMirror initialization (with fallback) ----------
+            function initEditor() {
+                // Check if CodeMirror globals are available
+                if (typeof cmState !== 'undefined' && typeof cmView !== 'undefined' && 
+                    typeof cmBasicSetup !== 'undefined' && typeof cmOneDark !== 'undefined') {
+                    try {
+                        const { EditorState } = cmState;
+                        const { EditorView } = cmView;
+                        // basicSetup is an array of extensions
+                        const basicSetupExtensions = cmBasicSetup.basicSetup || [];
+                        const oneDarkExtension = cmOneDark.oneDark;
+
+                        const state = EditorState.create({
+                            doc: files[currentIndex].content,
+                            extensions: [
+                                ...basicSetupExtensions,
+                                oneDarkExtension,
+                                EditorView.updateListener.of(update => {
+                                    if (update.docChanged) {
+                                        files[currentIndex].content = update.state.doc.toString();
+                                    }
+                                })
+                            ]
+                        });
+
+                        editorView = new EditorView({
+                            state,
+                            parent: editorContainer
+                        });
+                        console.log('CodeMirror editor initialized');
+                    } catch (e) {
+                        console.error('CodeMirror init error, using textarea fallback:', e);
+                        createFallbackTextarea();
+                    }
+                } else {
+                    console.warn('CodeMirror scripts not loaded, using textarea fallback');
+                    createFallbackTextarea();
+                }
+            }
+
+            function createFallbackTextarea() {
+                const textarea = document.createElement('textarea');
+                textarea.style.width = '100%';
+                textarea.style.height = '100%';
+                textarea.style.background = '#1e1e1e';
+                textarea.style.color = '#ccc';
+                textarea.style.border = 'none';
+                textarea.style.padding = '10px';
+                textarea.style.fontFamily = 'monospace';
+                textarea.value = files[currentIndex].content;
+                textarea.addEventListener('input', (e) => {
+                    files[currentIndex].content = e.target.value;
+                });
+                editorContainer.innerHTML = '';
+                editorContainer.appendChild(textarea);
+            }
+
+            // ---------- event listeners (attached even if editor fails) ----------
             document.getElementById('btn-new').addEventListener('click', addFile);
             document.getElementById('btn-new-side').addEventListener('click', addFile);
             document.getElementById('btn-delete').addEventListener('click', () => {
@@ -459,32 +489,11 @@ if (typeof HSXRuntime !== 'undefined') {
                 filenameInput.dispatchEvent(new Event('change', { bubbles: true }));
             });
 
-            // ---------- initialize first file and editor ----------
+            // ---------- start everything ----------
             renderFileList();
             updateFilenameInput();
-            // Wait for DOM and CodeMirror scripts to be ready
-            if (typeof cmState !== 'undefined' && typeof cmView !== 'undefined' && typeof cmBasicSetup !== 'undefined' && typeof cmOneDark !== 'undefined') {
-                initEditor(files[currentIndex].content);
-            } else {
-                // If scripts not loaded, show fallback textarea
-                console.error('CodeMirror failed to load – using fallback textarea');
-                const textarea = document.createElement('textarea');
-                textarea.style.width = '100%';
-                textarea.style.height = '100%';
-                textarea.style.background = '#1e1e1e';
-                textarea.style.color = '#ccc';
-                textarea.style.border = 'none';
-                textarea.style.padding = '10px';
-                textarea.value = files[currentIndex].content;
-                textarea.addEventListener('input', (e) => {
-                    if (files[currentIndex]) files[currentIndex].content = e.target.value;
-                });
-                editorContainer.innerHTML = '';
-                editorContainer.appendChild(textarea);
-            }
-
-            // initial preview
-            setTimeout(runPreview, 300);
+            initEditor();  // will create either CodeMirror or textarea
+            setTimeout(runPreview, 300);  // initial preview
         })();
     </script>
 </body>
