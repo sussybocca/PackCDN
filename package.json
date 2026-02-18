@@ -10,7 +10,10 @@
     "deploy": "vercel --prod",
     "build": "echo 'No build step required for static site'",
     "test": "echo \"No tests specified\" && exit 0",
-    "setup": "node scripts/setup-db.js"
+    "setup": "node scripts/setup-db.js",
+    "next-dev": "next dev",
+    "next-build": "next build",
+    "next-start": "next start"
   },
   "keywords": [
     "cdn",
@@ -59,6 +62,7 @@
     "jsonwebtoken": "^9.0.2",
     "matter-js": "^0.20.0",
     "mime-types": "^2.1.35",
+    "next": "^15.2.3",
     "nodemailer": "^6.9.7",
     "planck": "^1.1.0",
     "react": "19.2.4",
