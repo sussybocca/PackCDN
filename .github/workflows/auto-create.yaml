@@ -3,7 +3,7 @@ name: Auto‑link Imagine Files
 on:
   push:
     paths:
-      - 'public/imagine/**'          # triggers for any change inside imagine/
+      - 'public/imagine/**'
   workflow_dispatch:
 
 permissions:
@@ -24,18 +24,15 @@ jobs:
         with:
           node-version: 20
 
+      # ---- Install dependencies from JSX files ----
       - name: Install JSX dependencies
         run: |
-          # Find all JSX files and extract dependencies
           JSX_DIR="public/imagine/JSX"
           if [ -d "$JSX_DIR" ]; then
             echo "🔍 Scanning for JSX files to check dependencies..."
-            
             TEMP_DEPS_FILE=$(mktemp)
-            
             find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) | while read -r file; do
               echo "Checking $file for dependencies..."
-              
               grep -E "^import.*from|^import.*['\"]" "$file" | while read -r line; do
                 if [[ $line =~ from[[:space:]]+[\'\"]([^\./][^\'\"]*)[\'\"] ]]; then
                   pkg="${BASH_REMATCH[1]}"
@@ -48,30 +45,24 @@ jobs:
                 fi
               done
             done
-            
             if [ -s "$TEMP_DEPS_FILE" ]; then
               sort -u "$TEMP_DEPS_FILE" > "${TEMP_DEPS_FILE}_unique"
               DEPS_TO_INSTALL=$(cat "${TEMP_DEPS_FILE}_unique" | tr '\n' ' ')
-              
               if [ -n "$DEPS_TO_INSTALL" ]; then
                 echo "📦 Dependencies found: $DEPS_TO_INSTALL"
-                
                 for pkg in $DEPS_TO_INSTALL; do
                   echo "🔧 Installing $pkg..."
-                  
                   if npm list "$pkg" --depth=0 2>/dev/null | grep -q "$pkg"; then
                     echo "✅ $pkg already installed, skipping..."
                   else
                     if npm show "$pkg" version --json 2>/dev/null; then
-                      npm install --save-exact "$pkg" --no-package-lock || \
-                      npm install "$pkg" --no-package-lock
+                      npm install --save-exact "$pkg" --no-package-lock || npm install "$pkg" --no-package-lock
                     else
                       echo "⚠️ Could not find package $pkg, trying npm install anyway..."
                       npm install "$pkg" --no-package-lock || true
                     fi
                   fi
                 done
-                
                 if [ -f "package-lock.json" ]; then
                   npm install --package-lock-only
                 fi
@@ -79,31 +70,76 @@ jobs:
             else
               echo "No dependencies found in JSX files."
             fi
-            
             rm -f "$TEMP_DEPS_FILE" "${TEMP_DEPS_FILE}_unique"
           else
             echo "📁 JSX folder not found, skipping dependency installation."
           fi
 
-      - name: Install additional JSX/React dependencies
+      # ---- Install React if needed ----
+      - name: Install React dependencies
         run: |
           JSX_DIR="public/imagine/JSX"
           if [ -d "$JSX_DIR" ] && find "$JSX_DIR" -name "*.jsx" -o -name "*.tsx" | grep -q .; then
-            echo "🔄 Checking for common JSX dependencies..."
-            
             if find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \) -exec grep -l "React" {} \; | grep -q .; then
               if ! npm list react --depth=0 2>/dev/null | grep -q react; then
                 echo "📦 Installing React..."
-                npm install --save-exact react react-dom --no-package-lock || \
-                npm install react react-dom --no-package-lock
+                npm install --save-exact react react-dom --no-package-lock || npm install react react-dom --no-package-lock
               fi
             fi
-            
             if [ -f "package-lock.json" ]; then
               npm install --package-lock-only
             fi
           fi
 
+      # ---- Install esbuild for compilation ----
+      - name: Install esbuild
+        run: npm install --no-save --no-package-lock esbuild
+
+      # ---- Compile all JSX/TSX files and generate HTML wrappers ----
+      - name: Compile JSX and generate HTML
+        run: |
+          JSX_DIR="public/imagine/JSX"
+          COMPILED_DIR="public/imagine/compiled"
+          mkdir -p "$COMPILED_DIR"
+
+          if [ -d "$JSX_DIR" ]; then
+            for file in $(find "$JSX_DIR" -type f \( -name "*.jsx" -o -name "*.tsx" \)); do
+              echo "⚙️ Compiling $file..."
+              filename=$(basename "$file" .jsx)
+              filename=$(basename "$filename" .tsx)
+              outfile="$COMPILED_DIR/${filename}.js"
+
+              # Bundle with esbuild, treating React as external (provided by CDN)
+              npx esbuild "$file" --bundle --format=esm --external:react --external:react-dom --outfile="$outfile"
+
+              # Generate a simple HTML file that loads React and the compiled script
+              htmlfile="$COMPILED_DIR/${filename}.html"
+              cat > "$htmlfile" <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${filename}</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import App from './${filename}.js';
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.createElement(App);
+  </script>
+</body>
+</html>
+EOF
+              echo "✅ Generated $htmlfile"
+            done
+          else
+            echo "No JSX folder, skipping compilation."
+          fi
+
+      # ---- Update selector.html with new imagine files (HTML and compiled HTML) ----
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
         env:
@@ -117,20 +153,15 @@ jobs:
               const execAsync = util.promisify(require('child_process').exec);
 
               const workspace = process.env.GITHUB_WORKSPACE;
-              console.log('Workspace:', workspace);
               const nodeModulesPath = path.join(workspace, 'node_modules');
-              console.log('Node modules path:', nodeModulesPath);
 
               // Ensure node-html-parser is installed
               try {
                 require.resolve('node-html-parser', { paths: [nodeModulesPath] });
-                console.log('node-html-parser is already installed.');
               } catch (e) {
                 console.log('node-html-parser not found, installing now...');
                 await execAsync('npm install --no-save --no-package-lock node-html-parser', { cwd: workspace });
-                console.log('Installation complete.');
               }
-
               const { parse } = require('node-html-parser');
 
               const selectorPath = 'public/selector.html';
@@ -139,6 +170,7 @@ jobs:
               const selectorHtml = fs.readFileSync(selectorPath, 'utf8');
               const root = parse(selectorHtml);
 
+              // Find cardsData script
               const scripts = root.querySelectorAll('script');
               let cardsDataScript = null;
               for (const script of scripts) {
@@ -168,16 +200,16 @@ jobs:
                 return;
               }
 
-              function getAllFiles(dir, baseDir = dir) {
+              // Gather all HTML files (including the newly generated ones in compiled/)
+              function getAllHtmlFiles(dir, baseDir = dir) {
                 let results = [];
                 const list = fs.readdirSync(dir);
                 for (const item of list) {
                   const fullPath = path.join(dir, item);
                   const stat = fs.statSync(fullPath);
                   if (stat.isDirectory()) {
-                    results = results.concat(getAllFiles(fullPath, baseDir));
-                  } else if (item.endsWith('.html') || item.endsWith('.htm') || 
-                            item.endsWith('.jsx') || item.endsWith('.tsx')) {
+                    results = results.concat(getAllHtmlFiles(fullPath, baseDir));
+                  } else if (item.endsWith('.html')) {
                     const relativePath = path.relative(baseDir, fullPath);
                     results.push({ fullPath, relativePath });
                   }
@@ -190,106 +222,41 @@ jobs:
                 return;
               }
 
-              const files = getAllFiles(imagineDir);
+              const files = getAllHtmlFiles(imagineDir);
               if (files.length === 0) {
-                console.log('No files found in imagine/ – nothing to do.');
+                console.log('No HTML files found in imagine/ – nothing to do.');
                 return;
               }
 
+              // Helper: extract title from HTML
               function extractTitle(filePath) {
                 try {
                   const content = fs.readFileSync(filePath, 'utf8');
-                  
-                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                    const componentMatch = content.match(/export\s+(default\s+)?function\s+(\w+)|const\s+(\w+)\s*=\s*\(?/);
-                    if (componentMatch) {
-                      return componentMatch[2] || componentMatch[3] || 'React Component';
-                    }
-                    
-                    const commentMatch = content.match(/\/\/\s*@title\s*(.+)|<!--\s*title:\s*(.+)\s*-->/);
-                    if (commentMatch) {
-                      return (commentMatch[1] || commentMatch[2]).trim();
-                    }
-                  } else {
-                    const doc = parse(content);
-                    const titleTag = doc.querySelector('title');
-                    return titleTag ? titleTag.text.trim() : null;
-                  }
+                  const doc = parse(content);
+                  const titleTag = doc.querySelector('title');
+                  return titleTag ? titleTag.text.trim() : null;
                 } catch {
                   return null;
                 }
-                return null;
               }
 
+              // Helper: extract description
               function extractDescription(filePath) {
                 try {
                   const content = fs.readFileSync(filePath, 'utf8');
-                  
-                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                    const descMatch = content.match(/\/\/\s*@description\s*(.+)|<!--\s*description:\s*(.+)\s*-->/);
-                    if (descMatch) {
-                      return (descMatch[1] || descMatch[2]).trim();
-                    }
-                    return 'Interactive React component.';
-                  } else {
-                    const doc = parse(content);
-                    const metaDesc = doc.querySelector('meta[name="description"]');
-                    if (metaDesc) {
-                      return metaDesc.getAttribute('content') || '';
-                    }
-                    const firstP = doc.querySelector('p');
-                    if (firstP) {
-                      return firstP.text.trim().substring(0, 150) + '…';
-                    }
-                  }
+                  const doc = parse(content);
+                  const metaDesc = doc.querySelector('meta[name="description"]');
+                  if (metaDesc) return metaDesc.getAttribute('content') || '';
+                  const firstP = doc.querySelector('p');
+                  if (firstP) return firstP.text.trim().substring(0, 150) + '…';
                 } catch {}
                 return 'Explore this immersive experience.';
               }
 
+              // Helper: extract category (default 'demos', but for compiled files we may set a different one)
               function extractCategory(filePath) {
-                try {
-                  const content = fs.readFileSync(filePath, 'utf8');
-                  
-                  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                    const catMatch = content.match(/\/\/\s*@category\s*(.+)|<!--\s*category:\s*(.+)\s*-->/);
-                    if (catMatch) {
-                      return (catMatch[1] || catMatch[2]).trim();
-                    }
-                    return 'jsx';
-                  } else {
-                    const doc = parse(content);
-                    const metaCat = doc.querySelector('meta[name="category"]');
-                    if (metaCat) {
-                      return metaCat.getAttribute('content') || 'demos';
-                    }
-                  }
-                } catch {}
-                return filePath.endsWith('.jsx') || filePath.endsWith('.tsx') ? 'jsx' : 'demos';
-              }
-
-              function extractIcon(filePath) {
-                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                  return '⚛️';
-                }
-                return '📄';
-              }
-
-              function extractFeatures(filePath) {
-                const features = [];
-                
-                if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx')) {
-                  features.push('React component');
-                  features.push('Interactive UI');
-                  if (filePath.endsWith('.tsx')) {
-                    features.push('TypeScript');
-                  }
-                } else {
-                  features.push('Immersive experience');
-                  features.push('New dimension');
-                  features.push('Interactive content');
-                }
-                
-                return features;
+                if (filePath.includes('/compiled/')) return 'jsx-demo';
+                return 'demos';
               }
 
               function cardExists(link) {
@@ -309,17 +276,19 @@ jobs:
                   ' ' + path.extname(relativePath).substring(1).toUpperCase();
                 const description = extractDescription(fullPath);
                 const category = extractCategory(fullPath);
-                const icon = extractIcon(fullPath);
-                const features = extractFeatures(fullPath);
+                const icon = category === 'jsx-demo' ? '⚛️' : '📄';
 
                 const newCard = {
                   icon: icon,
                   title: title,
                   description: description,
-                  features: features,
+                  features: [
+                    'Immersive experience',
+                    'Interactive content'
+                  ],
                   link: link,
                   category: category,
-                  highlight: category === 'jsx'
+                  highlight: category === 'jsx-demo'
                 };
 
                 cardsData.push(newCard);
@@ -341,24 +310,21 @@ jobs:
               );
 
               cardsDataScript.textContent = updatedScriptContent;
-
               fs.writeFileSync(selectorPath, root.toString());
               console.log('✅ selector.html updated successfully.');
-            })().catch(err => {
-              core.setFailed(err.message);
-            });
+            })().catch(err => core.setFailed(err.message));
 
+      # ---- Commit changes ----
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
           git add public/selector.html
+          git add public/imagine/compiled
           git add package.json
           git add package-lock.json 2>/dev/null || true
-          
           if ! git diff --staged --quiet; then
-            git commit -m "Auto‑update: add imagine files and JSX dependencies [skip ci]"
+            git commit -m "Auto‑update: compile JSX and add cards [skip ci]"
             git push
           else
             echo "No changes to commit; skipping."
