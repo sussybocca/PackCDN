@@ -1,0 +1,482 @@
+[
+  {
+    "icon": "📄",
+    "title": "2048",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/2048.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "8ballclassic",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/8ballclassic.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "CDN Game Editor & Explore",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/CDN.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "PackCDN · CDN Pack Maker",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/CDN_InstantCreator/PACK_QRCODE.htm",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "PackCDN · Pack Details",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/CDN_InstantCreator/pack-info.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "capybaraclicker",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/CapyBaraClicker/capybaraclicker.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "FOX · apex predator",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/Fox/Custom/Fox.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "PARCORE · maze rush · fly & upgrade",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/ParCoreSim.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Pack Popup Creator · Manifest Generator",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/PopUpManger/Popup-creator.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "ROAD CHASE · just run them down",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/RoadChase.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "run",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/Run/Runner/run.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "🚀 SPACE SHOOTERS · upgrade & blast",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/SpaceShooters.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "◀ SPACE SHOOTERS ▶ · ANALOG HORROR · CRT-3000",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/SpaceShooters2/index.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "SpaceShooters – Menu",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/SpaceShooters2/main.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "SPACESHOOTERS · ARCADE MENU",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/SpaceShooters2/menu.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "SpaceShooters – Options",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/SpaceShooters2/options.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "crossyroad",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/TinyFishing/Games/ETC/crossyroad.htm",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "ducklife",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/TinyFishing/Games/ETC/ducklife.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "tinyfishing",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/TinyFishing/Games/ETC/tinyfishing.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "ageofwar",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/ageofwar.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "amongus",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/amongus.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "angrybirds",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/angrybirds.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "basketbros",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/basketbros.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "bitlife",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/bitlife.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "bloonsTD",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/bloonsTD.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "brick breaker",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/brick-breaker.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "cookieclicker",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/cookieclicker.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "PackCDN · PURE THREE.JS GAME · CONTROLS WORK",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/deepseek_html_20260216_42dccb.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Flappy Bird",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/flappybird.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "fnaf",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/fnaf.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Ghost Clicker 3D - Immersive Spectral Hunting",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/ghost.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "JavaMods",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/index (1).html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Subway Surfers",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/index (2).html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "장기",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/janggi.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "일정관리",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/kanban.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "maze",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/maze.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Gomoku",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/omok.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "stack",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/stack.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "Tetris",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/tetris.html",
+    "category": "demos",
+    "highlight": false
+  },
+  {
+    "icon": "📄",
+    "title": "zombierush",
+    "description": "Explore this immersive experience.",
+    "features": [
+      "Immersive experience",
+      "Interactive content"
+    ],
+    "link": "imagine/zombierush.html",
+    "category": "demos",
+    "highlight": false
+  }
+]
