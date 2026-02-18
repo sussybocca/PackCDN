@@ -2,7 +2,7 @@
   "name": "packcdn",
   "version": "1.0.0",
   "type": "module",
-  "description": "Custom package CDN system for publishing and sharing npm, Python, and WebAssembly packages with automatic CDN generation, now with game publishing support",
+  "description": "Custom package CDN system for publishing and sharing npm, Python, and WebAssembly packages with automatic CDN generation, now with game publishing support, multiplayer framework, and self-hosted CDN capabilities",
   "main": "selector.html",
   "scripts": {
     "dev": "vercel dev",
@@ -24,11 +24,20 @@
     "monaco-editor",
     "secure-login",
     "anonymous-auth",
-    "game-publishing"
+    "game-publishing",
+    "multiplayer",
+    "colyseus",
+    "shoehive",
+    "lance-gg",
+    "real-time",
+    "websocket",
+    "unity",
+    "self-hosted"
   ],
   "author": "PackCDN Team",
   "license": "MIT",
   "dependencies": {
+    "@colyseus/ws-transport": "^0.15.0",
     "@supabase/supabase-js": "^2.39.0",
     "@vercel/edge-config": "^1.1.0",
     "@vercel/node": "^2.15.3",
@@ -36,6 +45,8 @@
     "@wasmer/wasi": "^1.2.2",
     "@wasmer/wasm-transformer": "^0.12.0",
     "bcryptjs": "^2.4.3",
+    "cmbn": "^1.0.0",
+    "colyseus": "^0.15.0",
     "cookie": "^0.5.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
@@ -45,7 +56,9 @@
     "formidable": "^3.5.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "lance-gg": "^2.0.0",
     "nodemailer": "^6.9.7",
+    "shoehive": "^1.0.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
