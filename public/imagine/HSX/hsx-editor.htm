@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HSX Editor · multi‑file workspace</title>
-    <!-- CodeMirror 6 core & themes (CDN) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.min.css">
+    <title>HSX Editor · simple & reliable</title>
     <style>
         * {
             margin: 0;
@@ -158,10 +156,18 @@
             flex: 1;
             min-height: 0;
             background: #1e1e1e;
-            overflow: hidden;
         }
-        .cm-editor {
+        #hsx-editor {
+            width: 100%;
             height: 100%;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
         }
         .preview-panel {
             height: 240px;
@@ -212,7 +218,9 @@
             <ul id="file-list" class="file-list"></ul>
         </div>
         <div class="editor-area">
-            <div id="editor-container"></div>
+            <div id="editor-container">
+                <textarea id="hsx-editor"></textarea>
+            </div>
             <div class="preview-panel">
                 <div class="preview-header">
                     <span>📦 preview (iframe)</span>
@@ -222,14 +230,6 @@
             </div>
         </div>
     </div>
-
-    <!-- CodeMirror 6 dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/state@6.4.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/view@6.26.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/commands@6.5.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/language@6.10.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/basic-setup@0.20.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.2/dist/index.min.js"></script>
 
     <script>
         (function() {
@@ -242,11 +242,10 @@
             // DOM elements
             const fileListEl = document.getElementById('file-list');
             const filenameInput = document.getElementById('filename-input');
-            const editorContainer = document.getElementById('editor-container');
+            const editor = document.getElementById('hsx-editor');
             const previewFrame = document.getElementById('preview-frame');
-            let editorView = null;
 
-            // ---------- helper functions (defined early, so buttons always work) ----------
+            // ---------- helper functions ----------
             function renderFileList() {
                 fileListEl.innerHTML = '';
                 files.forEach((file, idx) => {
@@ -276,29 +275,16 @@
 
             function switchToFile(index) {
                 if (index < 0 || index >= files.length) return;
-                // Save current content if editor exists
-                if (editorView) {
-                    files[currentIndex].content = editorView.state.doc.toString();
-                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
-                    files[currentIndex].content = editorContainer.firstChild.value;
-                }
+                // Save current content
+                files[currentIndex].content = editor.value;
                 currentIndex = index;
-                // Update editor content
-                if (editorView) {
-                    editorView.dispatch({
-                        changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
-                    });
-                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
-                    editorContainer.firstChild.value = files[currentIndex].content;
-                }
+                editor.value = files[currentIndex].content;
                 updateFilenameInput();
                 renderFileList();
             }
 
             function updateFilenameInput() {
-                if (files[currentIndex]) {
-                    filenameInput.value = files[currentIndex].name;
-                }
+                filenameInput.value = files[currentIndex].name;
             }
 
             function getSafeFilename(base) {
@@ -329,21 +315,13 @@
                 files.splice(index, 1);
                 if (currentIndex >= index) currentIndex = Math.max(0, currentIndex - 1);
                 if (currentIndex >= files.length) currentIndex = files.length - 1;
-                // Update editor content
-                if (editorView) {
-                    editorView.dispatch({
-                        changes: { from: 0, to: editorView.state.doc.length, insert: files[currentIndex].content }
-                    });
-                } else if (editorContainer.firstChild && editorContainer.firstChild.tagName === 'TEXTAREA') {
-                    editorContainer.firstChild.value = files[currentIndex].content;
-                }
+                editor.value = files[currentIndex].content;
                 renderFileList();
                 updateFilenameInput();
             }
 
             // rename from input field
             filenameInput.addEventListener('change', () => {
-                if (!files[currentIndex]) return;
                 const newName = filenameInput.value.trim();
                 if (!newName) return;
                 if (newName === files[currentIndex].name) return;
@@ -354,6 +332,11 @@
                 }
                 files[currentIndex].name = newName;
                 renderFileList();
+            });
+
+            // auto-save editor changes
+            editor.addEventListener('input', () => {
+                files[currentIndex].content = editor.value;
             });
 
             // ---------- build preview HTML ----------
@@ -416,64 +399,7 @@ if (typeof HSXRuntime !== 'undefined') {
                 setTimeout(() => URL.revokeObjectURL(url), 10000);
             }
 
-            // ---------- CodeMirror initialization (with fallback) ----------
-            function initEditor() {
-                // Check if CodeMirror globals are available
-                if (typeof cmState !== 'undefined' && typeof cmView !== 'undefined' && 
-                    typeof cmBasicSetup !== 'undefined' && typeof cmOneDark !== 'undefined') {
-                    try {
-                        const { EditorState } = cmState;
-                        const { EditorView } = cmView;
-                        // basicSetup is an array of extensions
-                        const basicSetupExtensions = cmBasicSetup.basicSetup || [];
-                        const oneDarkExtension = cmOneDark.oneDark;
-
-                        const state = EditorState.create({
-                            doc: files[currentIndex].content,
-                            extensions: [
-                                ...basicSetupExtensions,
-                                oneDarkExtension,
-                                EditorView.updateListener.of(update => {
-                                    if (update.docChanged) {
-                                        files[currentIndex].content = update.state.doc.toString();
-                                    }
-                                })
-                            ]
-                        });
-
-                        editorView = new EditorView({
-                            state,
-                            parent: editorContainer
-                        });
-                        console.log('CodeMirror editor initialized');
-                    } catch (e) {
-                        console.error('CodeMirror init error, using textarea fallback:', e);
-                        createFallbackTextarea();
-                    }
-                } else {
-                    console.warn('CodeMirror scripts not loaded, using textarea fallback');
-                    createFallbackTextarea();
-                }
-            }
-
-            function createFallbackTextarea() {
-                const textarea = document.createElement('textarea');
-                textarea.style.width = '100%';
-                textarea.style.height = '100%';
-                textarea.style.background = '#1e1e1e';
-                textarea.style.color = '#ccc';
-                textarea.style.border = 'none';
-                textarea.style.padding = '10px';
-                textarea.style.fontFamily = 'monospace';
-                textarea.value = files[currentIndex].content;
-                textarea.addEventListener('input', (e) => {
-                    files[currentIndex].content = e.target.value;
-                });
-                editorContainer.innerHTML = '';
-                editorContainer.appendChild(textarea);
-            }
-
-            // ---------- event listeners (attached even if editor fails) ----------
+            // ---------- event listeners ----------
             document.getElementById('btn-new').addEventListener('click', addFile);
             document.getElementById('btn-new-side').addEventListener('click', addFile);
             document.getElementById('btn-delete').addEventListener('click', () => {
@@ -489,10 +415,10 @@ if (typeof HSXRuntime !== 'undefined') {
                 filenameInput.dispatchEvent(new Event('change', { bubbles: true }));
             });
 
-            // ---------- start everything ----------
+            // ---------- initialize ----------
             renderFileList();
             updateFilenameInput();
-            initEditor();  // will create either CodeMirror or textarea
+            editor.value = files[currentIndex].content;
             setTimeout(runPreview, 300);  // initial preview
         })();
     </script>
