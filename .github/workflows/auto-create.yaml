@@ -124,6 +124,8 @@ jobs:
 
       - name: Update selector.html with new imagine files
         uses: actions/github-script@v7
+        env:
+          NODE_PATH: ${{ github.workspace }}/node_modules   # 👈 Added to fix module resolution
         with:
           script: |
             const fs = require('fs');
