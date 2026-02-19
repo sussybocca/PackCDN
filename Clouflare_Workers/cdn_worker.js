@@ -5,6 +5,9 @@
 // EMBEDDED: /api/embed-website and /api/run endpoints locally
 // REBRANDED: All user-facing "packages" → "packs"
 
+// Import the other worker (assuming it's in the same folder named worker.js)
+import otherWorker from './worker.js';
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -44,6 +47,15 @@ export default {
     
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: securityHeaders });
+    }
+    
+    // Check if we should use the imported worker
+    const activeWorker = getActiveWorker(request);
+    if (activeWorker === 'other' && otherWorker && typeof otherWorker.fetch === 'function') {
+      // Skip the selector UI paths to avoid loops
+      if (!url.pathname.startsWith('/select-worker') && !url.pathname.startsWith('/use-other-worker')) {
+        return handleUseOtherWorker(request, [], hostname, url, clientIp, userAgent, env);
+      }
     }
     
     // Ultimate routing
@@ -133,6 +145,9 @@ export default {
         '^/robots.txt$': handleRobots,
         '^/sitemap.xml$': handleSitemap,
         '^/$': handleHome,
+        // Worker selector routes
+        '^/select-worker$': handleWorkerSelector,
+        '^/use-other-worker$': handleUseOtherWorker,
       };
       
       let matched = false;
@@ -3508,3 +3523,355 @@ async function isMaliciousRequest(request, url, clientIp) {
   
   return false;
 }
+
+// ============================================================================
+// 🔄 WORKER SELECTOR - Toggle between main worker and imported worker
+// ============================================================================
+
+// Handler for the worker selector UI
+async function handleWorkerSelector(request, match, hostname, url, clientIp, userAgent, env) {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Worker Selector - PackCDN</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --bg: #0f172a;
+      --surface: rgba(30, 41, 59, 0.8);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    .selector-container {
+      max-width: 600px;
+      width: 100%;
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      padding: 2rem;
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    
+    h1 {
+      color: var(--primary);
+      margin-top: 0;
+      text-align: center;
+      font-size: 2rem;
+    }
+    
+    .worker-option {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 24px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .worker-option:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 20px -10px var(--primary);
+    }
+    
+    .worker-option.selected {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .worker-icon {
+      font-size: 2.5rem;
+      min-width: 60px;
+      text-align: center;
+    }
+    
+    .worker-info {
+      flex: 1;
+    }
+    
+    .worker-name {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    
+    .worker-desc {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    
+    .worker-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 40px;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      justify-content: center;
+    }
+    
+    .btn {
+      padding: 1rem 2rem;
+      border-radius: 40px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 10px 20px -10px var(--primary);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 25px -10px var(--primary);
+    }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+      transform: translateY(-2px);
+    }
+    
+    .status-bar {
+      background: rgba(0,0,0,0.3);
+      padding: 1rem;
+      border-radius: 16px;
+      margin: 1rem 0;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .active-worker {
+      color: #10b981;
+      font-weight: bold;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="selector-container">
+    <h1>🔄 Worker Selector</h1>
+    
+    <div class="status-bar">
+      <span>Current Active Worker: <span id="active-worker-display" class="active-worker">Main Worker</span></span>
+    </div>
+    
+    <div class="worker-option" onclick="selectWorker('main')" id="option-main">
+      <div class="worker-icon">🚀</div>
+      <div class="worker-info">
+        <div class="worker-name">Main Worker</div>
+        <div class="worker-desc">PackCDN Ultimate v8.0 - Full CDN with 300+ error codes, 70+ endpoints, immersive UI</div>
+        <div class="worker-badge">Current: PackCDN</div>
+      </div>
+    </div>
+    
+    <div class="worker-option" onclick="selectWorker('other')" id="option-other">
+      <div class="worker-icon">⚡</div>
+      <div class="worker-info">
+        <div class="worker-name">Imported Worker</div>
+        <div class="worker-desc">./worker.js - External worker imported from same folder</div>
+        <div class="worker-badge">${otherWorker ? '✓ Loaded' : '⚠️ Not Found'}</div>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button class="btn btn-primary" onclick="switchToSelected()">🔀 Switch to Selected Worker</button>
+      <button class="btn btn-secondary" onclick="window.location.href='/'">🏠 Return Home</button>
+    </div>
+    
+    <div class="footer">
+      <p>Selected worker will be used for all future requests until changed</p>
+      <p>Worker Status: ${otherWorker ? '✅ Imported worker loaded successfully' : '❌ Imported worker not available'}</p>
+    </div>
+  </div>
+  
+  <script>
+    let selectedWorker = localStorage.getItem('selectedWorker') || 'main';
+    
+    function updateSelection() {
+      document.getElementById('option-main').classList.remove('selected');
+      document.getElementById('option-other').classList.remove('selected');
+      document.getElementById('option-' + selectedWorker).classList.add('selected');
+      document.getElementById('active-worker-display').textContent = 
+        selectedWorker === 'main' ? 'Main Worker' : 'Imported Worker';
+    }
+    
+    function selectWorker(worker) {
+      selectedWorker = worker;
+      updateSelection();
+    }
+    
+    function switchToSelected() {
+      localStorage.setItem('selectedWorker', selectedWorker);
+      // Set a cookie that the worker can read
+      document.cookie = "selectedWorker=" + selectedWorker + "; path=/; max-age=86400";
+      
+      // Show confirmation
+      alert('Switched to ' + (selectedWorker === 'main' ? 'Main Worker' : 'Imported Worker') + '!');
+      
+      // Redirect to home to see the effect
+      window.location.href = '/';
+    }
+    
+    // Initialize selection from localStorage
+    (function() {
+      const saved = localStorage.getItem('selectedWorker');
+      if (saved) {
+        selectedWorker = saved;
+      }
+      updateSelection();
+    })();
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+      'Cache-Control': 'no-cache'
+    }
+  });
+}
+
+// Handler to explicitly use the other worker
+async function handleUseOtherWorker(request, match, hostname, url, clientIp, userAgent, env) {
+  // Check if the other worker exists
+  if (!otherWorker || typeof otherWorker.fetch !== 'function') {
+    return createImmersiveError(
+      'E500-005',
+      'Imported worker not available or invalid',
+      {
+        details: 'The worker at ./worker.js could not be loaded or does not export a fetch function',
+        suggestions: [
+          'Check that worker.js exists in the same folder',
+          'Ensure worker.js exports a default fetch handler',
+          'Verify the import path is correct'
+        ]
+      },
+      hostname,
+      request
+    );
+  }
+  
+  try {
+    // Forward the request to the imported worker
+    console.log('[Worker Selector] Forwarding request to imported worker:', request.url);
+    
+    // Create a new request with the original details
+    const forwardedRequest = new Request(request, {
+      headers: {
+        ...Object.fromEntries(request.headers),
+        'X-Original-Worker': 'main-worker',
+        'X-Forwarded-By': 'worker-selector'
+      }
+    });
+    
+    // Call the imported worker's fetch handler
+    const response = await otherWorker.fetch(forwardedRequest, env);
+    
+    // Add headers to indicate which worker handled it
+    const responseHeaders = new Headers(response.headers);
+    responseHeaders.set('X-Worker-Handler', 'imported-worker');
+    responseHeaders.set('X-Worker-Selector', 'active');
+    
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders
+    });
+    
+  } catch (error) {
+    console.error('[Worker Selector] Error forwarding to imported worker:', error);
+    
+    return createImmersiveError(
+      'E502-003',
+      'Failed to forward request to imported worker',
+      {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        suggestions: [
+          'Check if the imported worker is functioning correctly',
+          'Verify the worker.js file is valid',
+          'Try switching back to main worker at /select-worker'
+        ]
+      },
+      hostname,
+      request
+    );
+  }
+}
+
+// Helper function to check which worker should handle the request
+export function getActiveWorker(request) {
+  // Check cookie first
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const cookieMatch = cookieHeader.match(/selectedWorker=([^;]+)/);
+  
+  if (cookieMatch && cookieMatch[1] === 'other') {
+    return 'other';
+  }
+  
+  // Check query parameter
+  const url = new URL(request.url);
+  const workerParam = url.searchParams.get('worker');
+  if (workerParam === 'other') {
+    return 'other';
+  }
+  
+  // Check header
+  const workerHeader = request.headers.get('X-Use-Worker');
+  if (workerHeader === 'other') {
+    return 'other';
+  }
+  
+  // Default to main
+  return 'main';
+}
+
+export { handleWorkerSelector, handleUseOtherWorker, getActiveWorker };
