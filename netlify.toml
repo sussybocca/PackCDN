@@ -1,0 +1,12 @@
+# Base directory – where commands run and publish/functions are relative to
+# If you leave it empty, the repository root is used.
+base = ""
+
+# Build settings – override the UI command that's causing the Hugo error
+[build]
+  command = "echo 'No build step needed'"   # Replace with your actual build command if needed
+  publish = "NETLIFY"                       # Only files inside NETLIFY/ will be deployed as static assets
+
+# Functions directory – point to your netlify/functions folder (lowercase)
+[functions]
+  directory = "netlify/functions"
