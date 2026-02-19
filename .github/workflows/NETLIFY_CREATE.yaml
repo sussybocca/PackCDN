@@ -3,9 +3,9 @@ name: Update NETLIFY index
 on:
   push:
     paths:
-      - 'NETLIFY/**/*.html'   # triggers when any HTML file inside NETLIFY changes (add, modify, delete)
+      - 'NETLIFY/**/*.html'   # triggers on add/modify/delete of HTML files inside NETLIFY
     branches:
-      - main                  # change if your default branch is different
+      - main                  # adjust if your default branch is different
 
 permissions:
   contents: write             # needed to commit back the updated index.html
@@ -17,33 +17,154 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate index.html
+      - name: Generate stylish index.html
         run: |
-          # Create the NETLIFY folder if it doesn't exist
           mkdir -p NETLIFY
 
-          # Start building the HTML file
+          # Start building the HTML file with embedded CSS
           cat > NETLIFY/index.html << 'EOF'
           <!DOCTYPE html>
-          <html>
+          <html lang="en">
           <head>
-            <title>NETLIFY HTML Index</title>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>📁 NETLIFY HTML Index</title>
+            <style>
+              body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: #f4f7fb;
+                margin: 0;
+                padding: 2rem;
+                display: flex;
+                justify-content: center;
+              }
+              .container {
+                max-width: 900px;
+                width: 100%;
+                background: white;
+                border-radius: 24px;
+                box-shadow: 0 20px 40px -10px rgba(0,20,30,0.2);
+                padding: 2rem;
+              }
+              h1 {
+                font-size: 2.2rem;
+                color: #1e2b3c;
+                margin-top: 0;
+                margin-bottom: 0.5rem;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              }
+              h1 span {
+                background: #e1e9f0;
+                font-size: 1rem;
+                padding: 0.2rem 0.8rem;
+                border-radius: 30px;
+                color: #2c3e50;
+              }
+              .file-count {
+                color: #5f6b7a;
+                margin-bottom: 2rem;
+                font-weight: 400;
+                border-bottom: 2px solid #eef2f6;
+                padding-bottom: 0.8rem;
+              }
+              .file-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 1rem;
+              }
+              .file-card {
+                background: #f9fcff;
+                border: 1px solid #dde5ed;
+                border-radius: 16px;
+                padding: 1rem 1.2rem;
+                transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+                text-decoration: none;
+                color: #1e2b3c;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              }
+              .file-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 12px 20px -10px rgba(0,80,100,0.25);
+                border-color: #0099cc;
+                background: #ffffff;
+              }
+              .file-icon {
+                font-size: 1.8rem;
+                line-height: 1;
+              }
+              .file-info {
+                flex: 1;
+                overflow: hidden;
+              }
+              .file-name {
+                font-weight: 600;
+                font-size: 1.1rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              .file-path {
+                font-size: 0.8rem;
+                color: #5f6b7a;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              .no-files {
+                text-align: center;
+                padding: 3rem;
+                background: #f1f5f9;
+                border-radius: 20px;
+                color: #5f6b7a;
+                font-style: italic;
+              }
+              footer {
+                margin-top: 2.5rem;
+                text-align: center;
+                color: #7a8898;
+                font-size: 0.85rem;
+              }
+            </style>
           </head>
           <body>
-            <h1>HTML Files in NETLIFY</h1>
-            <ul>
+            <div class="container">
+              <h1>
+                📄 HTML Files in <code>NETLIFY</code>
+                <span>auto‑index</span>
+              </h1>
+              <div class="file-count">
           EOF
 
-          # Find all .html files inside NETLIFY (excluding index.html itself)
-          # Sort them alphabetically and generate list items
+          # Count files (excluding index.html)
+          count=$(find NETLIFY -type f -name "*.html" ! -name "index.html" | wc -l)
+          echo "                <span>📌 $count file(s) found</span>" >> NETLIFY/index.html
+          echo "              </div>" >> NETLIFY/index.html
+          echo "              <div class=\"file-grid\">" >> NETLIFY/index.html
+
+          # Find all .html files, sort, and generate cards
           find NETLIFY -type f -name "*.html" ! -name "index.html" -printf '%P\0' | sort -z | while IFS= read -r -d '' file; do
-            echo "              <li><a href=\"$file\">$file</a></li>" >> NETLIFY/index.html
+            # Use first letter as icon emoji (simple, could be improved)
+            icon="📄"
+            echo "                <a href=\"$file\" class=\"file-card\">" >> NETLIFY/index.html
+            echo "                  <span class=\"file-icon\">$icon</span>" >> NETLIFY/index.html
+            echo "                  <div class=\"file-info\">" >> NETLIFY/index.html
+            echo "                    <div class=\"file-name\">$(basename "$file")</div>" >> NETLIFY/index.html
+            echo "                    <div class=\"file-path\">$(dirname "$file" | sed 's/^\.$/NETLIFY/')</div>" >> NETLIFY/index.html
+            echo "                  </div>" >> NETLIFY/index.html
+            echo "                </a>" >> NETLIFY/index.html
           done
 
-          # Close the HTML tags
+          # Close tags
           cat >> NETLIFY/index.html << 'EOF'
-            </ul>
+              </div>
+              <footer>
+                ⚡ Automatically updated on every push — last build: $(date -u +"%Y-%m-%d %H:%M UTC")
+              </footer>
+            </div>
           </body>
           </html>
           EOF
