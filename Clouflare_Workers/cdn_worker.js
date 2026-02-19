@@ -3848,7 +3848,7 @@ async function handleUseOtherWorker(request, match, hostname, url, clientIp, use
 }
 
 // Helper function to check which worker should handle the request
-export function getActiveWorker(request) {
+function getActiveWorker(request) {
   // Check cookie first
   const cookieHeader = request.headers.get('Cookie') || '';
   const cookieMatch = cookieHeader.match(/selectedWorker=([^;]+)/);
