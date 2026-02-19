@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Clicker 3D - Immersive Spectral Hunting</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #0a0a0a, #1a1a2a);
+            color: #f0f0ff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #gameCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            background: rgba(10, 10, 30, 0.85);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            border: 2px solid rgba(100, 200, 255, 0.3);
+            box-shadow: 0 0 40px rgba(80, 150, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 4rem;
+            text-shadow: 0 0 20px #6ae0ff, 0 0 40px #6ae0ff;
+            margin-bottom: 15px;
+            letter-spacing: 4px;
+            color: #b3e8ff;
+            background: linear-gradient(45deg, #7fffd4, #6ae0ff, #8a2be2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tagline {
+            font-size: 1.4rem;
+            color: #ccddff;
+            margin-bottom: 20px;
+            max-width: 800px;
+            margin: 0 auto 25px;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            background: rgba(15, 15, 40, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            border: 2px solid rgba(100, 200, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 150, 255, 0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            background: rgba(30, 30, 70, 0.6);
+            border-radius: 10px;
+            transition: transform 0.3s;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-5px);
+            background: rgba(40, 40, 90, 0.8);
+        }
+
+        .stat-value {
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: #7fffd4;
+            text-shadow: 0 0 15px #7fffd4;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: #aaccff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 8px;
+        }
+
+        .game-area {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: rgba(5, 5, 20, 0.4);
+            border-radius: 20px;
+            margin: 40px 0;
+            overflow: hidden;
+            border: 3px solid rgba(100, 200, 255, 0.4);
+            box-shadow: 
+                inset 0 0 60px rgba(0, 50, 100, 0.5),
+                0 0 60px rgba(0, 150, 255, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        #ghostContainer3D {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .click-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            cursor: crosshair;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(145deg, #3a3a8a, #2a2a5a);
+            color: #c2e9ff;
+            border: none;
+            padding: 18px 35px;
+            border-radius: 12px;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.4s;
+            border: 2px solid rgba(100, 200, 255, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background: linear-gradient(145deg, #4a4aaa, #3a3a7a);
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(100, 200, 255, 0.2);
+            border-color: rgba(100, 200, 255, 0.8);
+        }
+
+        button:active {
+            transform: translateY(-2px) scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .upgrades-section {
+            margin: 50px 0;
+        }
+
+        .upgrades-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            color: #7fffd4;
+            text-shadow: 0 0 15px #7fffd4;
+        }
+
+        .upgrades {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .upgrade-card {
+            background: linear-gradient(145deg, rgba(40, 40, 90, 0.9), rgba(20, 20, 50, 0.9));
+            border-radius: 15px;
+            padding: 30px;
+            border: 2px solid rgba(100, 200, 255, 0.3);
+            transition: all 0.5s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upgrade-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(100, 200, 255, 0.1), transparent);
+            transform: translateX(-100%);
+        }
+
+        .upgrade-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 100, 255, 0.3);
+            border-color: rgba(100, 200, 255, 0.7);
+        }
+
+        .upgrade-card:hover::before {
+            animation: upgradeShine 1.5s;
+        }
+
+        @keyframes upgradeShine {
+            100% { transform: translateX(100%); }
+        }
+
+        .upgrade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .upgrade-title {
+            font-size: 1.6rem;
+            color: #7fffd4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upgrade-cost {
+            font-size: 1.4rem;
+            color: #ffaa80;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ffaa80;
+        }
+
+        .upgrade-desc {
+            color: #bbccff;
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .upgrade-progress {
+            height: 8px;
+            background: rgba(50, 50, 100, 0.5);
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #7fffd4, #6ae0ff);
+            width: 0%;
+            transition: width 1s ease;
+        }
+
+        .buy-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 15px;
+            font-size: 1.2rem;
+            background: linear-gradient(145deg, #4a4a9a, #3a3a7a);
+        }
+
+        .achievements-section {
+            margin: 60px 0;
+            padding: 40px;
+            background: rgba(15, 15, 40, 0.9);
+            border-radius: 20px;
+            border: 2px solid rgba(100, 200, 255, 0.3);
+        }
+
+        .achievements-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            color: #ffaa80;
+            text-shadow: 0 0 15px #ffaa80;
+        }
+
+        .achievement-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+        }
+
+        .achievement {
+            background: linear-gradient(145deg, rgba(50, 50, 100, 0.8), rgba(30, 30, 70, 0.8));
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            opacity: 0.5;
+            transition: all 0.5s;
+            border: 2px solid transparent;
+        }
+
+        .achievement.unlocked {
+            opacity: 1;
+            border-color: #7fffd4;
+            box-shadow: 0 0 30px rgba(127, 255, 212, 0.3);
+            transform: translateY(-5px);
+        }
+
+        .achievement-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #7fffd4;
+        }
+
+        .achievement-title {
+            color: #ffccaa;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.4rem;
+        }
+
+        .achievement-desc {
+            font-size: 1rem;
+            color: #aaccff;
+        }
+
+        .particle-effect {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .combo-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 20, 50, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #7fffd4;
+            z-index: 1000;
+            text-align: center;
+            min-width: 150px;
+            backdrop-filter: blur(10px);
+        }
+
+        .combo-count {
+            font-size: 3rem;
+            color: #ff6b9d;
+            font-weight: bold;
+            text-shadow: 0 0 20px #ff6b9d;
+        }
+
+        .combo-label {
+            color: #aaccff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        .combo-multiplier {
+            color: #ffaa80;
+            font-size: 1.2rem;
+            margin-top: 10px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #8899cc;
+            font-size: 1.1rem;
+            border-top: 2px solid rgba(100, 150, 255, 0.2);
+            margin-top: 50px;
+            background: rgba(10, 10, 30, 0.8);
+            border-radius: 15px;
+        }
+
+        .volume-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(20, 20, 50, 0.9);
+            padding: 15px;
+            border-radius: 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(100, 200, 255, 0.3);
+        }
+
+        .volume-slider {
+            width: 150px;
+            margin-top: 10px;
+        }
+
+        .screen-shake {
+            animation: screenShake 0.5s ease-out;
+        }
+
+        @keyframes screenShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+
+        .ghost-aura {
+            position: absolute;
+            border-radius: 50%;
+            box-shadow: 0 0 60px 30px;
+            pointer-events: none;
+            z-index: 1;
+            animation: auraPulse 2s infinite;
+        }
+
+        @keyframes auraPulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            h1 { font-size: 3rem; }
+            .game-area { height: 500px; }
+            .upgrades { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .game-area { height: 400px; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .controls { flex-direction: column; align-items: center; }
+            button { width: 90%; }
+            .upgrades { grid-template-columns: 1fr; }
+            .achievement-list { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 480px) {
+            .stats-bar { grid-template-columns: 1fr; }
+            .achievement-list { grid-template-columns: 1fr; }
+            .combo-display { top: 10px; right: 10px; padding: 10px; min-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Combo Display -->
+    <div class="combo-display" id="comboDisplay" style="display: none;">
+        <div class="combo-count" id="comboCount">0</div>
+        <div class="combo-label">COMBO</div>
+        <div class="combo-multiplier" id="comboMultiplier">x1.0</div>
+    </div>
+    
+    <!-- Volume Controls -->
+    <div class="volume-controls">
+        <div style="color: #aaccff; margin-bottom: 8px;">
+            <i class="fas fa-volume-up"></i> Volume
+        </div>
+        <input type="range" min="0" max="100" value="50" class="volume-slider" id="volumeSlider">
+    </div>
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-ghost"></i> GHOST CLICKER 3D</h1>
+            <p class="tagline">Enter a spectral dimension where ghosts drift in 3D space. Use your cursor to banish them in this immersive haunting experience!</p>
+        </header>
+        
+        <div class="stats-bar">
+            <div class="stat-box">
+                <div class="stat-value" id="ghostCount">0</div>
+                <div class="stat-label">Ghosts Banished</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="energy">100</div>
+                <div class="stat-label">Spectral Energy</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="ghostPerClick">1</div>
+                <div class="stat-label">Power per Click</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="energyPerSecond">0</div>
+                <div class="stat-label">Energy/sec</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="multiplier">1.0x</div>
+                <div class="stat-label">Combo Multiplier</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="summonGhosts">
+                <i class="fas fa-hat-wizard"></i> Summon Ghost Wave
+                <span class="cost">(10 Energy)</span>
+            </button>
+            <button id="energyBoost">
+                <i class="fas fa-bolt"></i> Energy Surge
+                <span class="cost">(50 Ghosts)</span>
+            </button>
+            <button id="autoClicker">
+                <i class="fas fa-robot"></i> Ghost Hunter Bot
+                <span class="cost">(200 Ghosts)</span>
+            </button>
+            <button id="specialAttack">
+                <i class="fas fa-meteor"></i> Spectral Blast
+                <span class="cost">(100 Energy)</span>
+            </button>
+            <button id="resetGame">
+                <i class="fas fa-redo"></i> Reset Dimension
+            </button>
+        </div>
+        
+        <div class="game-area">
+            <div id="ghostContainer3D"></div>
+            <div class="click-overlay" id="clickOverlay"></div>
+        </div>
+        
+        <div class="upgrades-section">
+            <h2><i class="fas fa-cogs"></i> Spectral Upgrades</h2>
+            <div class="upgrades">
+                <div class="upgrade-card">
+                    <div class="upgrade-header">
+                        <div class="upgrade-title"><i class="fas fa-hand-sparkles"></i> Ecto-Glove</div>
+                        <div class="upgrade-cost" id="gloveCost">25 Ghosts</div>
+                    </div>
+                    <p class="upgrade-desc">Increases your clicking power by 1. Each purchase makes your cursor glow brighter.</p>
+                    <div class="upgrade-progress">
+                        <div class="progress-bar" id="gloveProgress"></div>
+                    </div>
+                    <button class="buy-btn" id="buyGlove">
+                        <i class="fas fa-hand-rock"></i> Purchase Upgrade
+                    </button>
+                </div>
+                
+                <div class="upgrade-card">
+                    <div class="upgrade-header">
+                        <div class="upgrade-title"><i class="fas fa-campground"></i> Haunted Lantern</div>
+                        <div class="upgrade-cost" id="lanternCost">100 Ghosts</div>
+                    </div>
+                    <p class="upgrade-desc">Automatically banishes ghosts. Generates spectral energy every second.</p>
+                    <div class="upgrade-progress">
+                        <div class="progress-bar" id="lanternProgress"></div>
+                    </div>
+                    <button class="buy-btn" id="buyLantern">
+                        <i class="fas fa-campground"></i> Purchase Upgrade
+                    </button>
+                </div>
+                
+                <div class="upgrade-card">
+                    <div class="upgrade-header">
+                        <div class="upgrade-title"><i class="fas fa-wind"></i> Spirit Vacuum</div>
+                        <div class="upgrade-cost" id="vacuumCost">500 Ghosts</div>
+                    </div>
+                    <p class="upgrade-desc">Sucks up multiple ghosts at once. Increases click power by 5 and creates vortex effects.</p>
+                    <div class="upgrade-progress">
+                        <div class="progress-bar" id="vacuumProgress"></div>
+                    </div>
+                    <button class="buy-btn" id="buyVacuum">
+                        <i class="fas fa-wind"></i> Purchase Upgrade
+                    </button>
+                </div>
+                
+                <div class="upgrade-card">
+                    <div class="upgrade-header">
+                        <div class="upgrade-title"><i class="fas fa-eye"></i> Ghost Vision</div>
+                        <div class="upgrade-cost" id="visionCost">250 Ghosts</div>
+                    </div>
+                    <p class="upgrade-desc">Reveals hidden ghosts and increases combo duration. Adds night vision effect.</p>
+                    <div class="upgrade-progress">
+                        <div class="progress-bar" id="visionProgress"></div>
+                    </div>
+                    <button class="buy-btn" id="buyVision">
+                        <i class="fas fa-eye"></i> Purchase Upgrade
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="achievements-section">
+            <h2><i class="fas fa-trophy"></i> Spectral Achievements</h2>
+            <div class="achievement-list">
+                <div class="achievement" id="achievement1">
+                    <div class="achievement-icon"><i class="fas fa-footsteps"></i></div>
+                    <div class="achievement-title">First Steps</div>
+                    <div class="achievement-desc">Banish 10 ghosts</div>
+                </div>
+                <div class="achievement" id="achievement2">
+                    <div class="achievement-icon"><i class="fas fa-ghost"></i></div>
+                    <div class="achievement-title">Ghost Hunter</div>
+                    <div class="achievement-desc">Banish 100 ghosts</div>
+                </div>
+                <div class="achievement" id="achievement3">
+                    <div class="achievement-icon"><i class="fas fa-crown"></i></div>
+                    <div class="achievement-title">Spectral Master</div>
+                    <div class="achievement-desc">Banish 500 ghosts</div>
+                </div>
+                <div class="achievement" id="achievement4">
+                    <div class="achievement-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="achievement-title">Energy Harvester</div>
+                    <div class="achievement-desc">Reach 1000 energy</div>
+                </div>
+                <div class="achievement" id="achievement5">
+                    <div class="achievement-icon"><i class="fas fa-fire"></i></div>
+                    <div class="achievement-title">Combo Master</div>
+                    <div class="achievement-desc">Achieve 50x combo</div>
+                </div>
+                <div class="achievement" id="achievement6">
+                    <div class="achievement-icon"><i class="fas fa-infinity"></i></div>
+                    <div class="achievement-title">Eternal Hunter</div>
+                    <div class="achievement-desc">Banish 5000 ghosts</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Ghost Clicker 3D v2.0 | Powered by Three.js & GSAP | Created for Server.X 2 Mini-Sites</p>
+            <p>Use your mouse to click ghosts in 3D space. Build combos for bonus points. Upgrade your tools to become the ultimate ghost hunter!</p>
+            <p style="margin-top: 15px; color: #6ae0ff;">
+                <i class="fas fa-lightbulb"></i> Pro Tip: Click ghosts rapidly to build combos. Combos multiply your points!
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Imported Font Awesome CSS is available
+        // Game state with enhanced properties
+        let gameState = {
+            ghosts: 0,
+            energy: 100,
+            ghostPerClick: 1,
+            energyPerSecond: 0,
+            gloveLevel: 0,
+            lanternLevel: 0,
+            vacuumLevel: 0,
+            visionLevel: 0,
+            autoClickerActive: false,
+            combo: 0,
+            comboMultiplier: 1.0,
+            comboTimeout: null,
+            achievements: {
+                firstSteps: false,
+                ghostHunter: false,
+                spectralMaster: false,
+                energyHarvester: false,
+                comboMaster: false,
+                eternalHunter: false
+            }
+        };
+
+        // Three.js variables
+        let scene, camera, renderer, ghostMeshes = [];
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let clock = new THREE.Clock();
+
+        // Upgrade costs
+        const upgradeCosts = {
+            glove: 25,
+            lantern: 100,
+            vacuum: 500,
+            vision: 250,
+            summonGhosts: 10,
+            energyBoost: 50,
+            autoClicker: 200,
+            specialAttack: 100
+        };
+
+        // DOM elements
+        const ghostCountEl = document.getElementById('ghostCount');
+        const energyEl = document.getElementById('energy');
+        const ghostPerClickEl = document.getElementById('ghostPerClick');
+        const energyPerSecondEl = document.getElementById('energyPerSecond');
+        const multiplierEl = document.getElementById('multiplier');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const comboCountEl = document.getElementById('comboCount');
+        const comboMultiplierEl = document.getElementById('comboMultiplier');
+        const clickOverlay = document.getElementById('clickOverlay');
+        const volumeSlider = document.getElementById('volumeSlider');
+
+        // Initialize Three.js scene
+        function initThreeJS() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0a0a2a, 0.001);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 20;
+            camera.position.y = 5;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('gameCanvas'),
+                antialias: true,
+                alpha: true 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x7fffd4, 0.8);
+            directionalLight.position.set(10, 20, 15);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // Add point lights for atmosphere
+            const pointLight1 = new THREE.PointLight(0xff6b9d, 1, 100);
+            pointLight1.position.set(20, 10, 20);
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0x6ae0ff, 1, 100);
+            pointLight2.position.set(-20, 5, -20);
+            scene.add(pointLight2);
+            
+            // Create initial ghosts
+            createGhosts3D(5);
+            
+            // Start animation loop
+            animate();
+        }
+
+        // Create 3D ghosts
+        function createGhosts3D(count) {
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    // Create ghost geometry
+                    const ghostGeometry = new THREE.SphereGeometry(0.5 + Math.random() * 1.5, 16, 16);
+                    
+                    // Create ghost material with emissive property
+                    const ghostMaterial = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color(`hsl(${Math.random() * 60 + 180}, 80%, 70%)`),
+                        emissive: new THREE.Color(`hsl(${Math.random() * 60 + 180}, 80%, 30%)`),
+                        shininess: 100,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    
+                    // Create ghost mesh
+                    const ghost = new THREE.Mesh(ghostGeometry, ghostMaterial);
+                    ghost.castShadow = true;
+                    ghost.receiveShadow = true;
+                    
+                    // Random position
+                    ghost.position.x = (Math.random() - 0.5) * 40;
+                    ghost.position.y = (Math.random() - 0.5) * 20;
+                    ghost.position.z = (Math.random() - 0.5) * 40;
+                    
+                    // Store game data on mesh
+                    ghost.userData = {
+                        type: 'ghost',
+                        health: 1,
+                        value: 1,
+                        speed: 0.01 + Math.random() * 0.02,
+                        direction: new THREE.Vector3(
+                            Math.random() - 0.5,
+                            Math.random() - 0.5,
+                            Math.random() - 0.5
+                        ).normalize()
+                    };
+                    
+                    // Add to scene and tracking array
+                    scene.add(ghost);
+                    ghostMeshes.push(ghost);
+                    
+                    // Create aura effect
+                    createGhostAura(ghost);
+                }, i * 300);
+            }
+        }
+
+        // Create ghost aura
+        function createGhostAura(ghost) {
+            const auraGeometry = new THREE.SphereGeometry(ghost.geometry.parameters.radius * 1.5, 16, 16);
+            const auraMaterial = new THREE.MeshBasicMaterial({
+                color: ghost.material.color,
+                transparent: true,
+                opacity: 0.2,
+                side: THREE.BackSide
+            });
+            
+            const aura = new THREE.Mesh(auraGeometry, auraMaterial);
+            ghost.add(aura);
+            
+            // Animate aura with GSAP
+            gsap.to(aura.scale, {
+                duration: 2,
+                x: 1.3,
+                y: 1.3,
+                z: 1.3,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            
+            // Animate ghosts
+            ghostMeshes.forEach(ghost => {
+                // Move ghost
+                ghost.position.x += ghost.userData.direction.x * ghost.userData.speed;
+                ghost.position.y += ghost.userData.direction.y * ghost.userData.speed;
+                ghost.position.z += ghost.userData.direction.z * ghost.userData.speed;
+                
+                // Bounce off boundaries
+                if (Math.abs(ghost.position.x) > 20) ghost.userData.direction.x *= -1;
+                if (Math.abs(ghost.position.y) > 10) ghost.userData.direction.y *= -1;
+                if (Math.abs(ghost.position.z) > 20) ghost.userData.direction.z *= -1;
+                
+                // Rotate ghost
+                ghost.rotation.x += 0.01;
+                ghost.rotation.y += 0.01;
+                
+                // Float up and down
+                ghost.position.y += Math.sin(Date.now() * 0.001 + ghost.position.x) * 0.005;
+            });
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+
+        // Handle ghost click in 3D
+        function handleGhostClick(event) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update the picking ray with the camera and mouse position
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Calculate objects intersecting the picking ray
+            const intersects = raycaster.intersectObjects(ghostMeshes);
+            
+            if (intersects.length > 0) {
+                const ghost = intersects[0].object;
+                
+                // Visual feedback with GSAP
+                gsap.to(ghost.scale, {
+                    duration: 0.1,
+                    x: 1.5,
+                    y: 1.5,
+                    z: 1.5,
+                    yoyo: true,
+                    repeat: 1
+                });
+                
+                gsap.to(ghost.material, {
+                    duration: 0.3,
+                    opacity: 0,
+                    onComplete: () => {
+                        // Remove ghost from scene
+                        scene.remove(ghost);
+                        ghostMeshes = ghostMeshes.filter(g => g !== ghost);
+                        
+                        // Create particle explosion
+                        createParticleExplosion(ghost.position);
+                    }
+                });
+                
+                // Update game state
+                updateGameStateOnClick();
+                
+                // Create floating text
+                createFloatingText3D(event.clientX, event.clientY, `+${gameState.ghostPerClick * gameState.comboMultiplier}`);
+                
+                // Add combo
+                addCombo();
+            } else {
+                // Missed click - reset combo
+                resetCombo();
+            }
+        }
+
+        // Update game state on ghost click
+        function updateGameStateOnClick() {
+            const pointsEarned = Math.floor(gameState.ghostPerClick * gameState.comboMultiplier);
+            gameState.ghosts += pointsEarned;
+            gameState.energy += Math.floor(pointsEarned / 2);
+            
+            updateStats();
+            checkAchievements();
+        }
+
+        // Combo system
+        function addCombo() {
+            gameState.combo++;
+            
+            // Update combo display
+            comboDisplay.style.display = 'block';
+            comboCountEl.textContent = gameState.combo;
+            
+            // Calculate multiplier (capped at 10x)
+            gameState.comboMultiplier = 1 + Math.min(gameState.combo * 0.1, 9);
+            comboMultiplierEl.textContent = `x${gameState.comboMultiplier.toFixed(1)}`;
+            multiplierEl.textContent = `${gameState.comboMultiplier.toFixed(1)}x`;
+            
+            // Visual feedback for high combos
+            if (gameState.combo >= 10) {
+                comboDisplay.classList.add('screen-shake');
+                setTimeout(() => {
+                    comboDisplay.classList.remove('screen-shake');
+                }, 500);
+            }
+            
+            // Reset combo timeout
+            clearTimeout(gameState.comboTimeout);
+            gameState.comboTimeout = setTimeout(() => {
+                resetCombo();
+            }, 3000); // 3 seconds to continue combo
+        }
+
+        function resetCombo() {
+            gameState.combo = 0;
+            gameState.comboMultiplier = 1.0;
+            comboDisplay.style.display = 'none';
+            multiplierEl.textContent = '1.0x';
+        }
+
+        // Create particle explosion
+        function createParticleExplosion(position) {
+            const particleCount = 20;
+            const particles = [];
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+                const particleMaterial = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color(`hsl(${Math.random() * 60 + 180}, 100%, 70%)`),
+                    transparent: true
+                });
+                
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                particle.position.copy(position);
+                
+                // Random velocity
+                particle.userData.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.5
+                );
+                
+                scene.add(particle);
+                particles.push(particle);
+                
+                // Animate particle with GSAP
+                gsap.to(particle.scale, {
+                    duration: 0.5,
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    ease: "power2.out"
+                });
+                
+                gsap.to(particle.position, {
+                    duration: 1,
+                    x: particle.position.x + particle.userData.velocity.x * 10,
+                    y: particle.position.y + particle.userData.velocity.y * 10,
+                    z: particle.position.z + particle.userData.velocity.z * 10,
+                    ease: "power2.out",
+                    onComplete: () => {
+                        scene.remove(particle);
+                    }
+                });
+            }
+        }
+
+        // Create floating text in 3D
+        function createFloatingText3D(x, y, text) {
+            const floatingText = document.createElement('div');
+            floatingText.className = 'floating-text';
+            floatingText.textContent = text;
+            floatingText.style.position = 'fixed';
+            floatingText.style.left = `${x}px`;
+            floatingText.style.top = `${y}px`;
+            floatingText.style.color = gameState.combo >= 10 ? '#ff6b9d' : '#7fffd4';
+            floatingText.style.fontSize = `${Math.min(24 + gameState.combo * 2, 48)}px`;
+            floatingText.style.fontWeight = 'bold';
+            floatingText.style.textShadow = `0 0 20px ${gameState.combo >= 10 ? '#ff6b9d' : '#7fffd4'}`;
+            floatingText.style.zIndex = '1000';
+            floatingText.style.pointerEvents = 'none';
+            
+            document.body.appendChild(floatingText);
+            
+            // Animate with GSAP
+            gsap.to(floatingText, {
+                duration: 1.5,
+                y: y - 100,
+                opacity: 0,
+                ease: "power2.out",
+                onComplete: () => {
+                    document.body.removeChild(floatingText);
+                }
+            });
+        }
+
+        // Update all stats display
+        function updateStats() {
+            ghostCountEl.textContent = gameState.ghosts.toLocaleString();
+            energyEl.textContent = gameState.energy.toLocaleString();
+            ghostPerClickEl.textContent = gameState.ghostPerClick;
+            energyPerSecondEl.textContent = gameState.lanternLevel;
+            
+            // Update progress bars
+            document.getElementById('gloveProgress').style.width = `${(gameState.gloveLevel / 10) * 100}%`;
+            document.getElementById('lanternProgress').style.width = `${(gameState.lanternLevel / 5) * 100}%`;
+            document.getElementById('vacuumProgress').style.width = `${(gameState.vacuumLevel / 3) * 100}%`;
+            document.getElementById('visionProgress').style.width = `${(gameState.visionLevel / 5) * 100}%`;
+            
+            // Update upgrade costs
+            document.getElementById('gloveCost').textContent = 
+                `${upgradeCosts.glove * (gameState.gloveLevel + 1)} Ghosts`;
+            document.getElementById('lanternCost').textContent = 
+                `${upgradeCosts.lantern * (gameState.lanternLevel + 1)} Ghosts`;
+            document.getElementById('vacuumCost').textContent = 
+                `${upgradeCosts.vacuum * (gameState.vacuumLevel + 1)} Ghosts`;
+            document.getElementById('visionCost').textContent = 
+                `${upgradeCosts.vision * (gameState.visionLevel + 1)} Ghosts`;
+        }
+
+        // Check and unlock achievements
+        function checkAchievements() {
+            // First Steps: 10 ghosts
+            if (!gameState.achievements.firstSteps && gameState.ghosts >= 10) {
+                gameState.achievements.firstSteps = true;
+                unlockAchievement(1, 'First Steps!');
+            }
+            
+            // Ghost Hunter: 100 ghosts
+            if (!gameState.achievements.ghostHunter && gameState.ghosts >= 100) {
+                gameState.achievements.ghostHunter = true;
+                unlockAchievement(2, 'Ghost Hunter!');
+            }
+            
+            // Spectral Master: 500 ghosts
+            if (!gameState.achievements.spectralMaster && gameState.ghosts >= 500) {
+                gameState.achievements.spectralMaster = true;
+                unlockAchievement(3, 'Spectral Master!');
+            }
+            
+            // Energy Harvester: 1000 energy
+            if (!gameState.achievements.energyHarvester && gameState.energy >= 1000) {
+                gameState.achievements.energyHarvester = true;
+                unlockAchievement(4, 'Energy Harvester!');
+            }
+            
+            // Combo Master: 50x combo
+            if (!gameState.achievements.comboMaster && gameState.combo >= 50) {
+                gameState.achievements.comboMaster = true;
+                unlockAchievement(5, 'Combo Master!');
+            }
+            
+            // Eternal Hunter: 5000 ghosts
+            if (!gameState.achievements.eternalHunter && gameState.ghosts >= 5000) {
+                gameState.achievements.eternalHunter = true;
+                unlockAchievement(6, 'Eternal Hunter!');
+            }
+            
+            // Save game state
+            localStorage.setItem('ghostClicker3DSave', JSON.stringify(gameState));
+        }
+
+        // Unlock achievement with animation
+        function unlockAchievement(id, title) {
+            const achievement = document.getElementById(`achievement${id}`);
+            achievement.classList.add('unlocked');
+            
+            // GSAP animation
+            gsap.fromTo(achievement,
+                { scale: 0.5, rotationY: 180 },
+                { 
+                    duration: 0.8,
+                    scale: 1,
+                    rotationY: 0,
+                    ease: "back.out(1.7)",
+                    onComplete: () => {
+                        createFloatingText3D(
+                            window.innerWidth / 2,
+                            window.innerHeight / 2,
+                            `Achievement: ${title}`
+                        );
+                    }
+                }
+            );
+        }
+
+        // Purchase upgrade functions
+        function buyGlove() {
+            const cost = upgradeCosts.glove * (gameState.gloveLevel + 1);
+            if (gameState.ghosts >= cost) {
+                gameState.ghosts -= cost;
+                gameState.gloveLevel++;
+                gameState.ghostPerClick++;
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Ecto-Glove Upgraded!');
+            }
+        }
+
+        function buyLantern() {
+            const cost = upgradeCosts.lantern * (gameState.lanternLevel + 1);
+            if (gameState.ghosts >= cost) {
+                gameState.ghosts -= cost;
+                gameState.lanternLevel++;
+                gameState.energyPerSecond = gameState.lanternLevel;
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Haunted Lantern Upgraded!');
+            }
+        }
+
+        function buyVacuum() {
+            const cost = upgradeCosts.vacuum * (gameState.vacuumLevel + 1);
+            if (gameState.ghosts >= cost) {
+                gameState.ghosts -= cost;
+                gameState.vacuumLevel++;
+                gameState.ghostPerClick += 5;
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Spirit Vacuum Upgraded!');
+            }
+        }
+
+        function buyVision() {
+            const cost = upgradeCosts.vision * (gameState.visionLevel + 1);
+            if (gameState.ghosts >= cost) {
+                gameState.ghosts -= cost;
+                gameState.visionLevel++;
+                // Extend combo duration
+                clearTimeout(gameState.comboTimeout);
+                gameState.comboTimeout = setTimeout(() => {
+                    resetCombo();
+                }, 3000 + gameState.visionLevel * 1000);
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Ghost Vision Activated!');
+            }
+        }
+
+        function summonGhosts() {
+            if (gameState.energy >= upgradeCosts.summonGhosts) {
+                gameState.energy -= upgradeCosts.summonGhosts;
+                createGhosts3D(8);
+                updateStats();
+            }
+        }
+
+        function activateEnergyBoost() {
+            if (gameState.ghosts >= upgradeCosts.energyBoost) {
+                gameState.ghosts -= upgradeCosts.energyBoost;
+                gameState.energy += 500;
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Energy Surge!');
+            }
+        }
+
+        function activateAutoClicker() {
+            if (gameState.ghosts >= upgradeCosts.autoClicker && !gameState.autoClickerActive) {
+                gameState.ghosts -= upgradeCosts.autoClicker;
+                gameState.autoClickerActive = true;
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'Ghost Hunter Bot Activated!');
+                
+                // Auto-click every 2 seconds
+                setInterval(() => {
+                    if (ghostMeshes.length > 0 && gameState.autoClickerActive) {
+                        const randomGhost = ghostMeshes[Math.floor(Math.random() * ghostMeshes.length)];
+                        // Simulate click on random ghost
+                        updateGameStateOnClick();
+                        createParticleExplosion(randomGhost.position);
+                        scene.remove(randomGhost);
+                        ghostMeshes = ghostMeshes.filter(g => g !== randomGhost);
+                    }
+                }, 2000);
+            }
+        }
+
+        function activateSpecialAttack() {
+            if (gameState.energy >= upgradeCosts.specialAttack) {
+                gameState.energy -= upgradeCosts.specialAttack;
+                
+                // Destroy all ghosts on screen
+                ghostMeshes.forEach(ghost => {
+                    createParticleExplosion(ghost.position);
+                    scene.remove(ghost);
+                    updateGameStateOnClick();
+                });
+                ghostMeshes = [];
+                
+                updateStats();
+                createFloatingText3D(window.innerWidth/2, window.innerHeight/2, 'SPECTRAL BLAST!');
+            }
+        }
+
+        function resetGame() {
+            if (confirm('Reset the entire spectral dimension? All progress will be lost!')) {
+                gameState = {
+                    ghosts: 0,
+                    energy: 100,
+                    ghostPerClick: 1,
+                    energyPerSecond: 0,
+                    gloveLevel: 0,
+                    lanternLevel: 0,
+                    vacuumLevel: 0,
+                    visionLevel: 0,
+                    autoClickerActive: false,
+                    combo: 0,
+                    comboMultiplier: 1.0,
+                    comboTimeout: null,
+                    achievements: {
+                        firstSteps: false,
+                        ghostHunter: false,
+                        spectralMaster: false,
+                        energyHarvester: false,
+                        comboMaster: false,
+                        eternalHunter: false
+                    }
+                };
+                
+                // Clear all ghosts
+                ghostMeshes.forEach(ghost => scene.remove(ghost));
+                ghostMeshes = [];
+                
+                // Clear achievements
+                document.querySelectorAll('.achievement').forEach(ach => ach.classList.remove('unlocked'));
+                
+                // Create new ghosts
+                createGhosts3D(5);
+                
+                updateStats();
+                localStorage.removeItem('ghostClicker3DSave');
+            }
+        }
+
+        // Initialize the game
+        function initGame() {
+            // Load saved game
+            const savedGame = localStorage.getItem('ghostClicker3DSave');
+            if (savedGame) {
+                gameState = JSON.parse(savedGame);
+                updateStats();
+                checkAchievements();
+            }
+            
+            // Initialize Three.js
+            initThreeJS();
+            
+            // Setup click event
+            clickOverlay.addEventListener('click', handleGhostClick);
+            
+            // Setup button event listeners
+            document.getElementById('buyGlove').addEventListener('click', buyGlove);
+            document.getElementById('buyLantern').addEventListener('click', buyLantern);
+            document.getElementById('buyVacuum').addEventListener('click', buyVacuum);
+            document.getElementById('buyVision').addEventListener('click', buyVision);
+            document.getElementById('summonGhosts').addEventListener('click', summonGhosts);
+            document.getElementById('energyBoost').addEventListener('click', activateEnergyBoost);
+            document.getElementById('autoClicker').addEventListener('click', activateAutoClicker);
+            document.getElementById('specialAttack').addEventListener('click', activateSpecialAttack);
+            document.getElementById('resetGame').addEventListener('click', resetGame);
+            
+            // Setup volume control
+            volumeSlider.addEventListener('input', (e) => {
+                // Volume control logic can be added here
+                console.log('Volume:', e.target.value);
+            });
+            
+            // Game loop for passive energy generation
+            setInterval(() => {
+                if (gameState.lanternLevel > 0) {
+                    gameState.energy += gameState.lanternLevel;
+                    updateStats();
+                }
+            }, 1000);
+            
+            // Random ghost spawner
+            setInterval(() => {
+                if (Math.random() > 0.5 && ghostMeshes.length < 20) {
+                    createGhosts3D(1);
+                }
+            }, 5000);
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Start the game when page loads
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
