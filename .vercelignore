@@ -1,0 +1,3 @@
+# Ignore Netlify-specific folders
+NETLIFY/
+netlify/functions/
