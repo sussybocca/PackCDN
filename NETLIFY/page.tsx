@@ -1,15 +1,16 @@
-// NO IMPORTS NEEDED - React and ReactDOM are global from the script tags
+import Link from 'next/link'
 
-function App() {
+export default function Home() {
   return (
-    <div style={{ 
+    <main style={{ 
       fontFamily: 'Arial, sans-serif',
       maxWidth: '800px',
       margin: '0 auto',
       padding: '2rem'
     }}>
-      <h1>Hello from NETLIFY/ page.tsx!</h1>
-      <p>This is a React component written in TypeScript (TSX)</p>
+      <h1>🚀 Next.js + TypeScript on Netlify</h1>
+      <p>This is the MAIN PAGE using Next.js App Router</p>
+      <p>File: <code>/app/page.tsx</code></p>
       
       <div style={{
         background: '#f5f5f5',
@@ -17,24 +18,12 @@ function App() {
         borderRadius: '8px',
         marginTop: '1rem'
       }}>
-        <h3>📁 Static Files:</h3>
-        <p>
-          <a href="/files.html">View auto-generated file listing →</a>
-        </p>
+        <h3>📁 Navigation:</h3>
+        <ul>
+          <li><Link href="/files.html">View auto-generated file listing →</Link></li>
+          <li><Link href="/about">About page (another TSX page)</Link></li>
+        </ul>
       </div>
-    </div>
+    </main>
   )
-}
-
-// Get the root element safely
-const rootElement = document.getElementById('root')
-if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(
-    React.createElement(React.StrictMode, null,
-      React.createElement(App, null)
-    )
-  )
-} else {
-  console.error('Root element not found')
 }
