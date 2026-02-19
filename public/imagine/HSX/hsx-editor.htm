@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HSX Editor · simple & reliable</title>
+    <title>HSX Editor · module‑aware</title>
     <style>
+        /* (keep your existing styles – unchanged) */
         * {
             margin: 0;
             padding: 0;
@@ -233,6 +234,13 @@
 
     <script>
         (function() {
+            // ---------- global error guard ----------
+            window.addEventListener('error', function(e) {
+                console.error('Caught error:', e.error);
+                // Don't let runtime errors kill the UI
+                e.preventDefault();
+            });
+
             // ---------- state ----------
             let files = [
                 { name: 'main.hsx', content: '// Welcome to HSX 🌀\nhsx define component Hello\n<h1>Hello from HSX!</h1>\nhsx end\n\nhsx render Hello\n\n:hsx: set debug on\n:hsx: fx attach fx' }
@@ -275,7 +283,6 @@
 
             function switchToFile(index) {
                 if (index < 0 || index >= files.length) return;
-                // Save current content
                 files[currentIndex].content = editor.value;
                 currentIndex = index;
                 editor.value = files[currentIndex].content;
@@ -320,7 +327,6 @@
                 updateFilenameInput();
             }
 
-            // rename from input field
             filenameInput.addEventListener('change', () => {
                 const newName = filenameInput.value.trim();
                 if (!newName) return;
@@ -334,12 +340,11 @@
                 renderFileList();
             });
 
-            // auto-save editor changes
             editor.addEventListener('input', () => {
                 files[currentIndex].content = editor.value;
             });
 
-            // ---------- build preview HTML ----------
+            // ---------- build preview HTML (now using module for runtime) ----------
             function generatePreviewHTML() {
                 const filesMap = {};
                 files.forEach(f => { filesMap[f.name] = f.content; });
@@ -349,43 +354,25 @@
 <html>
 <head><meta charset="UTF-8"><title>HSX preview</title></head>
 <body style="margin:0; padding:8px; font-family:sans-serif">
-<script>
-const HSX_FILES = ${filesMapJson};
-if (typeof HSXRuntime !== 'undefined') {
-    const originalLoad = HSXRuntime.prototype.load;
-    HSXRuntime.prototype.load = async function(filePath) {
-        if (HSX_FILES[filePath]) {
-            return this.loadFromText(HSX_FILES[filePath]);
-        }
-        return originalLoad.call(this, filePath);
-    };
-} else {
-    Object.defineProperty(window, 'HSXRuntime', {
-        set: function(val) {
-            delete window.HSXRuntime;
-            window.HSXRuntime = val;
-            if (val && val.prototype) {
-                const orig = val.prototype.load;
-                val.prototype.load = async function(filePath) {
-                    if (HSX_FILES[filePath]) {
-                        return this.loadFromText(HSX_FILES[filePath]);
-                    }
-                    return orig.call(this, filePath);
-                };
-            }
-        },
-        configurable: true
-    });
-}
-<\/script>
-<script src="hsx-runtime.js"></script>
-<script>
-(async function() {
-    const runtime = new HSXRuntime();
-    for (const [name, content] of Object.entries(HSX_FILES)) {
-        await runtime.loadFromText(content);
+<script type="module">
+// Import the runtime as a module
+import HSXRuntime from './hsx-runtime.js';  // adjust path if needed
+
+// Patch the load method to use embedded files
+const originalLoad = HSXRuntime.prototype.load;
+HSXRuntime.prototype.load = async function(filePath) {
+    const HSX_FILES = ${filesMapJson};
+    if (HSX_FILES[filePath]) {
+        return this.loadFromText(HSX_FILES[filePath]);
     }
-})();
+    return originalLoad.call(this, filePath);
+};
+
+// Run all files
+const runtime = new HSXRuntime();
+for (const [name, content] of Object.entries(HSX_FILES)) {
+    await runtime.loadFromText(content);
+}
 <\/script>
 </body>
 </html>`;
@@ -399,7 +386,7 @@ if (typeof HSXRuntime !== 'undefined') {
                 setTimeout(() => URL.revokeObjectURL(url), 10000);
             }
 
-            // ---------- event listeners ----------
+            // ---------- event listeners (attached regardless of runtime) ----------
             document.getElementById('btn-new').addEventListener('click', addFile);
             document.getElementById('btn-new-side').addEventListener('click', addFile);
             document.getElementById('btn-delete').addEventListener('click', () => {
@@ -419,7 +406,7 @@ if (typeof HSXRuntime !== 'undefined') {
             renderFileList();
             updateFilenameInput();
             editor.value = files[currentIndex].content;
-            setTimeout(runPreview, 300);  // initial preview
+            setTimeout(runPreview, 300);
         })();
     </script>
 </body>
