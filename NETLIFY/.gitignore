@@ -1,0 +1,10 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build output
+dist
+
+# Environment files
+.env
+.env.local
