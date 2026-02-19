@@ -1,24 +1,17 @@
 # Base directory – where commands run and publish/functions are relative to
-# If you leave it empty, the repository root is used.
-base = ""
+base = "NETLIFY"  # Set base to NETLIFY folder
 
-# Build settings – Netlify will automatically detect and build TSX
+# Build settings
 [build]
-  command = "cd NETLIFY && npm install"  # Just install dependencies, Netlify handles the rest
-  publish = "NETLIFY"                    # Serve directly from NETLIFY folder
+  command = "npm install && npm run build"
+  publish = "out"  # Next.js static export output
 
-# Functions directory – point to your netlify/functions folder (lowercase)
+# Functions directory
 [functions]
   directory = "netlify/functions"
 
-# Let Netlify know to treat page.tsx as the main entry point
-[[redirects]]
-  from = "/"
-  to = "/page.tsx"
-  status = 200
-
-# Handle client-side routing
+# Redirect all traffic to Next.js
 [[redirects]]
   from = "/*"
-  to = "/page.tsx"
+  to = "/index.html"
   status = 200
