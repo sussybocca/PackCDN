@@ -2,11 +2,23 @@
 # If you leave it empty, the repository root is used.
 base = ""
 
-# Build settings – override the UI command that's causing the Hugo error
+# Build settings – Netlify will automatically detect and build TSX
 [build]
-  command = "echo 'No build step needed'"   # Replace with your actual build command if needed
-  publish = "NETLIFY"                       # Only files inside NETLIFY/ will be deployed as static assets
+  command = "cd NETLIFY && npm install"  # Just install dependencies, Netlify handles the rest
+  publish = "NETLIFY"                    # Serve directly from NETLIFY folder
 
 # Functions directory – point to your netlify/functions folder (lowercase)
 [functions]
   directory = "netlify/functions"
+
+# Let Netlify know to treat page.tsx as the main entry point
+[[redirects]]
+  from = "/"
+  to = "/page.tsx"
+  status = 200
+
+# Handle client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/page.tsx"
+  status = 200
