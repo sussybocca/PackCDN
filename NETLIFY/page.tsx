@@ -1,5 +1,4 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
+// NO IMPORTS NEEDED - React and ReactDOM are global from the script tags
 
 function App() {
   return (
@@ -27,14 +26,14 @@ function App() {
   )
 }
 
-// Get the root element safely (remove the ! non-null assertion)
+// Get the root element safely
 const rootElement = document.getElementById('root')
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
+    React.createElement(React.StrictMode, null,
+      React.createElement(App, null)
+    )
   )
 } else {
   console.error('Root element not found')
