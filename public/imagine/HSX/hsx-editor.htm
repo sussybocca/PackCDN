@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HSX Editor · module‑aware</title>
+    <title>HSX Advanced Editor</title>
     <style>
-        /* (keep your existing styles – unchanged) */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             height: 100vh;
@@ -28,27 +23,19 @@
             border-bottom: 1px solid #3c3c3c;
             flex-wrap: wrap;
         }
-        .toolbar button {
+        .toolbar button, .toolbar select {
             background: #0e639c;
             border: none;
             color: white;
             padding: 6px 16px;
             border-radius: 4px;
             font-size: 13px;
-            font-weight: 500;
             cursor: pointer;
-            transition: background 0.2s;
             border: 1px solid #1a1a1a;
         }
-        .toolbar button:hover {
-            background: #1177bb;
-        }
-        .toolbar button.danger {
-            background: #a12626;
-        }
-        .toolbar button.danger:hover {
-            background: #c42b2b;
-        }
+        .toolbar button:hover { background: #1177bb; }
+        .toolbar button.danger { background: #a12626; }
+        .toolbar button.danger:hover { background: #c42b2b; }
         .toolbar .filename-edit {
             display: flex;
             align-items: center;
@@ -58,10 +45,7 @@
             padding: 4px 10px;
             border-radius: 20px;
         }
-        .filename-edit label {
-            font-size: 12px;
-            color: #aaa;
-        }
+        .filename-edit label { font-size: 12px; color: #aaa; }
         .filename-edit input {
             background: #252526;
             border: 1px solid #3f3f46;
@@ -71,27 +55,24 @@
             font-size: 13px;
             width: 200px;
         }
-        .filename-edit input:focus {
-            outline: 1px solid #0e639c;
-        }
+        .filename-edit input:focus { outline: 1px solid #0e639c; }
         .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
         }
         .sidebar {
-            width: 220px;
+            width: 280px;
             background: #252526;
             border-right: 1px solid #3c3c3c;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow: hidden;
         }
         .sidebar-header {
             padding: 12px 12px 8px;
             font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             color: #969696;
             display: flex;
             justify-content: space-between;
@@ -106,34 +87,44 @@
             font-size: 12px;
             cursor: pointer;
         }
-        .sidebar-header button:hover {
-            background: #3c3c3c;
-        }
-        .file-list {
-            list-style: none;
+        .sidebar-header button:hover { background: #3c3c3c; }
+        .folder-tree {
+            flex: 1;
+            overflow-y: auto;
             padding: 4px 0;
-        }
-        .file-item {
-            padding: 8px 12px 8px 24px;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-left: 3px solid transparent;
             user-select: none;
         }
-        .file-item.active {
+        .tree-node {
+            list-style: none;
+            padding-left: 20px;
+            position: relative;
+        }
+        .tree-node .node-content {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px 4px 4px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            gap: 4px;
+        }
+        .tree-node .node-content.active {
             background: #37373d;
             border-left-color: #0e639c;
-            color: white;
         }
-        .file-item .name {
+        .tree-node .node-content.dragover {
+            background: #2a3f4f;
+        }
+        .node-content .icon {
+            width: 20px;
+            text-align: center;
+        }
+        .node-content .name {
+            flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .file-item .remove {
+        .node-content .remove {
             visibility: hidden;
             background: none;
             border: none;
@@ -142,12 +133,10 @@
             cursor: pointer;
             padding: 0 4px;
         }
-        .file-item:hover .remove {
+        .node-content:hover .remove {
             visibility: visible;
         }
-        .file-item .remove:hover {
-            color: #f48771;
-        }
+        .node-content .remove:hover { color: #f48771; }
         .editor-area {
             flex: 1;
             display: flex;
@@ -171,7 +160,7 @@
             outline: none;
         }
         .preview-panel {
-            height: 240px;
+            height: 280px;
             border-top: 1px solid #3c3c3c;
             background: #1e1e1e;
             display: flex;
@@ -198,13 +187,36 @@
             background: white;
             border: none;
         }
+        .context-menu {
+            position: absolute;
+            background: #2d2d2d;
+            border: 1px solid #3c3c3c;
+            border-radius: 4px;
+            padding: 4px 0;
+            display: none;
+            z-index: 1000;
+        }
+        .context-menu button {
+            background: none;
+            border: none;
+            color: #ccc;
+            padding: 6px 20px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+        .context-menu button:hover {
+            background: #0e639c;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="toolbar">
-        <button id="btn-new">➕ New file</button>
-        <button id="btn-run" style="background: #2b8a3e;">▶ Run project</button>
-        <button id="btn-delete" class="danger">🗑 Delete current</button>
+        <button id="btn-new-file">📄 New file</button>
+        <button id="btn-new-folder">📁 New folder</button>
+        <button id="btn-run" style="background: #2b8a3e;">▶ Run preview</button>
+        <button id="btn-delete" class="danger">🗑 Delete</button>
         <div class="filename-edit">
             <label for="filename-input">Filename</label>
             <input type="text" id="filename-input" placeholder="name.hsx" value="main.hsx">
@@ -214,9 +226,9 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <span>EXPLORER</span>
-                <button id="btn-new-side">📄</button>
+                <button id="btn-collapse-all">🔽</button>
             </div>
-            <ul id="file-list" class="file-list"></ul>
+            <div class="folder-tree" id="folder-tree"></div>
         </div>
         <div class="editor-area">
             <div id="editor-container">
@@ -224,130 +236,324 @@
             </div>
             <div class="preview-panel">
                 <div class="preview-header">
-                    <span>📦 preview (iframe)</span>
+                    <span>📦 live preview</span>
                     <button id="btn-refresh-preview">↻ refresh</button>
                 </div>
                 <iframe id="preview-frame" title="HSX preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
             </div>
         </div>
     </div>
+    <div class="context-menu" id="context-menu"></div>
 
     <script>
         (function() {
-            // ---------- global error guard ----------
-            window.addEventListener('error', function(e) {
-                console.error('Caught error:', e.error);
-                // Don't let runtime errors kill the UI
-                e.preventDefault();
-            });
+            // ---------- Virtual File System ----------
+            let nextId = 100;
+            const root = {
+                id: 'root',
+                name: 'root',
+                type: 'folder',
+                children: [
+                    { id: 'f1', name: 'main.hsx', type: 'file', content: '// Welcome to HSX 🌀\nhsx define component Hello\n<h1>Hello from HSX!</h1>\nhsx end\n\nhsx render Hello\n\n:hsx: set debug on\n:hsx: fx attach fx' }
+                ]
+            };
 
-            // ---------- state ----------
-            let files = [
-                { name: 'main.hsx', content: '// Welcome to HSX 🌀\nhsx define component Hello\n<h1>Hello from HSX!</h1>\nhsx end\n\nhsx render Hello\n\n:hsx: set debug on\n:hsx: fx attach fx' }
-            ];
-            let currentIndex = 0;
+            // Flat map for quick lookup
+            const nodeMap = new Map();
+            function buildMap(node) {
+                nodeMap.set(node.id, node);
+                if (node.type === 'folder' && node.children) {
+                    node.children.forEach(child => buildMap(child));
+                }
+            }
+            buildMap(root);
 
-            // DOM elements
-            const fileListEl = document.getElementById('file-list');
-            const filenameInput = document.getElementById('filename-input');
-            const editor = document.getElementById('hsx-editor');
-            const previewFrame = document.getElementById('preview-frame');
+            // Current selected node
+            let selectedNode = root.children[0];
 
-            // ---------- helper functions ----------
-            function renderFileList() {
-                fileListEl.innerHTML = '';
-                files.forEach((file, idx) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item' + (idx === currentIndex ? ' active' : '');
-                    li.dataset.index = idx;
+            // Helper to find parent of a node
+            function findParent(nodeId, currentNode = root) {
+                if (currentNode.type !== 'folder') return null;
+                if (currentNode.children && currentNode.children.some(c => c.id === nodeId)) return currentNode;
+                for (let child of currentNode.children || []) {
+                    if (child.type === 'folder') {
+                        const res = findParent(nodeId, child);
+                        if (res) return res;
+                    }
+                }
+                return null;
+            }
 
-                    const nameSpan = document.createElement('span');
-                    nameSpan.className = 'name';
-                    nameSpan.textContent = file.name;
+            // Generate a unique ID
+            function genId() { return 'n' + nextId++; }
 
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove';
-                    removeBtn.innerHTML = '✕';
-                    removeBtn.title = 'delete file';
-                    removeBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteFile(idx);
-                    });
+            // Render tree recursively
+            function renderTree(container, nodes, level = 0) {
+                container.innerHTML = '';
+                nodes.forEach(node => renderNode(node, container, level));
+            }
 
-                    li.appendChild(nameSpan);
-                    li.appendChild(removeBtn);
-                    li.addEventListener('click', () => switchToFile(idx));
-                    fileListEl.appendChild(li);
+            function renderNode(node, parentEl, level) {
+                const li = document.createElement('li');
+                li.className = 'tree-node';
+                li.dataset.id = node.id;
+                li.dataset.type = node.type;
+                li.draggable = true; // enable drag
+
+                const div = document.createElement('div');
+                div.className = 'node-content' + (selectedNode && selectedNode.id === node.id ? ' active' : '');
+                div.style.paddingLeft = (level * 20 + 4) + 'px';
+
+                // Expand/collapse for folders
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'icon';
+                if (node.type === 'folder') {
+                    iconSpan.textContent = node.expanded ? '📂' : '📁';
+                } else {
+                    iconSpan.textContent = '📄';
+                }
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'name';
+                nameSpan.textContent = node.name;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove';
+                removeBtn.innerHTML = '✕';
+                removeBtn.title = 'delete';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteNode(node.id);
                 });
+
+                div.appendChild(iconSpan);
+                div.appendChild(nameSpan);
+                div.appendChild(removeBtn);
+                li.appendChild(div);
+
+                // Click to select
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectNode(node.id);
+                });
+
+                // Double-click to expand/collapse folder or open file
+                div.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    if (node.type === 'folder') {
+                        node.expanded = !node.expanded;
+                        refreshTree();
+                    } else {
+                        // open file in editor (already selected)
+                    }
+                });
+
+                // Drag and drop handlers
+                li.addEventListener('dragstart', handleDragStart);
+                li.addEventListener('dragover', handleDragOver);
+                li.addEventListener('dragleave', handleDragLeave);
+                li.addEventListener('drop', handleDrop);
+
+                parentEl.appendChild(li);
+
+                // Render children if folder and expanded
+                if (node.type === 'folder' && node.expanded && node.children) {
+                    const childUl = document.createElement('ul');
+                    childUl.style.listStyle = 'none';
+                    childUl.style.padding = '0';
+                    node.children.forEach(child => renderNode(child, childUl, level + 1));
+                    li.appendChild(childUl);
+                }
             }
 
-            function switchToFile(index) {
-                if (index < 0 || index >= files.length) return;
-                files[currentIndex].content = editor.value;
-                currentIndex = index;
-                editor.value = files[currentIndex].content;
-                updateFilenameInput();
-                renderFileList();
+            // Drag-drop state
+            let draggedNode = null;
+
+            function handleDragStart(e) {
+                const nodeId = e.currentTarget.dataset.id;
+                draggedNode = nodeMap.get(nodeId);
+                e.dataTransfer.setData('text/plain', nodeId);
+                e.dataTransfer.effectAllowed = 'move';
             }
 
-            function updateFilenameInput() {
-                filenameInput.value = files[currentIndex].name;
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const targetLi = e.currentTarget;
+                const targetDiv = targetLi.querySelector('.node-content');
+                targetDiv.classList.add('dragover');
             }
 
-            function getSafeFilename(base) {
-                let name = base;
+            function handleDragLeave(e) {
+                const targetLi = e.currentTarget;
+                const targetDiv = targetLi.querySelector('.node-content');
+                targetDiv.classList.remove('dragover');
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                const targetLi = e.currentTarget;
+                const targetDiv = targetLi.querySelector('.node-content');
+                targetDiv.classList.remove('dragover');
+
+                const targetId = targetLi.dataset.id;
+                const targetNode = nodeMap.get(targetId);
+                if (!targetNode || !draggedNode) return;
+
+                // Can't drop onto itself
+                if (targetNode.id === draggedNode.id) return;
+
+                // Determine drop action: if target is folder, move into it; else move before/after (we'll just move into parent of target)
+                let newParent;
+                if (targetNode.type === 'folder') {
+                    newParent = targetNode;
+                } else {
+                    // target is file: move into its parent, after the target? For simplicity, we'll move into same parent as target
+                    newParent = findParent(targetNode.id);
+                }
+
+                if (!newParent) return; // shouldn't happen
+
+                // Remove dragged node from its old parent
+                const oldParent = findParent(draggedNode.id);
+                if (oldParent) {
+                    const idx = oldParent.children.findIndex(c => c.id === draggedNode.id);
+                    if (idx !== -1) oldParent.children.splice(idx, 1);
+                }
+
+                // Add to new parent
+                if (!newParent.children) newParent.children = [];
+                newParent.children.push(draggedNode);
+
+                // Refresh tree and select
+                refreshTree();
+                selectNode(draggedNode.id);
+                draggedNode = null;
+            }
+
+            // Refresh entire tree
+            function refreshTree() {
+                const container = document.getElementById('folder-tree');
+                renderTree(container, root.children, 0);
+            }
+
+            // Select a node by ID
+            function selectNode(id) {
+                const node = nodeMap.get(id);
+                if (!node) return;
+                selectedNode = node;
+                // Update editor if file
+                if (node.type === 'file') {
+                    document.getElementById('hsx-editor').value = node.content || '';
+                    document.getElementById('filename-input').value = node.name;
+                }
+                refreshTree(); // re-render to update active class
+            }
+
+            // Delete a node
+            function deleteNode(id) {
+                const node = nodeMap.get(id);
+                if (!node) return;
+                const parent = findParent(id);
+                if (!parent) return; // can't delete root
+                const idx = parent.children.findIndex(c => c.id === id);
+                if (idx !== -1) {
+                    if (confirm(`Delete "${node.name}"?`)) {
+                        parent.children.splice(idx, 1);
+                        nodeMap.delete(id);
+                        // If it was selected, select another
+                        if (selectedNode && selectedNode.id === id) {
+                            selectedNode = parent.children[0] || null;
+                        }
+                        refreshTree();
+                        if (selectedNode) {
+                            document.getElementById('hsx-editor').value = selectedNode.type === 'file' ? (selectedNode.content || '') : '';
+                            document.getElementById('filename-input').value = selectedNode.name;
+                        } else {
+                            document.getElementById('hsx-editor').value = '';
+                            document.getElementById('filename-input').value = '';
+                        }
+                    }
+                }
+            }
+
+            // Add new file
+            function addFile() {
+                const parent = selectedNode && selectedNode.type === 'folder' ? selectedNode : findParent(selectedNode ? selectedNode.id : null) || root;
+                const newName = 'newfile.hsx';
+                // ensure unique name
+                let base = newName;
                 let counter = 1;
-                while (files.some(f => f.name === name)) {
-                    const dot = base.lastIndexOf('.');
-                    if (dot === -1) name = `${base}${counter}`;
-                    else name = `${base.slice(0, dot)}${counter}${base.slice(dot)}`;
+                while (parent.children && parent.children.some(c => c.name === base)) {
+                    const dot = newName.lastIndexOf('.');
+                    if (dot === -1) base = `${newName}${counter}`;
+                    else base = `${newName.slice(0, dot)}${counter}${newName.slice(dot)}`;
                     counter++;
                 }
-                return name;
+                const newFile = {
+                    id: genId(),
+                    name: base,
+                    type: 'file',
+                    content: '// new HSX file'
+                };
+                if (!parent.children) parent.children = [];
+                parent.children.push(newFile);
+                nodeMap.set(newFile.id, newFile);
+                refreshTree();
+                selectNode(newFile.id);
             }
 
-            function addFile() {
-                const baseName = 'newfile.hsx';
-                const newName = getSafeFilename(baseName);
-                files.push({ name: newName, content: '// new HSX file' });
-                switchToFile(files.length - 1);
+            // Add new folder
+            function addFolder() {
+                const parent = selectedNode && selectedNode.type === 'folder' ? selectedNode : findParent(selectedNode ? selectedNode.id : null) || root;
+                const newName = 'New Folder';
+                let base = newName;
+                let counter = 1;
+                while (parent.children && parent.children.some(c => c.name === base)) {
+                    base = `${newName} ${counter}`;
+                    counter++;
+                }
+                const newFolder = {
+                    id: genId(),
+                    name: base,
+                    type: 'folder',
+                    expanded: true,
+                    children: []
+                };
+                if (!parent.children) parent.children = [];
+                parent.children.push(newFolder);
+                nodeMap.set(newFolder.id, newFolder);
+                refreshTree();
+                selectNode(newFolder.id);
             }
 
-            function deleteFile(index) {
-                if (files.length === 1) {
-                    alert('Cannot delete the only file.');
+            // Rename current node
+            function renameCurrent(newName) {
+                if (!selectedNode) return;
+                if (newName === selectedNode.name) return;
+                const parent = findParent(selectedNode.id);
+                if (parent && parent.children.some(c => c.id !== selectedNode.id && c.name === newName)) {
+                    alert('A file/folder with that name already exists in this folder.');
                     return;
                 }
-                if (!confirm(`Delete "${files[index].name}"?`)) return;
-                files.splice(index, 1);
-                if (currentIndex >= index) currentIndex = Math.max(0, currentIndex - 1);
-                if (currentIndex >= files.length) currentIndex = files.length - 1;
-                editor.value = files[currentIndex].content;
-                renderFileList();
-                updateFilenameInput();
+                selectedNode.name = newName;
+                refreshTree();
             }
 
-            filenameInput.addEventListener('change', () => {
-                const newName = filenameInput.value.trim();
-                if (!newName) return;
-                if (newName === files[currentIndex].name) return;
-                if (files.some((f, i) => i !== currentIndex && f.name === newName)) {
-                    alert('A file with that name already exists.');
-                    filenameInput.value = files[currentIndex].name;
-                    return;
-                }
-                files[currentIndex].name = newName;
-                renderFileList();
-            });
-
-            editor.addEventListener('input', () => {
-                files[currentIndex].content = editor.value;
-            });
-
-            // ---------- build preview HTML (now using module for runtime) ----------
+            // Build preview HTML with module runtime
             function generatePreviewHTML() {
+                // Collect all files into a map (path -> content)
                 const filesMap = {};
-                files.forEach(f => { filesMap[f.name] = f.content; });
+                function walk(node, path = '') {
+                    if (node.type === 'file') {
+                        filesMap[path + node.name] = node.content || '';
+                    } else if (node.type === 'folder') {
+                        const newPath = path + node.name + '/';
+                        if (node.children) node.children.forEach(c => walk(c, newPath));
+                    }
+                }
+                root.children.forEach(c => walk(c, ''));
+
                 const filesMapJson = JSON.stringify(filesMap, null, 2);
 
                 return `<!DOCTYPE html>
@@ -355,20 +561,21 @@
 <head><meta charset="UTF-8"><title>HSX preview</title></head>
 <body style="margin:0; padding:8px; font-family:sans-serif">
 <script type="module">
-// Import the runtime as a module
-import HSXRuntime from './hsx-runtime.js';  // adjust path if needed
+import { HSXRuntime } from './hsx-runtime.js'; // <-- adjust path to your runtime
 
-// Patch the load method to use embedded files
+// Embedded file system
+const HSX_FILES = ${filesMapJson};
+
+// Patch load method to serve embedded files
 const originalLoad = HSXRuntime.prototype.load;
 HSXRuntime.prototype.load = async function(filePath) {
-    const HSX_FILES = ${filesMapJson};
     if (HSX_FILES[filePath]) {
         return this.loadFromText(HSX_FILES[filePath]);
     }
     return originalLoad.call(this, filePath);
 };
 
-// Run all files
+// Instantiate and load all files
 const runtime = new HSXRuntime();
 for (const [name, content] of Object.entries(HSX_FILES)) {
     await runtime.loadFromText(content);
@@ -378,35 +585,66 @@ for (const [name, content] of Object.entries(HSX_FILES)) {
 </html>`;
             }
 
+            let previewTimeout;
+            function schedulePreview() {
+                if (previewTimeout) clearTimeout(previewTimeout);
+                previewTimeout = setTimeout(runPreview, 500);
+            }
+
             function runPreview() {
                 const html = generatePreviewHTML();
                 const blob = new Blob([html], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
-                previewFrame.src = url;
+                document.getElementById('preview-frame').src = url;
                 setTimeout(() => URL.revokeObjectURL(url), 10000);
             }
 
-            // ---------- event listeners (attached regardless of runtime) ----------
-            document.getElementById('btn-new').addEventListener('click', addFile);
-            document.getElementById('btn-new-side').addEventListener('click', addFile);
+            // ---------- Event Listeners ----------
+            document.getElementById('btn-new-file').addEventListener('click', addFile);
+            document.getElementById('btn-new-folder').addEventListener('click', addFolder);
             document.getElementById('btn-delete').addEventListener('click', () => {
-                deleteFile(currentIndex);
+                if (selectedNode) deleteNode(selectedNode.id);
             });
             document.getElementById('btn-run').addEventListener('click', runPreview);
-            document.getElementById('btn-refresh-preview').addEventListener('click', () => {
-                if (previewFrame.src) previewFrame.src = previewFrame.src;
-                else runPreview();
+            document.getElementById('btn-refresh-preview').addEventListener('click', runPreview);
+            document.getElementById('btn-collapse-all').addEventListener('click', () => {
+                // collapse all folders (simple: re-render root with all expanded = false)
+                function setExpanded(node, val) {
+                    if (node.type === 'folder') {
+                        node.expanded = val;
+                        if (node.children) node.children.forEach(c => setExpanded(c, val));
+                    }
+                }
+                setExpanded(root, false);
+                refreshTree();
             });
 
+            const filenameInput = document.getElementById('filename-input');
+            filenameInput.addEventListener('change', () => {
+                renameCurrent(filenameInput.value.trim());
+            });
             filenameInput.addEventListener('blur', () => {
                 filenameInput.dispatchEvent(new Event('change', { bubbles: true }));
             });
 
-            // ---------- initialize ----------
-            renderFileList();
-            updateFilenameInput();
-            editor.value = files[currentIndex].content;
-            setTimeout(runPreview, 300);
+            const editor = document.getElementById('hsx-editor');
+            editor.addEventListener('input', () => {
+                if (selectedNode && selectedNode.type === 'file') {
+                    selectedNode.content = editor.value;
+                    schedulePreview(); // live preview update
+                }
+            });
+
+            // Initialize
+            refreshTree();
+            selectNode(root.children[0].id);
+            runPreview();
+
+            // Global error guard
+            window.addEventListener('error', (e) => {
+                console.error('Caught error:', e.error);
+                e.preventDefault();
+            });
         })();
     </script>
 </body>
