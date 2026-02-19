@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHANGER · shift the world</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #1a2639 0%, #2e3b4e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 16px;
+        }
+        .game-wrapper {
+            background: rgba(10, 18, 30, 0.7);
+            backdrop-filter: blur(6px);
+            border-radius: 48px;
+            padding: 30px 30px 40px;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.1);
+            border: 1px solid #4e6a8b;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+        }
+        canvas {
+            width: min(70vw, 70vh, 500px);
+            height: min(70vw, 70vh, 500px);
+            display: block;
+            border-radius: 36px;
+            background: #0f1a2b;
+            box-shadow: inset 0 0 0 2px #3f556b, 0 20px 30px -8px black;
+            cursor: pointer;
+            touch-action: none;  /* prevent scrolling while tapping */
+        }
+        .info-panel {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 24px;
+            gap: 16px;
+            color: #dfeefb;
+        }
+        .player-color-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #1f2c3f;
+            padding: 10px 20px;
+            border-radius: 60px;
+            border: 1px solid #5f7ea0;
+            box-shadow: inset 0 2px 5px #0b121e;
+        }
+        .player-label {
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            color: #b3cef0;
+        }
+        .color-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .color-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 44px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #0a111c, 0 8px 12px black;
+            transition: 0.07s ease;
+            border: 2px solid #f5f9ff;
+        }
+        .color-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 2px 0 #0a111c, 0 5px 10px black;
+        }
+        .color-btn.red { background: #ff4f5e; }
+        .color-btn.green { background: #4fda9f; }
+        .color-btn.blue { background: #5b8cff; }
+        .stats {
+            display: flex;
+            gap: 24px;
+            background: #1f2c3f;
+            padding: 10px 28px;
+            border-radius: 60px;
+            border: 1px solid #5f7ea0;
+            font-weight: bold;
+            font-size: 1.3rem;
+            box-shadow: inset 0 2px 5px #0b121e;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-icon {
+            font-size: 1.6rem;
+            filter: drop-shadow(0 4px 2px #00000070);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            justify-content: center;
+        }
+        .btn {
+            background: #2e405b;
+            border: none;
+            border-bottom: 5px solid #0e1a28;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+            padding: 12px 32px;
+            border-radius: 50px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.07s ease;
+            box-shadow: 0 10px 15px -5px black;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:active {
+            transform: translateY(5px);
+            border-bottom-width: 2px;
+        }
+        .btn:disabled {
+            opacity: 0.4;
+            transform: none;
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+        .win-message {
+            text-align: center;
+            font-size: 1.7rem;
+            font-weight: 800;
+            color: #ffdc7a;
+            text-shadow: 0 5px 0 #8b6f40, 0 8px 15px black;
+            letter-spacing: 2px;
+            margin-top: 10px;
+        }
+        .level-indicator {
+            background: #00b8a34d;
+            padding: 4px 18px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            border: 1px solid #6ed4c2;
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div class="canvas-container">
+        <canvas id="gameCanvas" width="500" height="500"></canvas>
+    </div>
+
+    <!-- Info panel -->
+    <div class="info-panel">
+        <div class="player-color-area">
+            <span class="player-label">⚡YOU</span>
+            <div class="color-buttons">
+                <button class="color-btn red" id="colorRed" title="change yourself to red"></button>
+                <button class="color-btn green" id="colorGreen" title="change yourself to green"></button>
+                <button class="color-btn blue" id="colorBlue" title="change yourself to blue"></button>
+            </div>
+        </div>
+        <div class="stats">
+            <div class="stat-item"><span class="stat-icon">🔄</span> <span id="changesLeft">3</span></div>
+            <div class="stat-item"><span class="stat-icon">📊</span> <span id="levelDisplay">1/3</span></div>
+        </div>
+    </div>
+
+    <!-- action row -->
+    <div class="action-buttons">
+        <button class="btn" id="resetBtn">⟲ RESET</button>
+        <button class="btn" id="nextBtn">NEXT ▶</button>
+    </div>
+    <div id="winMessage" class="win-message"></div>
+</div>
+
+<script>
+(function() {
+    // ----- COLOR CONSTANTS -----
+    const COLORS = [
+        '#ff4f5e', // 0 red
+        '#4fda9f', // 1 green
+        '#5b8cff', // 2 blue
+        '#9aaec9'  // 3 exit (neutral grey)
+    ];
+
+    // ----- LEVEL DATA (hand-crafted for fun) -----
+    const levels = [
+        {   // level 1 (5x5)
+            grid: [
+                [0,0,0,0,0],
+                [0,1,1,0,0],
+                [0,1,0,2,0],
+                [0,0,2,2,0],
+                [0,0,0,0,3]  // 3 = exit tile (bottom-right)
+            ],
+            changes: 3,
+            size: 5
+        },
+        {   // level 2 (5x5)  checkerboard vibe
+            grid: [
+                [0,1,0,1,0],
+                [1,0,1,0,1],
+                [0,1,0,1,0],
+                [1,0,1,0,1],
+                [0,1,0,1,3]
+            ],
+            changes: 4,
+            size: 5
+        },
+        {   // level 3 (6x6)  more complex
+            grid: [
+                [0,2,0,1,2,0],
+                [1,1,2,2,0,1],
+                [2,0,1,0,2,1],
+                [1,2,0,1,1,2],
+                [0,1,2,0,2,0],
+                [2,0,1,2,1,3]
+            ],
+            changes: 6,
+            size: 6
+        }
+    ];
+
+    // Game state
+    let currentLevel = 0;            // index
+    let grid = [];
+    let gridSize = 5;
+    let player = { x: 0, y: 0 };
+    let playerColor = 0;             // 0=red,1=green,2=blue
+    let changesLeft = 0;
+    let gameWon = false;
+
+    // DOM elements
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const changesSpan = document.getElementById('changesLeft');
+    const levelSpan = document.getElementById('levelDisplay');
+    const winDiv = document.getElementById('winMessage');
+    const resetBtn = document.getElementById('resetBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const colorRed = document.getElementById('colorRed');
+    const colorGreen = document.getElementById('colorGreen');
+    const colorBlue = document.getElementById('colorBlue');
+
+    // Helper: get exit coordinates (always bottom-right)
+    function getExitPos() {
+        return { x: gridSize-1, y: gridSize-1 };
+    }
+
+    // Load level by index
+    function loadLevel(index) {
+        const lev = levels[index];
+        grid = lev.grid.map(row => [...row]); // copy
+        gridSize = lev.size;
+        changesLeft = lev.changes;
+        player = { x: 0, y: 0 };
+        // player starts as color of start cell (unless start is exit? start never exit)
+        playerColor = grid[0][0] === 3 ? 0 : grid[0][0]; // if start is exit (impossible) fallback red
+        gameWon = false;
+        winDiv.innerHTML = '';
+        updateUI();
+        draw();
+    }
+
+    // Update numeric display
+    function updateUI() {
+        changesSpan.innerText = changesLeft;
+        levelSpan.innerText = `${currentLevel+1}/${levels.length}`;
+        // next button disable if last level or game not won? we allow switching anytime, but we keep it active
+        // but we want to allow next only if level won? Better to allow free switching but reset if changed.
+        // We'll just keep it enabled, but if game not won, you can still go next (like a level select)
+    }
+
+    // Draw everything with style
+    function draw() {
+        const size = canvas.width; // 500
+        const cellSize = size / gridSize;
+
+        ctx.clearRect(0, 0, size, size);
+
+        // draw grid lines (glow)
+        ctx.shadowColor = '#bcd5ff';
+        ctx.shadowBlur = 4;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#2b4055';
+        ctx.beginPath();
+        for (let i = 0; i <= gridSize; i++) {
+            const pos = i * cellSize;
+            ctx.moveTo(pos, 0);
+            ctx.lineTo(pos, size);
+            ctx.moveTo(0, pos);
+            ctx.lineTo(size, pos);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+
+        // draw cells
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+                const val = grid[row][col];
+                const x = col * cellSize;
+                const y = row * cellSize;
+                const isExit = (col === getExitPos().x && row === getExitPos().y);
+
+                // fill with color (even exit has a grey base)
+                ctx.fillStyle = COLORS[val] || '#445566';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#b0d0ff80';
+                ctx.beginPath();
+                ctx.roundRect(x+4, y+4, cellSize-8, cellSize-8, 12);
+                ctx.fill();
+
+                // inner highlight
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#ffffff30';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(x+4, y+4, cellSize-8, cellSize-8, 12);
+                ctx.stroke();
+
+                // if exit, draw a star
+                if (isExit) {
+                    ctx.font = `${cellSize*0.7}px 'Segoe UI', 'Arial Unicode MS', sans-serif`;
+                    ctx.fillStyle = '#ffecaa';
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = '#f5b342';
+                    ctx.fillText('⭐', x + cellSize*0.2, y + cellSize*0.8);
+                }
+            }
+        }
+
+        // draw player (as a cute glowing orb)
+        const px = player.x * cellSize + cellSize/2;
+        const py = player.y * cellSize + cellSize/2;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#ffffffdd';
+        ctx.beginPath();
+        ctx.arc(px, py, cellSize*0.25, 0, 2*Math.PI);
+        ctx.fillStyle = '#f0f4ff';
+        ctx.fill();
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = COLORS[playerColor];
+        ctx.beginPath();
+        ctx.arc(px, py, cellSize*0.19, 0, 2*Math.PI);
+        ctx.fill();
+        // eye
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(px-3, py-4, cellSize*0.04, 0, 2*Math.PI);
+        ctx.fillStyle = '#0b0f1a';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px+3, py-4, cellSize*0.04, 0, 2*Math.PI);
+        ctx.fill();
+        // shine
+        ctx.fillStyle = '#fff9';
+        ctx.beginPath();
+        ctx.arc(px-4, py-7, cellSize*0.025, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px+4, py-7, cellSize*0.025, 0, 2*Math.PI);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+    }
+
+    // helper for rounded rect
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        this.moveTo(x + r, y);
+        this.lineTo(x + w - r, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r);
+        this.lineTo(x + w, y + h - r);
+        this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        this.lineTo(x + r, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r);
+        this.lineTo(x, y + r);
+        this.quadraticCurveTo(x, y, x + r, y);
+        this.closePath();
+        return this;
+    };
+
+    // --- GAME ACTIONS ---
+
+    // Move player
+    function tryMove(dx, dy) {
+        if (gameWon) return false;
+        const newX = player.x + dx;
+        const newY = player.y + dy;
+        if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) return false;
+
+        const targetVal = grid[newY][newX];
+        const exitPos = getExitPos();
+        const isTargetExit = (newX === exitPos.x && newY === exitPos.y);
+
+        // can step if: target is exit OR target color matches player color
+        if (isTargetExit || targetVal === playerColor) {
+            player.x = newX;
+            player.y = newY;
+            if (isTargetExit) {
+                gameWon = true;
+                winDiv.innerHTML = '✨ YOU WIN! ✨';
+            }
+            draw();
+            return true;
+        }
+        return false; // blocked
+    }
+
+    // Change tile color (cycle 0->1->2->0) if not exit and changes left
+    function changeTile(col, row) {
+        if (gameWon) return;
+        const exitPos = getExitPos();
+        if (col === exitPos.x && row === exitPos.y) return; // can't change exit
+        if (changesLeft <= 0) return;
+
+        const oldVal = grid[row][col];
+        if (oldVal === 3) return; // safety, but exit already excluded
+        // cycle 0,1,2 only
+        const newVal = (oldVal + 1) % 3;
+        grid[row][col] = newVal;
+        changesLeft--;
+        updateUI();
+        draw();
+    }
+
+    // Change player color (cost 0)
+    function setPlayerColor(newColor) {
+        if (gameWon) return;
+        if (newColor === playerColor) return;
+        playerColor = newColor;
+        draw();
+    }
+
+    // Reset current level
+    function resetLevel() {
+        loadLevel(currentLevel);
+    }
+
+    // Go to next level
+    function nextLevel() {
+        if (currentLevel + 1 < levels.length) {
+            currentLevel++;
+            loadLevel(currentLevel);
+        } else {
+            // already last level – celebrate
+            winDiv.innerHTML = '🏁 MASTER CHANGER! 🏁';
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    // keyboard movement
+    window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        e.preventDefault(); // avoid scrolling
+        if (key === 'ArrowUp') tryMove(0, -1);
+        else if (key === 'ArrowDown') tryMove(0, 1);
+        else if (key === 'ArrowLeft') tryMove(-1, 0);
+        else if (key === 'ArrowRight') tryMove(1, 0);
+        // optional number keys for color change
+        if (key === '1') setPlayerColor(0);
+        else if (key === '2') setPlayerColor(1);
+        else if (key === '3') setPlayerColor(2);
+    });
+
+    // canvas clicks (mouse & touch)
+    function handleCanvasClick(e) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;   // canvas physical size / CSS size
+        const scaleY = canvas.height / rect.height;
+
+        let clientX, clientY;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        const canvasX = (clientX - rect.left) * scaleX;
+        const canvasY = (clientY - rect.top) * scaleY;
+
+        if (canvasX < 0 || canvasY < 0 || canvasX > canvas.width || canvasY > canvas.height) return;
+
+        const cellSize = canvas.width / gridSize;
+        const col = Math.floor(canvasX / cellSize);
+        const row = Math.floor(canvasY / cellSize);
+        if (row >= 0 && row < gridSize && col >=0 && col < gridSize) {
+            changeTile(col, row);
+        }
+    }
+
+    canvas.addEventListener('mousedown', handleCanvasClick);
+    canvas.addEventListener('touchstart', handleCanvasClick, { passive: false });
+
+    // buttons
+    colorRed.addEventListener('click', () => setPlayerColor(0));
+    colorGreen.addEventListener('click', () => setPlayerColor(1));
+    colorBlue.addEventListener('click', () => setPlayerColor(2));
+
+    resetBtn.addEventListener('click', resetLevel);
+    nextBtn.addEventListener('click', nextLevel);
+
+    // optional: disable context menu on canvas
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // initialize first level
+    loadLevel(0);
+
+    // make sure canvas adapts on window resize (redraw)
+    window.addEventListener('resize', () => draw());
+})();
+</script>
+</body>
+</html>
