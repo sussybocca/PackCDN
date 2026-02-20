@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pack Studio · Advanced File Editor</title>
+  <!-- interact.js for cross-platform drag & drop -->
+  <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b1120;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* main layout */
+    .app {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      padding: 0.75rem;
+      gap: 0.75rem;
+    }
+
+    /* left panel: file tree */
+    .explorer {
+      width: 300px;
+      background: #1e293b;
+      border-radius: 1rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 30px -10px rgba(0,0,0,0.5);
+      border: 1px solid #334155;
+    }
+
+    .explorer-header {
+      padding: 1rem;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      border-radius: 1rem 1rem 0 0;
+    }
+
+    .explorer-header h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .tool-btn {
+      background: #2d3b4f;
+      border: none;
+      color: #e2e8f0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      border: 1px solid #405570;
+    }
+
+    .tool-btn:hover {
+      background: #3b4b62;
+    }
+
+    .tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 0.5rem;
+    }
+
+    /* file tree styles */
+    ul.tree {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    ul.tree ul {
+      list-style: none;
+      padding-left: 1.2rem;
+      margin-left: 0.5rem;
+      border-left: 1px dashed #475569;
+    }
+
+    .tree li {
+      margin: 3px 0;
+      position: relative;
+      border-radius: 6px;
+      transition: background 0.1s;
+    }
+
+    .tree li.selected > .item-row {
+      background: #2d3b4f;
+      border-left: 3px solid #3b82f6;
+    }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px 6px 8px;
+      border-radius: 6px;
+      cursor: default;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+
+    .item-row.drag-target {
+      background: #3b4b62;
+      border: 1px dashed #60a5fa;
+    }
+
+    .folder .item-row {
+      font-weight: 500;
+    }
+
+    .item-icon {
+      font-size: 1.1rem;
+      width: 20px;
+      text-align: center;
+    }
+
+    .item-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.9rem;
+    }
+
+    .item-actions {
+      opacity: 0;
+      transition: 0.1s;
+      display: flex;
+      gap: 4px;
+    }
+
+    .item-row:hover .item-actions {
+      opacity: 1;
+    }
+
+    .item-actions button {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .item-actions button:hover {
+      background: #475569;
+      color: white;
+    }
+
+    /* right panel: editor + metadata */
+    .editor-panel {
+      flex: 1;
+      background: #1e293b;
+      border-radius: 1rem;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #334155;
+      overflow: hidden;
+    }
+
+    .editor-header {
+      padding: 1rem 1.5rem;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .file-tab {
+      background: #1e293b;
+      padding: 0.4rem 1rem;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: 1px solid #3b4b62;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metadata-grid {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .metadata-grid input, .metadata-grid select {
+      background: #1e293b;
+      border: 1px solid #3b4b62;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .metadata-grid input:focus, .metadata-grid select:focus {
+      border-color: #3b82f6;
+    }
+
+    .publish-btn {
+      background: #3b82f6;
+      border: none;
+      color: white;
+      padding: 0.5rem 2rem;
+      border-radius: 40px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: 0.2s;
+      border: 1px solid #2563eb;
+    }
+
+    .publish-btn:hover {
+      background: #2563eb;
+    }
+
+    .code-area {
+      flex: 1;
+      padding: 1rem;
+      background: #0f172a;
+    }
+
+    #editor {
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      border: none;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    .response-area {
+      background: #1e293b;
+      border-top: 1px solid #334155;
+      padding: 0.8rem 1.5rem;
+      font-size: 0.85rem;
+      color: #a5b4cb;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    /* drag-drop helper classes */
+    .dragging {
+      opacity: 0.4;
+    }
+    .drop-zone-active {
+      background: #2d3b4f;
+      border: 2px dashed #3b82f6;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- LEFT: FILE EXPLORER -->
+  <div class="explorer">
+    <div class="explorer-header">
+      <h3>📁 PACK FILES</h3>
+      <div class="toolbar">
+        <button class="tool-btn" id="newFileBtn" title="New file">📄</button>
+        <button class="tool-btn" id="newFolderBtn" title="New folder">📂</button>
+        <button class="tool-btn" id="deleteBtn" title="Delete">🗑️</button>
+        <button class="tool-btn" id="renameBtn" title="Rename">✏️</button>
+      </div>
+    </div>
+    <div class="tree-container" id="treeContainer">
+      <!-- dynamic tree rendered via js -->
+    </div>
+  </div>
+
+  <!-- RIGHT: EDITOR + METADATA -->
+  <div class="editor-panel">
+    <div class="editor-header">
+      <div class="file-tab" id="currentFileTab">📄 main.pl</div>
+      <div class="metadata-grid">
+        <input type="text" id="packName" placeholder="pack name" value="my_pack">
+        <input type="text" id="packVersion" placeholder="version" value="1.0.0">
+        <select id="packLanguage">
+          <option value="packlang">PackLang</option>
+          <option value="hsx">HSX</option>
+        </select>
+        <button class="publish-btn" id="publishBtn">🚀 Publish</button>
+      </div>
+    </div>
+    <div class="code-area">
+      <textarea id="editor" placeholder="// your pack code here ..."></textarea>
+    </div>
+    <div class="response-area" id="response">Ready. Publish to see results.</div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // --------------------------------------------------------------
+    // IN‑MEMORY FILE SYSTEM (TREE)
+    // --------------------------------------------------------------
+    let nextId = 1000;
+    const treeData = {
+      id: 'root',
+      name: 'root',
+      type: 'folder',
+      children: [
+        { id: 'f1', name: 'main.pl', type: 'file', content: '// welcome to pack\nfn main() {\n  return 0;\n}\n', parentId: 'root' },
+        { id: 'f2', name: 'lib', type: 'folder', children: [], parentId: 'root' },
+        { id: 'f3', name: 'utils.pl', type: 'file', content: '// helper functions\nexport fn add(a, b) { return a + b; }\n', parentId: 'f2' }
+      ],
+      parentId: null
+    };
+
+    // flat map for quick lookup
+    const nodeMap = new Map();
+    function buildMap(node) {
+      nodeMap.set(node.id, node);
+      if (node.type === 'folder' && node.children) {
+        node.children.forEach(child => buildMap(child));
+      }
+    }
+    buildMap(treeData);
+
+    // track selected node
+    let selectedNodeId = 'f1';  // main.pl selected by default
+
+    // --------------------------------------------------------------
+    // RENDER TREE recursively
+    // --------------------------------------------------------------
+    function renderTree() {
+      const container = document.getElementById('treeContainer');
+      container.innerHTML = ''; 
+      const rootUl = document.createElement('ul');
+      rootUl.className = 'tree';
+      renderNode(treeData, rootUl);
+      container.appendChild(rootUl);
+
+      // After rendering, re‑attach drag & drop via interact.js
+      initDragDrop();
+    }
+
+    function renderNode(node, parentElement) {
+      if (node.type === 'folder') {
+        const li = document.createElement('li');
+        li.dataset.id = node.id;
+        li.dataset.type = 'folder';
+        li.classList.add('folder');
+
+        // folder row
+        const row = document.createElement('div');
+        row.className = `item-row ${selectedNodeId === node.id ? 'selected' : ''}`;
+        row.innerHTML = `
+          <span class="item-icon">📁</span>
+          <span class="item-name">${escapeHtml(node.name)}</span>
+          <span class="item-actions">
+            <button class="rename-item" data-id="${node.id}">✏️</button>
+            <button class="delete-item" data-id="${node.id}">🗑️</button>
+          </span>
+        `;
+        // click to select (but not when clicking buttons)
+        row.addEventListener('click', (e) => {
+          if (e.target.tagName !== 'BUTTON') selectNode(node.id);
+        });
+        li.appendChild(row);
+
+        // container for children
+        if (node.children && node.children.length > 0) {
+          const childUl = document.createElement('ul');
+          node.children.forEach(child => renderNode(child, childUl));
+          li.appendChild(childUl);
+        } else {
+          // empty folder hint (optional)
+          const emptyHint = document.createElement('ul');
+          emptyHint.style.paddingLeft = '1.5rem';
+          emptyHint.style.color = '#64748b';
+          emptyHint.style.fontSize = '0.8rem';
+          emptyHint.innerHTML = '<li style="list-style:none;">(empty)</li>';
+          li.appendChild(emptyHint);
+        }
+        parentElement.appendChild(li);
+      } else {
+        // file node
+        const li = document.createElement('li');
+        li.dataset.id = node.id;
+        li.dataset.type = 'file';
+        const row = document.createElement('div');
+        row.className = `item-row ${selectedNodeId === node.id ? 'selected' : ''}`;
+        row.innerHTML = `
+          <span class="item-icon">📄</span>
+          <span class="item-name">${escapeHtml(node.name)}</span>
+          <span class="item-actions">
+            <button class="rename-item" data-id="${node.id}">✏️</button>
+            <button class="delete-item" data-id="${node.id}">🗑️</button>
+          </span>
+        `;
+        row.addEventListener('click', (e) => {
+          if (e.target.tagName !== 'BUTTON') selectNode(node.id);
+        });
+        li.appendChild(row);
+        parentElement.appendChild(li);
+      }
+    }
+
+    function escapeHtml(unsafe) {
+      return unsafe.replace(/[&<>"]/g, function(m) {
+        if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; if(m === '"') return '&quot;';
+        return m;
+      });
+    }
+
+    // --------------------------------------------------------------
+    // SELECT NODE & UPDATE EDITOR
+    // --------------------------------------------------------------
+    function selectNode(id) {
+      selectedNodeId = id;
+      const node = nodeMap.get(id);
+      if (!node) return;
+      // update tab
+      document.getElementById('currentFileTab').innerHTML = `📄 ${getNodePath(node)}`;
+      // if file, load content into editor
+      if (node.type === 'file') {
+        document.getElementById('editor').value = node.content || '';
+        document.getElementById('editor').readOnly = false;
+      } else {
+        document.getElementById('editor').value = '// 📁 folder – no editable content';
+        document.getElementById('editor').readOnly = true;
+      }
+      renderTree(); // re-render to update selected class
+    }
+
+    // get full path for display
+    function getNodePath(node) {
+      let path = node.name;
+      let cur = node;
+      while (cur.parentId) {
+        const parent = nodeMap.get(cur.parentId);
+        if (parent && parent.id !== 'root') {
+          path = parent.name + '/' + path;
+          cur = parent;
+        } else break;
+      }
+      return path;
+    }
+
+    // --------------------------------------------------------------
+    // DRAG & DROP (interact.js)
+    // --------------------------------------------------------------
+    function initDragDrop() {
+      // enable draggable on all .item-row (except maybe root?)
+      interact('.item-row').draggable({
+        allowFrom: '.item-name, .item-icon',  // drag by name/icon, not buttons
+        inertia: false,
+        onstart: (event) => {
+          event.target.classList.add('dragging');
+        },
+        onmove: (event) => {
+          // we don't need visual feedback, just data transfer
+        },
+        onend: (event) => {
+          event.target.classList.remove('dragging');
+        }
+      }).on('dragstart', (event) => {
+        const row = event.target;
+        const li = row.closest('li');
+        if (!li) return;
+        const nodeId = li.dataset.id;
+        event.interaction.dragData = { nodeId };
+      });
+
+      // make folders dropzones
+      interact('.folder > .item-row').dropzone({
+        accept: '.item-row',
+        overlap: 0.2,
+        ondropactivate: (event) => {
+          event.target.classList.add('drop-zone-active');
+        },
+        ondragenter: (event) => {
+          // highlight
+        },
+        ondragleave: (event) => {
+          // remove highlight
+        },
+        ondrop: (event) => {
+          const targetRow = event.target;
+          const targetLi = targetRow.closest('li');
+          if (!targetLi) return;
+          const targetFolderId = targetLi.dataset.id;
+          const draggedNodeId = event.relatedTarget.closest('li').dataset.id;
+          if (!draggedNodeId || !targetFolderId) return;
+          moveNode(draggedNodeId, targetFolderId);
+        },
+        ondropdeactivate: (event) => {
+          event.target.classList.remove('drop-zone-active');
+        }
+      });
+    }
+
+    // move node to target folder (as last child)
+    function moveNode(nodeId, targetFolderId) {
+      if (nodeId === targetFolderId) return;
+      const node = nodeMap.get(nodeId);
+      const targetFolder = nodeMap.get(targetFolderId);
+      if (!node || !targetFolder || targetFolder.type !== 'folder') return;
+      // prevent moving parent into its own child
+      if (isAncestor(nodeId, targetFolderId)) {
+        alert('Cannot move a folder into its own subfolder');
+        return;
+      }
+
+      // remove from old parent
+      const oldParent = nodeMap.get(node.parentId);
+      if (oldParent && oldParent.children) {
+        oldParent.children = oldParent.children.filter(n => n.id !== nodeId);
+      }
+      // add to new parent
+      if (!targetFolder.children) targetFolder.children = [];
+      targetFolder.children.push(node);
+      node.parentId = targetFolderId;
+
+      // rebuild map (just to be safe, but already updated)
+      nodeMap.clear();
+      buildMap(treeData);
+
+      // re-render and keep selection
+      renderTree();
+      if (selectedNodeId) selectNode(selectedNodeId);
+    }
+
+    function isAncestor(ancestorId, descendantId) {
+      let cur = nodeMap.get(descendantId);
+      while (cur && cur.parentId) {
+        if (cur.parentId === ancestorId) return true;
+        cur = nodeMap.get(cur.parentId);
+      }
+      return false;
+    }
+
+    // --------------------------------------------------------------
+    // FILE OPERATIONS: new file/folder, delete, rename
+    // --------------------------------------------------------------
+    function createNode(type) {
+      const parentId = selectedNodeId && nodeMap.get(selectedNodeId)?.type === 'folder' 
+        ? selectedNodeId 
+        : (nodeMap.get(selectedNodeId)?.parentId || 'root');
+      const parent = nodeMap.get(parentId);
+      if (!parent || parent.type !== 'folder') return;
+
+      const baseName = type === 'file' ? 'newfile.pl' : 'newfolder';
+      let name = baseName;
+      let counter = 1;
+      while (parent.children.some(c => c.name === name)) {
+        const parts = baseName.split('.');
+        if (parts.length > 1 && type==='file') {
+          name = `${parts[0]}${counter}.${parts.slice(1).join('.')}`;
+        } else {
+          name = baseName + counter;
+        }
+        counter++;
+      }
+
+      const newNode = {
+        id: 'n' + (nextId++),
+        name,
+        type,
+        parentId,
+        ...(type === 'file' ? { content: '' } : { children: [] })
+      };
+      parent.children.push(newNode);
+      nodeMap.set(newNode.id, newNode);
+
+      renderTree();
+      selectNode(newNode.id);
+    }
+
+    function deleteSelected() {
+      if (!selectedNodeId || selectedNodeId === 'root') return;
+      const node = nodeMap.get(selectedNodeId);
+      if (!node) return;
+
+      const parent = nodeMap.get(node.parentId);
+      if (parent && parent.children) {
+        parent.children = parent.children.filter(c => c.id !== selectedNodeId);
+        nodeMap.delete(selectedNodeId);
+        // recursively delete children from map if folder
+        if (node.type === 'folder' && node.children) {
+          const idsToDelete = [];
+          function collectIds(n) {
+            idsToDelete.push(n.id);
+            if (n.children) n.children.forEach(collectIds);
+          }
+          collectIds(node);
+          idsToDelete.forEach(id => nodeMap.delete(id));
+        }
+
+        renderTree();
+        if (parent.children.length > 0) selectNode(parent.children[0].id);
+        else if (parent.id !== 'root') selectNode(parent.id);
+        else selectNode('f1'); // fallback
+      }
+    }
+
+    function renameSelected() {
+      if (!selectedNodeId || selectedNodeId === 'root') return;
+      const node = nodeMap.get(selectedNodeId);
+      const newName = prompt('Enter new name', node.name);
+      if (!newName) return;
+      // validate name (no slashes)
+      if (newName.includes('/') || newName.includes('\\')) {
+        alert('Name cannot contain slashes');
+        return;
+      }
+      // check uniqueness in same parent
+      const parent = nodeMap.get(node.parentId);
+      if (parent && parent.children.some(c => c.id !== node.id && c.name === newName)) {
+        alert('A file/folder with that name already exists in this folder');
+        return;
+      }
+      node.name = newName;
+      renderTree();
+      selectNode(selectedNodeId);
+    }
+
+    // --------------------------------------------------------------
+    // PUBLISH: gather files into flat object, call API
+    // --------------------------------------------------------------
+    async function publishPack() {
+      const name = document.getElementById('packName').value.trim();
+      if (!name) { alert('Pack name required'); return; }
+      const version = document.getElementById('packVersion').value.trim() || '1.0.0';
+      const language = document.getElementById('packLanguage').value;
+
+      // Build files object from tree (relative paths)
+      const files = {};
+      function walk(node, pathSegments) {
+        if (node.type === 'file') {
+          const filePath = [...pathSegments, node.name].join('/');
+          files[filePath] = node.content || '';
+        } else if (node.type === 'folder' && node.children) {
+          node.children.forEach(child => walk(child, [...pathSegments, node.name]));
+        }
+      }
+      treeData.children.forEach(child => walk(child, []));
+
+      // main source: if main.pl / main.hsx exists, use that as primary source; otherwise pick first file
+      const mainFileName = language === 'packlang' ? 'main.pl' : 'main.hsx';
+      let source = files[mainFileName] || '';
+      if (!source) {
+        const firstFile = Object.keys(files).find(f => f.endsWith('.pl') || f.endsWith('.hsx'));
+        source = files[firstFile] || '';
+      }
+
+      const payload = {
+        name,
+        source,
+        language,
+        metadata: {
+          version,
+          description: `Pack ${name} from advanced editor`,
+          files          // all files go into metadata.files
+        },
+        isPublic: true
+      };
+
+      document.getElementById('response').innerText = '⏳ Publishing...';
+
+      try {
+        const res = await fetch('/api/pack-publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('response').innerHTML = `
+            ✅ Published!<br>
+            📦 Pack ID: ${data.packId}<br>
+            🔗 CDN: <a href="${data.cdnUrl}" target="_blank">${data.cdnUrl}</a><br>
+            ${data.editToken ? `🔑 Edit token: <code>${data.editToken}</code>` : ''}
+          `;
+        } else {
+          document.getElementById('response').innerText = '❌ Error: ' + (data.error || 'unknown');
+        }
+      } catch (err) {
+        document.getElementById('response').innerText = '❌ Network error: ' + err.message;
+      }
+    }
+
+    // --------------------------------------------------------------
+    // EVENT LISTENERS & INIT
+    // --------------------------------------------------------------
+    window.addEventListener('load', () => {
+      renderTree();
+      selectNode('f1');  // select main.pl initially
+
+      // toolbar buttons
+      document.getElementById('newFileBtn').addEventListener('click', () => createNode('file'));
+      document.getElementById('newFolderBtn').addEventListener('click', () => createNode('folder'));
+      document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
+      document.getElementById('renameBtn').addEventListener('click', renameSelected);
+
+      // publish
+      document.getElementById('publishBtn').addEventListener('click', publishPack);
+
+      // editor change -> save content to selected file node
+      document.getElementById('editor').addEventListener('input', (e) => {
+        if (!selectedNodeId) return;
+        const node = nodeMap.get(selectedNodeId);
+        if (node && node.type === 'file') {
+          node.content = e.target.value;
+        }
+      });
+
+      // also support rename/delete via inline buttons (delegation)
+      document.getElementById('treeContainer').addEventListener('click', (e) => {
+        if (e.target.classList.contains('rename-item')) {
+          const id = e.target.dataset.id;
+          if (id) { selectedNodeId = id; renameSelected(); }
+        } else if (e.target.classList.contains('delete-item')) {
+          const id = e.target.dataset.id;
+          if (id) { selectedNodeId = id; deleteSelected(); }
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>
