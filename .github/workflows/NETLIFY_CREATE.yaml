@@ -1,10 +1,9 @@
-name: Update NETLIFY file listing
+name: Update NETLIFY site index
 
 on:
   push:
     paths:
-      - 'NETLIFY/**/*.html'   # triggers on HTML changes
-      - 'NETLIFY/**/*.tsx'    # also triggers on TSX changes
+      - 'NETLIFY/**/*.html'       # triggers only on HTML changes
     branches:
       - main
 
@@ -21,23 +20,23 @@ jobs:
       - name: Create dist directory
         run: mkdir -p NETLIFY/dist
 
-      - name: Copy all HTML and TSX files to dist (preserve structure)
+      - name: Copy all HTML files to dist (preserve structure)
         run: |
           # Use rsync to copy files, excluding dist itself and node_modules
-          rsync -av --exclude='dist' --exclude='node_modules' --include='*.html' --include='*.tsx' --include='*/' --exclude='*' NETLIFY/ NETLIFY/dist/
+          rsync -av --exclude='dist' --exclude='node_modules' --include='*.html' --include='*/' --exclude='*' NETLIFY/ NETLIFY/dist/
 
-      - name: Generate stylish files.html inside dist
+      - name: Generate stylish index.html inside dist
         run: |
           cd NETLIFY/dist
 
           # Start building the HTML file with embedded CSS
-          cat > files.html << 'EOF'
+          cat > index.html << 'EOF'
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>📁 NETLIFY File Index</title>
+            <title>📁 NETLIFY Sites</title>
             <style>
               body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -70,6 +69,16 @@ jobs:
                 padding: 0.2rem 0.8rem;
                 border-radius: 30px;
                 color: #2c3e50;
+              }
+              .message {
+                background: #e6f3ff;
+                border-left: 5px solid #0099cc;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 2rem;
+                font-size: 1.3rem;
+                color: #005073;
+                font-weight: 500;
               }
               .file-count {
                 color: #5f6b7a;
@@ -142,37 +151,36 @@ jobs:
           <body>
             <div class="container">
               <h1>
-                📄 Files in <code>NETLIFY</code>
+                📄 NETLIFY Sites
                 <span>auto‑index</span>
               </h1>
+              <div class="message">
+                🚀 Here is our new Netlify site, enjoy!
+              </div>
               <div class="file-count">
           EOF
 
-          # Count files (excluding files.html itself)
-          count=$(find . -type f \( -name "*.html" -o -name "*.tsx" \) ! -name "files.html" | wc -l)
-          echo "                <span>📌 $count file(s) found</span>" >> files.html
-          echo "              </div>" >> files.html
-          echo "              <div class=\"file-grid\">" >> files.html
+          # Count files (excluding index.html itself)
+          count=$(find . -type f -name "*.html" ! -name "index.html" | wc -l)
+          echo "                <span>📌 $count file(s) found</span>" >> index.html
+          echo "              </div>" >> index.html
+          echo "              <div class=\"file-grid\">" >> index.html
 
-          # Find all .html and .tsx files (excluding files.html) and generate cards
-          find . -type f \( -name "*.html" -o -name "*.tsx" \) ! -name "files.html" -printf '%P\0' | sort -z | while IFS= read -r -d '' file; do
-            # Determine icon
-            if [[ "$file" == *.tsx ]]; then
-              icon="⚛️"
-            else
-              icon="📄"
-            fi
-            echo "                <a href=\"$file\" class=\"file-card\">" >> files.html
-            echo "                  <span class=\"file-icon\">$icon</span>" >> files.html
-            echo "                  <div class=\"file-info\">" >> files.html
-            echo "                    <div class=\"file-name\">$(basename "$file")</div>" >> files.html
-            echo "                    <div class=\"file-path\">$(dirname "$file")</div>" >> files.html
-            echo "                  </div>" >> files.html
-            echo "                </a>" >> files.html
+          # Find all .html files (excluding index.html) and generate cards
+          find . -type f -name "*.html" ! -name "index.html" -printf '%P\0' | sort -z | while IFS= read -r -d '' file; do
+            # Icon for HTML files
+            icon="📄"
+            echo "                <a href=\"$file\" class=\"file-card\">" >> index.html
+            echo "                  <span class=\"file-icon\">$icon</span>" >> index.html
+            echo "                  <div class=\"file-info\">" >> index.html
+            echo "                    <div class=\"file-name\">$(basename "$file")</div>" >> index.html
+            echo "                    <div class=\"file-path\">$(dirname "$file")</div>" >> index.html
+            echo "                  </div>" >> index.html
+            echo "                </a>" >> index.html
           done
 
           # Close tags
-          cat >> files.html << 'EOF'
+          cat >> index.html << 'EOF'
               </div>
               <footer>
                 ⚡ Automatically updated on every push — last build: $(date -u +"%Y-%m-%d %H:%M UTC")
@@ -190,6 +198,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to dist/"
           else
-            git commit -m "Update NETLIFY/dist [skip ci]"
+            git commit -m "Update NETLIFY/dist index [skip ci]"
             git push
           fi
