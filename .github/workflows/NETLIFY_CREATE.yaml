@@ -17,17 +17,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create dist directory
-        run: mkdir -p NETLIFY/dist
-
-      - name: Copy all HTML files to dist (preserve structure)
+      - name: Generate stylish index.html inside NETLIFY folder
         run: |
-          # Use rsync to copy files, excluding dist itself and node_modules
-          rsync -av --exclude='dist' --exclude='node_modules' --include='*.html' --include='*/' --exclude='*' NETLIFY/ NETLIFY/dist/
-
-      - name: Generate stylish index.html inside dist
-        run: |
-          cd NETLIFY/dist
+          cd NETLIFY
 
           # Start building the HTML file with embedded CSS
           cat > index.html << 'EOF'
@@ -167,8 +159,8 @@ jobs:
           echo "              <div class=\"file-grid\">" >> index.html
 
           # Find all .html files (excluding index.html) and generate cards
+          # Using relative paths so links work from NETLIFY/index.html
           find . -type f -name "*.html" ! -name "index.html" -printf '%P\0' | sort -z | while IFS= read -r -d '' file; do
-            # Icon for HTML files
             icon="📄"
             echo "                <a href=\"$file\" class=\"file-card\">" >> index.html
             echo "                  <span class=\"file-icon\">$icon</span>" >> index.html
@@ -194,11 +186,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Force-add because NETLIFY/dist is likely in .gitignore
-          git add -f NETLIFY/dist
+          git add NETLIFY/index.html
           if git diff --staged --quiet; then
-            echo "No changes to dist/"
+            echo "No changes to index.html"
           else
-            git commit -m "Update NETLIFY/dist index [skip ci]"
+            git commit -m "Update NETLIFY index.html [skip ci]"
             git push
           fi
