@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FSX Language Editor – External Runtime</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e2f;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            padding: 10px 20px;
+            background: #2a2a3a;
+            border-bottom: 2px solid #ffaa00;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #header h1 {
+            font-size: 1.5rem;
+            color: #ffaa00;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        #header button {
+            background: #ffaa00;
+            color: #1e1e2f;
+            border: none;
+            padding: 8px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #header button:hover {
+            background: #ffc34d;
+            transform: scale(1.05);
+        }
+        #main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        #editor-pane {
+            width: 50%;
+            background: #1e1e2f;
+            border-right: 2px solid #333;
+        }
+        #preview-pane {
+            width: 50%;
+            background: #111;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        #preview-header {
+            background: #2a2a3a;
+            padding: 8px 12px;
+            border-bottom: 1px solid #444;
+            font-weight: bold;
+            color: #ffaa00;
+        }
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        #canvas-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #status {
+            background: #2a2a3a;
+            padding: 4px 12px;
+            font-size: 0.9rem;
+            color: #aaa;
+            border-top: 1px solid #444;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+        }
+    </style>
+    <!-- CodeMirror for JSON editing -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+</head>
+<body>
+    <div id="header">
+        <h1>⚡ FSX Language Editor ⚡</h1>
+        <button id="run-btn">▶ RUN FSX</button>
+    </div>
+    <div id="main">
+        <div id="editor-pane">
+            <textarea id="code">{
+  "version": "1.0",
+  "scene": {
+    "nodes": [
+      {
+        "name": "Cube",
+        "mesh": "builtin_cube",
+        "material": {
+          "color": [1, 0.5, 0, 1]
+        },
+        "position": [0, 0, -5]
+      }
+    ],
+    "camera": {
+      "name": "main",
+      "position": [0, 2, 8]
+    }
+  },
+  "effects": [
+    { "type": "bloom", "params": { "threshold": 0.7, "intensity": 1.2 } }
+  ],
+  "timeline": {
+    "duration": 10,
+    "loop": true,
+    "tracks": [
+      {
+        "target": "Cube",
+        "property": "position",
+        "keyframes": [
+          { "time": 0, "value": [0, 0, -5] },
+          { "time": 5, "value": [2, 0, -5] },
+          { "time": 10, "value": [0, 0, -5] }
+        ]
+      }
+    ]
+  }
+}</textarea>
+        </div>
+        <div id="preview-pane">
+            <div id="preview-header">Live FSX Preview</div>
+            <div id="canvas-container"></div>
+            <div id="status">Ready. Click Run.</div>
+        </div>
+    </div>
+
+    <!-- Import the FSX runtime (must be in the same folder) -->
+    <script src="FSX_RUNTIME.js"></script>
+
+    <script>
+        // Initialize CodeMirror
+        const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+            mode: { name: 'javascript', json: true },
+            theme: 'dracula',
+            lineNumbers: true,
+            matchBrackets: true,
+            indentUnit: 2,
+            tabSize: 2
+        });
+
+        // Store current runtime instance
+        let currentRuntime = null;
+
+        // Function to run the manifest
+        async function runFSX() {
+            const status = document.getElementById('status');
+            const container = document.getElementById('canvas-container');
+            
+            try {
+                // Clear any existing canvas
+                container.innerHTML = '';
+                status.innerText = 'Initializing FSX...';
+                status.className = '';
+
+                // Parse the manifest
+                const manifestText = editor.getValue();
+                let manifest;
+                try {
+                    manifest = JSON.parse(manifestText);
+                } catch (e) {
+                    throw new Error('Invalid JSON: ' + e.message);
+                }
+
+                // Initialize runtime if needed, or reuse
+                if (!currentRuntime) {
+                    currentRuntime = await FSX.init({ 
+                        logLevel: 'info',
+                        defaultCanvas: document.createElement('canvas')
+                    });
+                }
+
+                // Attach canvas to container
+                container.appendChild(currentRuntime.canvas);
+
+                // Resize to container
+                const resizeCanvas = () => {
+                    const rect = container.getBoundingClientRect();
+                    currentRuntime.renderer.resize(rect.width, rect.height);
+                    if (currentRuntime.scene.activeCamera) {
+                        currentRuntime.scene.activeCamera.aspect = rect.width / rect.height;
+                    }
+                };
+                window.addEventListener('resize', resizeCanvas);
+                resizeCanvas();
+
+                status.innerText = 'Loading manifest...';
+
+                // Load the manifest
+                await currentRuntime.load(manifest);
+
+                status.innerText = 'Running...';
+                currentRuntime.play();
+
+                // Update status with FPS
+                const interval = setInterval(() => {
+                    if (!currentRuntime) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    const fps = currentRuntime.profiler.fps;
+                    status.innerText = `FPS: ${fps}`;
+                }, 1000);
+
+                // Clean up interval when runtime is disposed (not implemented here)
+            } catch (err) {
+                console.error(err);
+                status.innerText = 'Error: ' + err.message;
+                status.className = 'error';
+            }
+        }
+
+        // Run button click
+        document.getElementById('run-btn').addEventListener('click', runFSX);
+
+        // Optionally run on page load with default manifest
+        window.addEventListener('load', () => {
+            // Small delay to let everything settle
+            setTimeout(runFSX, 100);
+        });
+    </script>
+</body>
+</html>
