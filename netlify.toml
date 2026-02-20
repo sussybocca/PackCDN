@@ -1,13 +1,16 @@
-# Build settings
+# Base directory – where commands run and publish are relative to
+base = "NETLIFY"
+
+# Build settings (no build needed for static HTML)
 [build]
-  command = "cd NETLIFY && npm install && npm run build"
-  publish = "NETLIFY/out"
+  command = "echo 'No build required'"
+  publish = "."
 
-# Functions directory
-[functions]
-  directory = "NETLIFY/netlify/functions"
+# Remove functions if not used
+# [functions]
+#   directory = "netlify/functions"
 
-# Redirect all traffic to Next.js
+# Optional: Redirect all traffic to index.html (for SPA routing)
 [[redirects]]
   from = "/*"
   to = "/index.html"
