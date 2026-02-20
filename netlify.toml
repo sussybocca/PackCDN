@@ -1,14 +1,11 @@
-# Base directory – where commands run and publish/functions are relative to
-base = "NETLIFY"
-
 # Build settings
 [build]
-  command = "mv ../package.json ../package.json.bak && npm install && npm run build && mv ../package.json.bak ../package.json"
-  publish = "out"
+  command = "cd NETLIFY && npm install && npm run build"
+  publish = "NETLIFY/out"
 
 # Functions directory
 [functions]
-  directory = "netlify/functions"
+  directory = "NETLIFY/netlify/functions"
 
 # Redirect all traffic to Next.js
 [[redirects]]
