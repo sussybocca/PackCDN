@@ -1,5 +1,5 @@
 // pages/index.jsx
-import ModManager from '@/components/ModManager';
+import ModManager from '@/ModManager';
 
 export default function Home() {
   // Dummy notification handler (replace with your actual implementation)
