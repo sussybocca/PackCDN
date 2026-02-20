@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BotMail • Smart Email Bots</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f4f7fb; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 1200px; width: 100%; }
+        h1 { color: #1e293b; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+        h1 small { font-size: 0.8rem; color: #64748b; font-weight: 400; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .card h2 { margin-top: 0; font-size: 1.4rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        label { display: block; margin: 12px 0 4px; font-weight: 500; color: #334155; }
+        input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 14px; font-size: 1rem; background: #f8fafc; }
+        button { background: #0f172a; color: white; border: none; padding: 12px 20px; border-radius: 40px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-right: 8px; margin-top: 10px; border: 1px solid #1e293b; }
+        button.secondary { background: white; color: #0f172a; border: 1px solid #cbd5e1; }
+        button.small { padding: 6px 12px; font-size: 0.9rem; }
+        .bot-list { margin-bottom: 20px; }
+        .bot-item { background: #f1f5f9; padding: 10px 15px; border-radius: 40px; display: inline-block; margin: 0 8px 8px 0; font-size: 0.9rem; }
+        .inbox { max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 20px; padding: 15px; }
+        .email-item { background: #f8fafc; border-radius: 16px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #3b82f6; }
+        .email-item small { color: #64748b; }
+        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+        .mt-4 { margin-top: 20px; }
+        .text-center { text-align: center; }
+        .status { background: #e2e8f0; padding: 8px 16px; border-radius: 40px; display: inline-block; margin-top: 10px; font-weight: 500; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🤖 BotMail <small>smart email bots + real SMTP sending</small></h1>
+
+    <div class="grid">
+        <!-- LEFT COLUMN: Bots & Compose -->
+        <div>
+            <div class="card">
+                <h2>🤖 Your Bots</h2>
+                <div id="bot-list-container" class="bot-list"></div>
+
+                <h3>Add new bot</h3>
+                <label>Name</label>
+                <input type="text" id="bot-name" placeholder="e.g. SupportBot">
+                <label>Email</label>
+                <input type="email" id="bot-email" placeholder="bot@example.com">
+                <label>Personality</label>
+                <select id="bot-personality">
+                    <option value="friendly">😊 Friendly</option>
+                    <option value="professional">👔 Professional</option>
+                    <option value="sarcastic">😏 Sarcastic</option>
+                </select>
+                <button id="add-bot-btn">➕ Add Bot</button>
+            </div>
+
+            <div class="card mt-4">
+                <h2>✉️ Compose & Send</h2>
+                <label>From bot</label>
+                <select id="compose-from"></select>
+                <label>To (email)</label>
+                <input type="email" id="compose-to" placeholder="recipient@example.com">
+                <label>Subject</label>
+                <input type="text" id="compose-subject" placeholder="Hello">
+                <label>Body</label>
+                <textarea id="compose-body" rows="3"></textarea>
+                <button id="send-email-btn">📤 Send Real Email</button>
+                <div id="send-status" class="status"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Inbox & Simulator -->
+        <div>
+            <div class="card">
+                <h2>📥 Inbox</h2>
+                <label>Show inbox for</label>
+                <select id="inbox-bot-select"></select>
+                <div id="inbox-view" class="inbox mt-4"></div>
+            </div>
+
+            <div class="card mt-4">
+                <h2>🤝 Simulate Conversation</h2>
+                <label>Bot A</label>
+                <select id="sim-bot-a"></select>
+                <label>Bot B</label>
+                <select id="sim-bot-b"></select>
+                <label>Number of exchanges</label>
+                <input type="number" id="sim-exchanges" min="1" max="10" value="3">
+                <div class="flex">
+                    <button id="simulate-local-btn">💬 Simulate (local only)</button>
+                    <button id="simulate-send-btn" class="secondary">📨 Simulate & send real</button>
+                </div>
+                <div id="sim-status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- STORAGE KEYS ---
+    const STORAGE_BOTS = 'botmail_bots';
+    const STORAGE_EMAILS = 'botmail_emails';
+
+    // --- DEFAULT BOTS (if empty) ---
+    const DEFAULT_BOTS = [
+        { id: crypto.randomUUID(), name: 'Alice', email: 'alice@botmail.local', personality: 'friendly' },
+        { id: crypto.randomUUID(), name: 'Bob', email: 'bob@botmail.local', personality: 'professional' },
+    ];
+
+    // --- PERSONALITY RESPONSE TEMPLATES ---
+    const TEMPLATES = {
+        friendly: [
+            "Hey! Thanks for your message about {topic}. I'd love to hear more!",
+            "That's so interesting! Tell me more about {topic}.",
+            "I totally agree with you on {topic}. What else is new?",
+            "Thanks for reaching out! Let's chat about {topic} soon.",
+        ],
+        professional: [
+            "Thank you for your email regarding {topic}. We will review and get back to you shortly.",
+            "I have received your inquiry about {topic}. A colleague will respond within 24 hours.",
+            "Your message concerning {topic} has been logged. We appreciate your patience.",
+            "Dear correspondent, thank you for contacting us about {topic}. We value your input.",
+        ],
+        sarcastic: [
+            "Oh wow, another message about {topic}. How original.",
+            "Sure, because {topic} is exactly what I wanted to discuss today.",
+            "I'm absolutely thrilled to hear about {topic}. Can you tell I'm thrilled?",
+            "Great. Another {topic} email. This is exactly how I wanted to spend my day.",
+        ],
+    };
+
+    // --- UTILITIES ---
+    function loadBots() {
+        const stored = localStorage.getItem(STORAGE_BOTS);
+        if (stored) {
+            return JSON.parse(stored);
+        } else {
+            localStorage.setItem(STORAGE_BOTS, JSON.stringify(DEFAULT_BOTS));
+            return DEFAULT_BOTS;
+        }
+    }
+
+    function saveBots(bots) {
+        localStorage.setItem(STORAGE_BOTS, JSON.stringify(bots));
+    }
+
+    function loadEmails() {
+        const stored = localStorage.getItem(STORAGE_EMAILS);
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    function saveEmails(emails) {
+        localStorage.setItem(STORAGE_EMAILS, JSON.stringify(emails));
+    }
+
+    function addEmail(email) {
+        const emails = loadEmails();
+        const newEmail = { ...email, id: crypto.randomUUID(), timestamp: new Date().toISOString() };
+        emails.push(newEmail);
+        saveEmails(emails);
+        return newEmail;
+    }
+
+    // --- RESPONSE GENERATION (advanced enough) ---
+    function generateResponse(fromBot, toBot, incomingSubject, incomingBody) {
+        const personality = fromBot.personality;
+        const templates = TEMPLATES[personality] || TEMPLATES.friendly;
+        // Extract a simple "topic" from subject or body
+        let topic = incomingSubject || 'your inquiry';
+        if (incomingBody) {
+            const words = incomingBody.split(' ').slice(0, 5).join(' ');
+            topic = words.length > 30 ? words.substring(0,30)+'...' : words;
+        }
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        const text = template.replace('{topic}', topic);
+        // Create a subject that references the original
+        const subject = `Re: ${incomingSubject}`;
+        return { subject, text };
+    }
+
+    // --- RENDER BOT LIST ---
+    function renderBotList() {
+        const bots = loadBots();
+        const container = document.getElementById('bot-list-container');
+        container.innerHTML = bots.map(bot => 
+            `<span class="bot-item" data-id="${bot.id}">${bot.name} (${bot.email}) [${bot.personality}]</span>`
+        ).join('');
+    }
+
+    // --- POPULATE ALL SELECT DROPDOWNS ---
+    function populateSelects() {
+        const bots = loadBots();
+        const selects = ['compose-from', 'inbox-bot-select', 'sim-bot-a', 'sim-bot-b'];
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = bots.map(bot => 
+                `<option value="${bot.id}">${bot.name} (${bot.email})</option>`
+            ).join('');
+            // For inbox, also add an "All" option
+            if (id === 'inbox-bot-select') {
+                select.innerHTML = '<option value="all">📬 All bots</option>' + select.innerHTML;
+            }
+        });
+    }
+
+    // --- RENDER INBOX ---
+    function renderInbox() {
+        const botId = document.getElementById('inbox-bot-select').value;
+        const emails = loadEmails();
+        const bots = loadBots();
+        const botMap = Object.fromEntries(bots.map(b => [b.id, b]));
+
+        let filtered = emails;
+        if (botId !== 'all') {
+            filtered = emails.filter(e => e.toBotId === botId || e.fromBotId === botId);
+        }
+
+        // Sort by timestamp descending
+        filtered.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        const inboxDiv = document.getElementById('inbox-view');
+        if (filtered.length === 0) {
+            inboxDiv.innerHTML = '<p class="text-center">📭 No emails yet</p>';
+            return;
+        }
+
+        inboxDiv.innerHTML = filtered.map(email => {
+            const fromBot = botMap[email.fromBotId];
+            const toBot = botMap[email.toBotId];
+            const fromDisplay = fromBot ? `${fromBot.name} (${fromBot.email})` : email.from;
+            const toDisplay = toBot ? `${toBot.name} (${toBot.email})` : email.to;
+            return `
+                <div class="email-item">
+                    <strong>${email.subject}</strong><br>
+                    <small>From: ${fromDisplay}<br>To: ${toDisplay}<br>${new Date(email.timestamp).toLocaleString()}</small>
+                    <p>${email.text}</p>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // --- SIMULATE CONVERSATION ---
+    async function simulateConversation(sendReal = false) {
+        const botAId = document.getElementById('sim-bot-a').value;
+        const botBId = document.getElementById('sim-bot-b').value;
+        const exchanges = parseInt(document.getElementById('sim-exchanges').value);
+
+        if (!botAId || !botBId || botAId === botBId) {
+            alert('Please select two different bots.');
+            return;
+        }
+
+        const bots = loadBots();
+        const botA = bots.find(b => b.id === botAId);
+        const botB = bots.find(b => b.id === botBId);
+
+        // Initial message from bot A to bot B
+        let lastSubject = 'Hello';
+        let lastBody = `Hi ${botB.name}, this is ${botA.name}. Let's talk.`;
+
+        const newEmails = [];
+
+        for (let i = 0; i < exchanges; i++) {
+            // Determine sender and receiver
+            const sender = (i % 2 === 0) ? botA : botB;
+            const receiver = (i % 2 === 0) ? botB : botA;
+
+            // Generate response based on last message
+            const response = generateResponse(sender, receiver, lastSubject, lastBody);
+            const email = {
+                fromBotId: sender.id,
+                toBotId: receiver.id,
+                from: sender.email,
+                to: receiver.email,
+                subject: response.subject,
+                text: response.text,
+                simulated: true,
+            };
+            const saved = addEmail(email);
+            newEmails.push(saved);
+
+            // Update last message for next iteration
+            lastSubject = response.subject;
+            lastBody = response.text;
+        }
+
+        document.getElementById('sim-status').innerText = `✅ Simulated ${exchanges} exchanges.`;
+
+        if (sendReal) {
+            // Send all generated emails via function
+            const statusDiv = document.getElementById('sim-status');
+            statusDiv.innerText = '📤 Sending real emails...';
+            for (const email of newEmails) {
+                try {
+                    const res = await fetch('/.netlify/functions/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: email.to,
+                            from: email.from,
+                            subject: email.subject,
+                            text: email.text,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+                } catch (err) {
+                    statusDiv.innerText = `❌ Failed to send one of the emails: ${err.message}`;
+                    return;
+                }
+            }
+            statusDiv.innerText = `✅ Simulated ${exchanges} exchanges and sent all real emails.`;
+        }
+
+        // Refresh inbox if it's set to all or one of the involved bots
+        renderInbox();
+    }
+
+    // --- SEND SINGLE EMAIL (real) ---
+    async function sendSingleEmail() {
+        const fromBotId = document.getElementById('compose-from').value;
+        const to = document.getElementById('compose-to').value.trim();
+        const subject = document.getElementById('compose-subject').value.trim();
+        const body = document.getElementById('compose-body').value.trim();
+
+        if (!fromBotId || !to || !subject || !body) {
+            alert('Please fill all fields.');
+            return;
+        }
+
+        const bots = loadBots();
+        const fromBot = bots.find(b => b.id === fromBotId);
+        if (!fromBot) return;
+
+        const statusDiv = document.getElementById('send-status');
+        statusDiv.innerText = '⏳ Sending...';
+
+        try {
+            const res = await fetch('/.netlify/functions/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: to,
+                    from: fromBot.email,
+                    subject: subject,
+                    text: body,
+                }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+
+            // Store in local inbox
+            addEmail({
+                fromBotId: fromBotId,
+                toBotId: null,
+                from: fromBot.email,
+                to: to,
+                subject: subject,
+                text: body,
+            });
+
+            statusDiv.innerText = `✅ Sent! Message ID: ${data.messageId}`;
+            document.getElementById('compose-to').value = '';
+            document.getElementById('compose-subject').value = '';
+            document.getElementById('compose-body').value = '';
+            renderInbox();
+        } catch (err) {
+            statusDiv.innerText = `❌ Error: ${err.message}`;
+        }
+    }
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderBotList();
+        populateSelects();
+        renderInbox();
+
+        // Add bot button
+        document.getElementById('add-bot-btn').addEventListener('click', () => {
+            const name = document.getElementById('bot-name').value.trim();
+            const email = document.getElementById('bot-email').value.trim();
+            const personality = document.getElementById('bot-personality').value;
+            if (!name || !email) {
+                alert('Name and email required');
+                return;
+            }
+            const bots = loadBots();
+            const newBot = {
+                id: crypto.randomUUID(),
+                name,
+                email,
+                personality,
+            };
+            bots.push(newBot);
+            saveBots(bots);
+            renderBotList();
+            populateSelects();
+            document.getElementById('bot-name').value = '';
+            document.getElementById('bot-email').value = '';
+        });
+
+        // Inbox selector change
+        document.getElementById('inbox-bot-select').addEventListener('change', renderInbox);
+
+        // Send email button
+        document.getElementById('send-email-btn').addEventListener('click', sendSingleEmail);
+
+        // Simulate local
+        document.getElementById('simulate-local-btn').addEventListener('click', () => simulateConversation(false));
+
+        // Simulate and send real
+        document.getElementById('simulate-send-btn').addEventListener('click', () => simulateConversation(true));
+    });
+</script>
+</body>
+</html>
