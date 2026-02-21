@@ -1,7 +1,5 @@
 // ==================== GAME.JS ====================
-// Ensure Three.js and FBXLoader are available (import map in HTML)
-import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+// No imports – THREE and FBXLoader are now global from script tags
 
 window.addEventListener('load', () => {
     console.log('Page loaded, calling loadAssets...');
@@ -31,33 +29,42 @@ function startGame() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ========== THREE.JS SETUP ==========
-    const renderer3D = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer3D.setSize(canvas.width, canvas.height);
-    renderer3D.setPixelRatio(window.devicePixelRatio);
-    renderer3D.domElement.style.position = 'absolute';
-    renderer3D.domElement.style.top = '0';
-    renderer3D.domElement.style.left = '0';
-    renderer3D.domElement.style.zIndex = '1';
-    canvas.parentNode.insertBefore(renderer3D.domElement, canvas);
-    canvas.style.position = 'absolute';
-    canvas.style.zIndex = '2';
+    // ========== THREE.JS SETUP (only if THREE available) ==========
+    let renderer3D, scene, camera;
+    let threeAvailable = false;
+    if (typeof THREE !== 'undefined' && typeof FBXLoader !== 'undefined') {
+        try {
+            threeAvailable = true;
+            renderer3D = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer3D.setSize(canvas.width, canvas.height);
+            renderer3D.setPixelRatio(window.devicePixelRatio);
+            renderer3D.domElement.style.position = 'absolute';
+            renderer3D.domElement.style.top = '0';
+            renderer3D.domElement.style.left = '0';
+            renderer3D.domElement.style.zIndex = '1';
+            canvas.parentNode.insertBefore(renderer3D.domElement, canvas);
+            canvas.style.position = 'absolute';
+            canvas.style.zIndex = '2';
 
-    // Scene
-    const scene = new THREE.Scene();
-    scene.background = null;
+            scene = new THREE.Scene();
+            scene.background = null;
 
-    // Orthographic camera matching canvas dimensions (top-left = (0,0), bottom-right = (width,height))
-    const camera = new THREE.OrthographicCamera(0, canvas.width, canvas.height, 0, -1000, 1000);
-    camera.position.set(0, 0, 1000);
-    camera.lookAt(0, 0, 0);
+            camera = new THREE.OrthographicCamera(0, canvas.width, canvas.height, 0, -1000, 1000);
+            camera.position.set(0, 0, 1000);
+            camera.lookAt(0, 0, 0);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404060);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-    dirLight.position.set(1, 2, 1);
-    scene.add(dirLight);
+            const ambientLight = new THREE.AmbientLight(0x404060);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(1, 2, 1);
+            scene.add(dirLight);
+        } catch (e) {
+            console.warn('Three.js setup failed, falling back to 2D only', e);
+            threeAvailable = false;
+        }
+    } else {
+        console.warn('Three.js or FBXLoader not loaded – 2D only');
+    }
 
     // ========== PERFORMANCE MODE ==========
     const performanceMode = localStorage.getItem('spaceShooters_performance') === 'true';
@@ -294,9 +301,10 @@ function startGame() {
     levelMessage = `LEVEL ${currentLevel}`;
     levelMessageTimer = 60;
 
-    // ========== 3D MODEL CREATION FUNCTIONS ==========
+    // ========== 3D MODEL CREATION FUNCTIONS (only if Three.js available) ==========
     function createPlayerModel() {
-        if (assets.models.player) {
+        if (!threeAvailable || !assets.models.player) return;
+        try {
             const model = assets.models.player.clone();
             scene.add(model);
             player.model = model;
@@ -309,19 +317,23 @@ function startGame() {
             }
 
             updatePlayerModelPosition();
+        } catch (e) {
+            console.warn('Failed to create player 3D model', e);
         }
     }
 
     function updatePlayerModelPosition() {
-        if (player.model) {
+        if (!threeAvailable || !player.model) return;
+        try {
             const x3d = player.x + player.width / 2;
             const y3d = canvas.height - (player.y + player.height / 2);
             player.model.position.set(x3d, y3d, 0);
-        }
+        } catch (e) {}
     }
 
     function createEnemyModel(enemy) {
-        if (assets.models.enemy1) {
+        if (!threeAvailable || !assets.models.enemy1) return;
+        try {
             const model = assets.models.enemy1.clone();
             scene.add(model);
             enemy.model = model;
@@ -334,19 +346,21 @@ function startGame() {
             }
 
             updateEnemyModelPosition(enemy);
-        }
+        } catch (e) {}
     }
 
     function updateEnemyModelPosition(enemy) {
-        if (enemy.model) {
+        if (!threeAvailable || !enemy.model) return;
+        try {
             const x3d = enemy.x + enemy.width / 2;
             const y3d = canvas.height - (enemy.y + enemy.height / 2);
             enemy.model.position.set(x3d, y3d, 0);
-        }
+        } catch (e) {}
     }
 
     function removeEnemyModel(enemy) {
-        if (enemy.model) {
+        if (!threeAvailable || !enemy.model) return;
+        try {
             scene.remove(enemy.model);
             if (enemy.mixer) {
                 const index = assets.mixers.indexOf(enemy.mixer);
@@ -354,24 +368,11 @@ function startGame() {
                 enemy.mixer.stopAllAction();
             }
             enemy.model = null;
-        }
+        } catch (e) {}
     }
 
-    // Create player model immediately
+    // Create player model immediately (if possible)
     createPlayerModel();
-
-    // Intercept enemy spawning to add 3D models
-    const originalSpawnEnemy = waveManager.spawnEnemy;
-    waveManager.spawnEnemy = function() {
-        if (originalSpawnEnemy) originalSpawnEnemy.call(this);
-        // After waveManager adds enemies, we need to attach models
-        // This assumes waveManager pushes new enemies to the enemies array.
-        // We can hook into enemy creation by checking the last enemy added.
-        // Alternatively, modify waveManager to call a callback.
-        // For simplicity, we'll poll for new enemies in the update loop.
-        // But a better approach: override waveManager's enemy creation.
-        // Since waveManager is external, we'll do a quick check in update.
-    };
 
     // ========== POWER-UP SYSTEM ==========
     const powerUpTypes = ['health', 'rapidfire', 'spread', 'homing', 'shield', 'points'];
@@ -435,15 +436,19 @@ function startGame() {
         }
         draw();
 
-        // Render 3D scene
-        renderer3D.render(scene, camera);
+        // Render 3D scene if available
+        if (threeAvailable && renderer3D && scene && camera) {
+            try {
+                renderer3D.render(scene, camera);
+            } catch (e) {}
+        }
 
         requestAnimationFrame(gameLoop);
     }
 
     // ========== ENHANCED BULLET GENERATION ==========
     function createBullets(playerX, playerY, playerWidth) {
-        // ... unchanged ...
+        // ... (exactly as before – unchanged) ...
         const bulletsArray = [];
         let baseWidth = 4;
         let baseHeight = 15;
@@ -572,21 +577,22 @@ function startGame() {
         waveManager.update();
 
         // Check for newly spawned enemies that need 3D models
-        // We'll iterate over enemies and create models for those without
-        enemies.forEach(enemy => {
-            if (!enemy.model && assets.models.enemy1) {
-                createEnemyModel(enemy);
-            }
-        });
+        if (threeAvailable) {
+            enemies.forEach(enemy => {
+                if (!enemy.model && assets.models.enemy1) {
+                    createEnemyModel(enemy);
+                }
+            });
+        }
 
         // Update enemies (including 3D positions)
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
             e.update(player.x, player.y);
-            updateEnemyModelPosition(e);
+            if (threeAvailable) updateEnemyModelPosition(e);
             
             if (e.y > canvas.height + 100 || e.y < -100) {
-                removeEnemyModel(e);
+                if (threeAvailable) removeEnemyModel(e);
                 enemies.splice(i, 1);
             }
         }
@@ -693,7 +699,7 @@ function startGame() {
                     
                     if (e.hp <= 0) {
                         // Remove 3D model before splicing
-                        removeEnemyModel(e);
+                        if (threeAvailable) removeEnemyModel(e);
                         enemies.splice(j, 1);
                         score += 10;
                         killCount++;
@@ -743,7 +749,7 @@ function startGame() {
                 const e = enemies[i];
                 if (e.x < player.x + player.width && e.x + e.width > player.x &&
                     e.y < player.y + player.height && e.y + e.height > player.y) {
-                    removeEnemyModel(e);
+                    if (threeAvailable) removeEnemyModel(e);
                     enemies.splice(i, 1);
                     player.lives--;
                     gameStats.hits++;
@@ -861,8 +867,10 @@ function startGame() {
             });
         }
 
-        // Update animation mixers
-        assets.mixers.forEach(mixer => mixer.update(1/60));
+        // Update animation mixers (if any)
+        if (threeAvailable && assets.mixers) {
+            assets.mixers.forEach(mixer => mixer.update(1/60));
+        }
 
         frame++;
     }
