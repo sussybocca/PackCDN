@@ -1,24 +1,13 @@
 /**
  * VideoCode Runtime – Ultimate Production System
- * Custom language for programmatic video generation with:
- * - Scenes, images, transforms, effects
- * - 3D rendering (via Three.js)
- * - Quality presets (4K, 2K, etc.) from quality.config.json
- * - Extensive filters and animations
- * - Copyright overlay and photo rendering
- * 
- * @example
- * const blob = await VideoCode.render(code, {
- *   qualityConfig: '/quality.config.json',
- *   durationConfig: '/duration.config.json' // optional
- * });
+ * Fully functional with hex numbers, negative literals, robust parsing,
+ * and proper command separation (semicolons required).
  */
-
 (function(global) {
   'use strict';
 
   // ===========================================================================
-  // Core Runtime Engine (extended for scenes, images, 3D, quality)
+  // Core Runtime Engine (unchanged, but included for completeness)
   // ===========================================================================
   class VideoCodeEngine {
     constructor(config) {
@@ -31,9 +20,8 @@
       this.copyright = config.copyright || '';
       this.scenes = [];
       this.images = new Map();
-      this.use3D = config.use3D || false; // flag if any 3D content
+      this.use3D = config.use3D || false;
 
-      // Validate browser support
       if (!window.MediaRecorder) throw new Error('MediaRecorder not supported');
       if (!window.OfflineAudioContext && !window.webkitOfflineAudioContext) {
         throw new Error('OfflineAudioContext not supported');
@@ -67,13 +55,11 @@
       const audioBuffer = await this._renderMultiSceneAudio();
 
       return new Promise((resolve, reject) => {
-        // Main canvas for 2D
         const canvas2D = document.createElement('canvas');
         canvas2D.width = this.width;
         canvas2D.height = this.height;
         const ctx2D = canvas2D.getContext('2d');
 
-        // Optional WebGL canvas for 3D (if needed)
         let canvas3D, gl, threeRenderer, threeScene, threeCamera;
         if (this.use3D) {
           if (typeof THREE === 'undefined') {
@@ -90,10 +76,8 @@
           threeCamera.position.set(0, 0, 5);
         }
 
-        // Video stream from the 2D canvas (we'll composite 3D onto it later)
         const videoStream = canvas2D.captureStream(this.fps);
 
-        // Audio setup
         let audioContext = null, audioSource = null, audioStream = null;
         if (audioBuffer) {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -140,7 +124,6 @@
             return;
           }
 
-          // Find current scene
           let currentScene = null;
           let sceneTime = 0;
           for (const scene of this.scenes) {
@@ -151,17 +134,13 @@
             }
           }
 
-          // Clear 2D canvas
           ctx2D.clearRect(0, 0, this.width, this.height);
 
-          // If 3D scene exists, render it first (as background or overlay)
           if (this.use3D && threeRenderer) {
             threeRenderer.render(threeScene, threeCamera);
-            // Draw the WebGL canvas onto the 2D canvas
             ctx2D.drawImage(canvas3D, 0, 0, this.width, this.height);
           }
 
-          // Execute 2D video tracks of the current scene
           if (currentScene) {
             for (const track of currentScene.videoTracks) {
               try {
@@ -172,7 +151,6 @@
             }
           }
 
-          // Draw copyright
           if (this.copyright) {
             ctx2D.save();
             ctx2D.font = '20px Arial';
@@ -251,7 +229,7 @@
   }
 
   // ===========================================================================
-  // Language Parser (extended for scenes, images, transforms, effects, 3D)
+  // Language Parser (fully fixed: hex numbers, negative literals, comments)
   // ===========================================================================
   class VideoCodeParser {
     constructor(code) {
@@ -261,14 +239,30 @@
     }
 
     tokenize() {
-      const tokenRegex = /\s*(?:(\d+\.?\d*|\d*\.\d+)|([a-zA-Z_][a-zA-Z0-9_]*)|("[^"]*"|'[^']*')|([{}()[\],])|([+\-*/]))/g;
+      // Remove single-line comments
+      this.code = this.code.replace(/\/\/.*/g, '');
+      // Remove multi-line comments
+      this.code = this.code.replace(/\/\*[\s\S]*?\*\//g, '');
+
+      // Updated regex to include hexadecimal numbers (0x...) and semicolons
+      const tokenRegex = /\s*(?:(0x[0-9a-fA-F]+)|(\d+\.?\d*|\d*\.\d+)|([a-zA-Z_][a-zA-Z0-9_]*)|("[^"]*"|'[^']*')|([{}()[\],;])|([+\-*/]))/g;
       let match;
       while ((match = tokenRegex.exec(this.code)) !== null) {
-        if (match[1]) this.tokens.push({ type: 'number', value: parseFloat(match[1]) });
-        else if (match[2]) this.tokens.push({ type: 'identifier', value: match[2] });
-        else if (match[3]) this.tokens.push({ type: 'string', value: match[3].slice(1, -1) });
-        else if (match[4]) this.tokens.push({ type: 'symbol', value: match[4] });
-        else if (match[5]) this.tokens.push({ type: 'operator', value: match[5] });
+        if (match[1]) {
+          // Hexadecimal number
+          this.tokens.push({ type: 'number', value: parseInt(match[1], 16) });
+        } else if (match[2]) {
+          // Decimal number
+          this.tokens.push({ type: 'number', value: parseFloat(match[2]) });
+        } else if (match[3]) {
+          this.tokens.push({ type: 'identifier', value: match[3] });
+        } else if (match[4]) {
+          this.tokens.push({ type: 'string', value: match[4].slice(1, -1) });
+        } else if (match[5]) {
+          this.tokens.push({ type: 'symbol', value: match[5] });
+        } else if (match[6]) {
+          this.tokens.push({ type: 'operator', value: match[6] });
+        }
       }
     }
 
@@ -343,7 +337,8 @@
       if (token.value === 'mimeType') {
         config[token.value] = this.consume('string').value;
       } else {
-        const val = this.parseExpression();
+        const expr = this.parseExpression();
+        const val = this.evaluateStatic(expr);
         if (typeof val !== 'number') throw new Error(`${token.value} must be a number`);
         config[token.value] = val;
       }
@@ -417,6 +412,7 @@
     parseCommand() {
       const name = this.consume('identifier').value;
       const args = [];
+      // Parse arguments until we hit a semicolon or closing brace
       while (this.peek() && !this.match('symbol', '}') && !this.match('symbol', ';')) {
         if (this.match('symbol', ',')) {
           this.consume('symbol', ',');
@@ -454,6 +450,12 @@
       return left;
     }
     parsePrimary() {
+      // Handle unary minus for negative numbers
+      if (this.match('operator', '-') && this.tokens[this.pos+1] && this.tokens[this.pos+1].type === 'number') {
+        this.consume('operator', '-');
+        const num = this.consume('number').value;
+        return { type: 'literal', value: -num };
+      }
       if (this.match('number')) {
         return { type: 'literal', value: this.consume('number').value };
       }
@@ -477,7 +479,8 @@
           this.consume('symbol', ')');
           return { type: 'call', name, args };
         } else {
-          throw new Error(`Unknown variable: ${name}`);
+          // It's a variable (e.g., width, height)
+          return { type: 'variable', name };
         }
       }
       if (this.match('symbol', '(')) {
@@ -511,8 +514,10 @@
               case 'sqrt': return Math.sqrt(args[0]);
               default: throw new Error(`Unknown function ${node.name}`);
             }
+          case 'variable':
+            throw new Error(`Cannot use variable '${node.name}' in config value`);
           default:
-            throw new Error(`Expression contains time variable, not allowed here`);
+            throw new Error(`Invalid expression type in config: ${node.type}`);
         }
       };
       return evalNode(expr);
@@ -520,15 +525,20 @@
   }
 
   // ===========================================================================
-  // Expression Evaluator (runtime, with time)
+  // Expression Evaluator (runtime, with time and context)
   // ===========================================================================
-  function evaluate(expr, time) {
+  function evaluate(expr, time, context) {
     switch (expr.type) {
       case 'literal': return expr.value;
       case 'time': return time;
+      case 'variable':
+        if (context.hasOwnProperty(expr.name)) {
+          return context[expr.name];
+        }
+        throw new Error(`Unknown variable: ${expr.name}`);
       case 'binary':
-        const left = evaluate(expr.left, time);
-        const right = evaluate(expr.right, time);
+        const left = evaluate(expr.left, time, context);
+        const right = evaluate(expr.right, time, context);
         switch (expr.op) {
           case '+': return left + right;
           case '-': return left - right;
@@ -537,7 +547,7 @@
           default: throw new Error(`Unknown operator ${expr.op}`);
         }
       case 'call':
-        const args = expr.args.map(arg => evaluate(arg, time));
+        const args = expr.args.map(arg => evaluate(arg, time, context));
         switch (expr.name) {
           case 'sin': return Math.sin(args[0]);
           case 'cos': return Math.cos(args[0]);
@@ -553,23 +563,19 @@
   // ===========================================================================
   // Command to Drawing Function Translator (2D + 3D)
   // ===========================================================================
-  function createVideoTrack(videoCommands, threeCommands) {
+  function createVideoTrack(videoCommands, threeCommands, context) {
     return (ctx, time, images, threeScene, threeCamera) => {
       ctx.save();
 
-      // Execute 2D commands
       for (const cmd of videoCommands) {
         try {
-          const args = cmd.args.map(arg => evaluate(arg, time));
+          const args = cmd.args.map(arg => evaluate(arg, time, context));
           switch (cmd.name) {
-            // Basic styling
             case 'fill': ctx.fillStyle = args[0]; break;
             case 'stroke': ctx.strokeStyle = args[0]; break;
             case 'lineWidth': ctx.lineWidth = args[0]; break;
             case 'font': ctx.font = args[0]; break;
             case 'opacity': ctx.globalAlpha = args[0]; break;
-
-            // Drawing primitives
             case 'rect': ctx.fillRect(args[0], args[1], args[2], args[3]); break;
             case 'circle':
               ctx.beginPath();
@@ -592,8 +598,6 @@
               ctx.fill();
               break;
             case 'text': ctx.fillText(args[0], args[1], args[2]); break;
-
-            // Images
             case 'image': {
               const id = args[0];
               const img = images.get(id);
@@ -603,35 +607,27 @@
               ctx.drawImage(img, x, y, w, h);
               break;
             }
-
-            // Transforms
             case 'translate': ctx.translate(args[0], args[1]); break;
             case 'rotate': ctx.rotate(args[0] * Math.PI / 180); break;
             case 'scale': ctx.scale(args[0], args[1] || args[0]); break;
             case 'push': ctx.save(); break;
             case 'pop': ctx.restore(); break;
-
-            // Filters / effects
-            case 'filter':
-              ctx.filter = args[0]; // e.g., "blur(5px)"
-              break;
+            case 'filter': ctx.filter = args[0]; break;
             case 'effect':
-              applyEffect(cmd.name, args, ctx, time);
+              // effect expects effect name as first argument (string)
+              applyEffect(args[0], args.slice(1), ctx, time);
               break;
-
-            default:
-              console.warn(`Unknown drawing command: ${cmd.name}`);
+            default: console.warn(`Unknown drawing command: ${cmd.name}`);
           }
         } catch (err) {
           console.error(`Error in command ${cmd.name}:`, err);
         }
       }
 
-      // Execute 3D commands if Three.js scene is available
       if (threeScene && threeCommands.length > 0) {
         for (const cmd of threeCommands) {
           try {
-            const args = cmd.args.map(arg => evaluate(arg, time));
+            const args = cmd.args.map(arg => evaluate(arg, time, context));
             switch (cmd.name) {
               case 'box': {
                 const geometry = new THREE.BoxGeometry(args[0]||1, args[1]||1, args[2]||1);
@@ -666,8 +662,7 @@
                 while(threeScene.children.length > 0) threeScene.remove(threeScene.children[0]);
                 break;
               }
-              default:
-                console.warn(`Unknown 3D command: ${cmd.name}`);
+              default: console.warn(`Unknown 3D command: ${cmd.name}`);
             }
           } catch (err) {
             console.error(`Error in 3D command ${cmd.name}:`, err);
@@ -679,41 +674,20 @@
     };
   }
 
-  // Predefined effects (retro, flicker, kenburns, etc.)
+  // Predefined effects
   function applyEffect(name, args, ctx, time) {
     switch (name) {
-      case 'flicker':
-        ctx.globalAlpha = 0.8 + 0.4 * Math.sin(time * 50);
-        break;
-      case 'sepia':
-        ctx.filter = 'sepia(1)';
-        break;
-      case 'blur':
-        ctx.filter = `blur(${args[0] || 5}px)`;
-        break;
-      case 'grayscale':
-        ctx.filter = `grayscale(${args[0] || 1})`;
-        break;
-      case 'brightness':
-        ctx.filter = `brightness(${args[0] || 1.2})`;
-        break;
-      case 'contrast':
-        ctx.filter = `contrast(${args[0] || 1.5})`;
-        break;
-      case 'hue-rotate':
-        ctx.filter = `hue-rotate(${args[0] || 90}deg)`;
-        break;
-      case 'invert':
-        ctx.filter = `invert(${args[0] || 1})`;
-        break;
-      case 'saturate':
-        ctx.filter = `saturate(${args[0] || 2})`;
-        break;
-      case 'kenBurns':
-        console.warn('kenBurns effect not fully implemented');
-        break;
-      default:
-        console.warn(`Unknown effect: ${name}`);
+      case 'flicker': ctx.globalAlpha = 0.8 + 0.4 * Math.sin(time * 50); break;
+      case 'sepia': ctx.filter = 'sepia(1)'; break;
+      case 'blur': ctx.filter = `blur(${args[0] || 5}px)`; break;
+      case 'grayscale': ctx.filter = `grayscale(${args[0] || 1})`; break;
+      case 'brightness': ctx.filter = `brightness(${args[0] || 1.2})`; break;
+      case 'contrast': ctx.filter = `contrast(${args[0] || 1.5})`; break;
+      case 'hue-rotate': ctx.filter = `hue-rotate(${args[0] || 90}deg)`; break;
+      case 'invert': ctx.filter = `invert(${args[0] || 1})`; break;
+      case 'saturate': ctx.filter = `saturate(${args[0] || 2})`; break;
+      case 'kenBurns': console.warn('kenBurns effect not fully implemented'); break;
+      default: console.warn(`Unknown effect: ${name}`);
     }
   }
 
@@ -725,7 +699,8 @@
       for (const cmd of commands) {
         if (cmd.name === 'oscillator') {
           const freqExpr = cmd.args[0];
-          const freq = evaluate(freqExpr, 0); // static for now
+          // For audio, we evaluate frequency at time 0 (static for now)
+          const freq = evaluate(freqExpr, 0, {}); // no context needed
           const osc = audioCtx.createOscillator();
           osc.frequency.value = freq;
           osc.start(startTime);
@@ -753,7 +728,6 @@
   // ===========================================================================
   class VideoCodeRuntime {
     static async render(code, options = {}) {
-      // Load quality config if provided
       let quality = {};
       if (options.qualityConfig) {
         quality = await loadQualityConfig(options.qualityConfig);
@@ -775,7 +749,6 @@
           config.height = presets[quality.preset].height;
         }
       }
-      // Individual overrides
       if (quality.width) config.width = quality.width;
       if (quality.height) config.height = quality.height;
       if (quality.fps) config.fps = quality.fps;
@@ -784,9 +757,12 @@
       const engine = new VideoCodeEngine(config);
       await engine.loadImages(imageDefs);
 
+      // Create context for expression evaluation (constants)
+      const context = { width: engine.width, height: engine.height };
+
       let currentStart = 0;
       for (const scene of scenes) {
-        const videoTrack = createVideoTrack(scene.videoCommands, scene.threeCommands);
+        const videoTrack = createVideoTrack(scene.videoCommands, scene.threeCommands, context);
         const audioTracks = scene.audioCommands.map(cmd => createAudioTrack([cmd]));
 
         engine.addScene({
@@ -831,7 +807,8 @@
 
       if (!scenes[sceneIndex]) throw new Error('Scene index out of range');
       const scene = scenes[sceneIndex];
-      const videoTrack = createVideoTrack(scene.videoCommands, []);
+      const context = { width: engine.width, height: engine.height };
+      const videoTrack = createVideoTrack(scene.videoCommands, [], context);
       engine.addScene({
         startTime: 0,
         duration: scene.duration,
@@ -843,7 +820,6 @@
     }
   }
 
-  // Export
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = VideoCodeRuntime;
   } else {
