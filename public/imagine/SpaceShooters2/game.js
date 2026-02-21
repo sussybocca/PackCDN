@@ -1,5 +1,8 @@
 // ==================== GAME.JS ====================
-// Wait for assets to load
+// Ensure Three.js and FBXLoader are available (import map in HTML)
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
 window.addEventListener('load', () => {
     console.log('Page loaded, calling loadAssets...');
     loadAssets(startGame);
@@ -28,6 +31,34 @@ function startGame() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // ========== THREE.JS SETUP ==========
+    const renderer3D = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer3D.setSize(canvas.width, canvas.height);
+    renderer3D.setPixelRatio(window.devicePixelRatio);
+    renderer3D.domElement.style.position = 'absolute';
+    renderer3D.domElement.style.top = '0';
+    renderer3D.domElement.style.left = '0';
+    renderer3D.domElement.style.zIndex = '1';
+    canvas.parentNode.insertBefore(renderer3D.domElement, canvas);
+    canvas.style.position = 'absolute';
+    canvas.style.zIndex = '2';
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = null;
+
+    // Orthographic camera matching canvas dimensions (top-left = (0,0), bottom-right = (width,height))
+    const camera = new THREE.OrthographicCamera(0, canvas.width, canvas.height, 0, -1000, 1000);
+    camera.position.set(0, 0, 1000);
+    camera.lookAt(0, 0, 0);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404060);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(1, 2, 1);
+    scene.add(dirLight);
+
     // ========== PERFORMANCE MODE ==========
     const performanceMode = localStorage.getItem('spaceShooters_performance') === 'true';
 
@@ -40,34 +71,30 @@ function startGame() {
         speed: 5,
         lives: 3,
         invincible: 0,
-        // NEW: Power-up states
         shield: 0,
         rapidFire: 0,
         spreadShot: 0,
         homingShot: 0,
-        speedBoost: 0
+        speedBoost: 0,
+        // 3D model reference
+        model: null,
+        mixer: null
     };
 
     let bullets = [];
     let enemyBullets = [];
     let enemies = [];
-    let powerups = []; // NEW: Power-ups array
-    let particles = []; // NEW: Particle effects
+    let powerups = [];
+    let particles = [];
     let score = 0;
     let gameOver = false;
     let frame = 0;
-
-    // Kill count for bullet progression
     let killCount = 0;
     let killStreak = 0;
     let maxKillStreak = 0;
-
-    // Level tracking
     let currentLevel = 1;
     let levelMessage = '';
     let levelMessageTimer = 0;
-
-    // Cheat system integration
     let cheatMenuOpen = false;
 
     // Input handling
@@ -162,7 +189,6 @@ function startGame() {
         upMoves: 0,
         downMoves: 0,
         totalFrames: 0,
-        // NEW: Enhanced stats
         kills: 0,
         hits: 0,
         killStreak: 0,
@@ -213,7 +239,6 @@ function startGame() {
                 levelMessage = 'EXTRA LIFE!';
                 levelMessageTimer = 60;
                 break;
-            // NEW: More cheat effects
             case 'maxpower':
                 player.rapidFire = 300;
                 player.spreadShot = 300;
@@ -262,14 +287,93 @@ function startGame() {
     }
 
     // Initialize wave manager
-    waveManager.enemies = enemies; // Link enemies array
+    waveManager.enemies = enemies;
     waveManager.waveCount = currentLevel;
     waveManager.startWave();
     if (window.cheatSystem) window.cheatSystem.updateUnlocks(currentLevel);
     levelMessage = `LEVEL ${currentLevel}`;
     levelMessageTimer = 60;
 
-    // ========== NEW: POWER-UP SYSTEM ==========
+    // ========== 3D MODEL CREATION FUNCTIONS ==========
+    function createPlayerModel() {
+        if (assets.models.player) {
+            const model = assets.models.player.clone();
+            scene.add(model);
+            player.model = model;
+
+            if (assets.animations.player && assets.animations.player.length) {
+                player.mixer = new THREE.AnimationMixer(model);
+                const action = player.mixer.clipAction(assets.animations.player[0]);
+                action.play();
+                assets.mixers.push(player.mixer);
+            }
+
+            updatePlayerModelPosition();
+        }
+    }
+
+    function updatePlayerModelPosition() {
+        if (player.model) {
+            const x3d = player.x + player.width / 2;
+            const y3d = canvas.height - (player.y + player.height / 2);
+            player.model.position.set(x3d, y3d, 0);
+        }
+    }
+
+    function createEnemyModel(enemy) {
+        if (assets.models.enemy1) {
+            const model = assets.models.enemy1.clone();
+            scene.add(model);
+            enemy.model = model;
+
+            if (assets.animations.enemy1 && assets.animations.enemy1.length) {
+                enemy.mixer = new THREE.AnimationMixer(model);
+                const action = enemy.mixer.clipAction(assets.animations.enemy1[0]);
+                action.play();
+                assets.mixers.push(enemy.mixer);
+            }
+
+            updateEnemyModelPosition(enemy);
+        }
+    }
+
+    function updateEnemyModelPosition(enemy) {
+        if (enemy.model) {
+            const x3d = enemy.x + enemy.width / 2;
+            const y3d = canvas.height - (enemy.y + enemy.height / 2);
+            enemy.model.position.set(x3d, y3d, 0);
+        }
+    }
+
+    function removeEnemyModel(enemy) {
+        if (enemy.model) {
+            scene.remove(enemy.model);
+            if (enemy.mixer) {
+                const index = assets.mixers.indexOf(enemy.mixer);
+                if (index !== -1) assets.mixers.splice(index, 1);
+                enemy.mixer.stopAllAction();
+            }
+            enemy.model = null;
+        }
+    }
+
+    // Create player model immediately
+    createPlayerModel();
+
+    // Intercept enemy spawning to add 3D models
+    const originalSpawnEnemy = waveManager.spawnEnemy;
+    waveManager.spawnEnemy = function() {
+        if (originalSpawnEnemy) originalSpawnEnemy.call(this);
+        // After waveManager adds enemies, we need to attach models
+        // This assumes waveManager pushes new enemies to the enemies array.
+        // We can hook into enemy creation by checking the last enemy added.
+        // Alternatively, modify waveManager to call a callback.
+        // For simplicity, we'll poll for new enemies in the update loop.
+        // But a better approach: override waveManager's enemy creation.
+        // Since waveManager is external, we'll do a quick check in update.
+    };
+
+    // ========== POWER-UP SYSTEM ==========
     const powerUpTypes = ['health', 'rapidfire', 'spread', 'homing', 'shield', 'points'];
     
     class PowerUp {
@@ -290,7 +394,7 @@ function startGame() {
         }
     }
 
-    // ========== NEW: PARTICLE SYSTEM ==========
+    // ========== PARTICLE SYSTEM ==========
     function createExplosion(x, y) {
         for (let i = 0; i < 10; i++) {
             particles.push({
@@ -309,7 +413,7 @@ function startGame() {
             const p = particles[i];
             p.x += p.vx;
             p.y += p.vy;
-            p.vy += 0.1; // gravity
+            p.vy += 0.1;
             p.life--;
             if (p.life <= 0) {
                 particles.splice(i, 1);
@@ -331,11 +435,15 @@ function startGame() {
         }
         draw();
 
+        // Render 3D scene
+        renderer3D.render(scene, camera);
+
         requestAnimationFrame(gameLoop);
     }
 
     // ========== ENHANCED BULLET GENERATION ==========
     function createBullets(playerX, playerY, playerWidth) {
+        // ... unchanged ...
         const bulletsArray = [];
         let baseWidth = 4;
         let baseHeight = 15;
@@ -346,7 +454,6 @@ function startGame() {
         const bulletHeight = baseHeight * scale;
         const bulletSpeed = baseSpeed * (1 + killCount * 0.01);
 
-        // Apply power-up effects
         const rapidFireActive = player.rapidFire > 0 || (window.cheatSystem && window.cheatSystem.isCheatActive('rapidfire'));
         const spreadActive = player.spreadShot > 0;
         const homingActive = player.homingShot > 0;
@@ -397,7 +504,6 @@ function startGame() {
         const upPressed = keys['ArrowUp'] || keys['KeyW'];
         const downPressed = keys['ArrowDown'] || keys['KeyS'];
 
-        // Apply speed boost
         const currentSpeed = player.speed + (player.speedBoost > 0 ? 3 : 0);
 
         if (leftPressed) player.x = Math.max(0, player.x - currentSpeed);
@@ -417,6 +523,9 @@ function startGame() {
                 player.y = Math.max(0, Math.min(768 - player.height, player.y));
             }
         }
+
+        // Update 3D player position
+        updatePlayerModelPosition();
 
         // Update stats
         gameStats.totalFrames++;
@@ -454,7 +563,7 @@ function startGame() {
 
         // Live learning update
         if (window.liveLearning) {
-            const hitThisFrame = false; // Would need collision tracking
+            const hitThisFrame = false;
             const killThisFrame = gameStats.kills < (gameStats.kills + (killCount - gameStats.kills));
             window.liveLearning.update(player.x, player.y, shotThisFrame, hitThisFrame, killThisFrame);
         }
@@ -462,28 +571,30 @@ function startGame() {
         // Wave manager update
         waveManager.update();
 
-        // Spawn enemies if waveManager has spawn function
-        if (waveManager.spawnEnemy && Math.random() < 0.02) {
-            waveManager.spawnEnemy();
-            if (window.liveLearning) window.liveLearning.recordEnemySpawn();
-        }
+        // Check for newly spawned enemies that need 3D models
+        // We'll iterate over enemies and create models for those without
+        enemies.forEach(enemy => {
+            if (!enemy.model && assets.models.enemy1) {
+                createEnemyModel(enemy);
+            }
+        });
 
-        // Update enemies
+        // Update enemies (including 3D positions)
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
             e.update(player.x, player.y);
+            updateEnemyModelPosition(e);
             
-            // Remove if off screen
             if (e.y > canvas.height + 100 || e.y < -100) {
+                removeEnemyModel(e);
                 enemies.splice(i, 1);
             }
         }
 
-        // Update player bullets with homing
+        // Update player bullets
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             
-            // Homing logic
             if (b.homing && enemies.length > 0) {
                 let closest = null;
                 let closestDist = Infinity;
@@ -506,7 +617,6 @@ function startGame() {
                 }
             }
 
-            // Move bullet
             if (b.speedX !== undefined) {
                 b.x += b.speedX;
                 b.y += b.speedY;
@@ -514,7 +624,6 @@ function startGame() {
                 b.y += b.speed;
             }
 
-            // Remove if off screen
             if (b.y + b.h < 0 || b.y > canvas.height || b.x + b.w < 0 || b.x > canvas.width) {
                 bullets.splice(i, 1);
             }
@@ -541,7 +650,6 @@ function startGame() {
         for (let i = enemyBullets.length - 1; i >= 0; i--) {
             const eb = enemyBullets[i];
             
-            // Homing for enemy bullets
             if (eb.homing) {
                 const dx = player.x + player.width/2 - (eb.x + eb.w/2);
                 const dy = player.y + player.height/2 - (eb.y + eb.h/2);
@@ -551,7 +659,6 @@ function startGame() {
                 eb.speedY = Math.sin(angle) * speed * 0.98;
             }
 
-            // Move bullet
             if (eb.speedX !== undefined) {
                 eb.x += eb.speedX;
                 eb.y += eb.speedY;
@@ -559,7 +666,6 @@ function startGame() {
                 eb.y += eb.speed;
             }
 
-            // Remove if off screen
             if (eb.y > canvas.height) enemyBullets.splice(i, 1);
         }
 
@@ -586,6 +692,8 @@ function startGame() {
                     e.hp--;
                     
                     if (e.hp <= 0) {
+                        // Remove 3D model before splicing
+                        removeEnemyModel(e);
                         enemies.splice(j, 1);
                         score += 10;
                         killCount++;
@@ -596,10 +704,8 @@ function startGame() {
                         
                         if (window.liveLearning) window.liveLearning.recordEnemyKill();
                         
-                        // Create explosion
                         createExplosion(e.x, e.y);
                         
-                        // Chance to drop powerup
                         if (Math.random() < 0.1) {
                             powerups.push(new PowerUp(e.x, e.y));
                         }
@@ -637,6 +743,7 @@ function startGame() {
                 const e = enemies[i];
                 if (e.x < player.x + player.width && e.x + e.width > player.x &&
                     e.y < player.y + player.height && e.y + e.height > player.y) {
+                    removeEnemyModel(e);
                     enemies.splice(i, 1);
                     player.lives--;
                     gameStats.hits++;
@@ -754,6 +861,9 @@ function startGame() {
             });
         }
 
+        // Update animation mixers
+        assets.mixers.forEach(mixer => mixer.update(1/60));
+
         frame++;
     }
 
@@ -761,11 +871,10 @@ function startGame() {
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Background
+        // Background (2D)
         if (assets.videos && assets.videos.background && assets.videos.background.readyState >= 2) {
             ctx.drawImage(assets.videos.background, 0, 0, canvas.width, canvas.height);
         } else {
-            // Enhanced starfield
             ctx.fillStyle = 'white';
             for (let i = 0; i < (performanceMode ? 50 : 200); i++) {
                 let sx = (i * 73 + frame) % canvas.width;
@@ -783,17 +892,19 @@ function startGame() {
             ctx.fillText(levelMessage, canvas.width/2, 300);
         }
 
-        // Player
-        if (player.invincible <= 0 || Math.floor(frame / 5) % 2 === 0) {
-            if (assets.images && assets.images.player) {
-                ctx.drawImage(assets.images.player, player.x, player.y, player.width, player.height);
-            } else {
-                ctx.fillStyle = 'cyan';
-                ctx.fillRect(player.x, player.y, player.width, player.height);
+        // Player (2D fallback if model not present)
+        if (!player.model) {
+            if (player.invincible <= 0 || Math.floor(frame / 5) % 2 === 0) {
+                if (assets.images && assets.images.player) {
+                    ctx.drawImage(assets.images.player, player.x, player.y, player.width, player.height);
+                } else {
+                    ctx.fillStyle = 'cyan';
+                    ctx.fillRect(player.x, player.y, player.width, player.height);
+                }
             }
         }
         
-        // Shield effect
+        // Shield effect (2D overlay)
         if (player.shield > 0) {
             ctx.globalAlpha = 0.3 + Math.sin(frame * 0.1) * 0.1;
             ctx.fillStyle = 'blue';
@@ -803,31 +914,32 @@ function startGame() {
             ctx.globalAlpha = 1.0;
         }
 
-        // Enemies
+        // Enemies (2D fallback if model not present)
         enemies.forEach(e => {
-            if (assets.images && assets.images[e.type]) {
-                ctx.drawImage(assets.images[e.type], e.x, e.y, e.width, e.height);
-            } else {
-                // Color code by type
-                switch(e.type) {
-                    case 'enemy1': ctx.fillStyle = 'red'; break;
-                    case 'enemy2': ctx.fillStyle = 'darkred'; break;
-                    case 'enemy3': ctx.fillStyle = 'purple'; break;
-                    case 'miniboss': ctx.fillStyle = 'orange'; break;
-                    case 'boss': ctx.fillStyle = 'darkorange'; break;
-                    default: ctx.fillStyle = 'red';
+            if (!e.model) {
+                if (assets.images && assets.images[e.type]) {
+                    ctx.drawImage(assets.images[e.type], e.x, e.y, e.width, e.height);
+                } else {
+                    switch(e.type) {
+                        case 'enemy1': ctx.fillStyle = 'red'; break;
+                        case 'enemy2': ctx.fillStyle = 'darkred'; break;
+                        case 'enemy3': ctx.fillStyle = 'purple'; break;
+                        case 'miniboss': ctx.fillStyle = 'orange'; break;
+                        case 'boss': ctx.fillStyle = 'darkorange'; break;
+                        default: ctx.fillStyle = 'red';
+                    }
+                    ctx.fillRect(e.x, e.y, e.width, e.height);
                 }
-                ctx.fillRect(e.x, e.y, e.width, e.height);
             }
             
-            // Health bar for tougher enemies
+            // Health bar (always 2D)
             if (e.hp > 1) {
                 ctx.fillStyle = 'green';
                 ctx.fillRect(e.x, e.y - 10, e.width * (e.hp / e.getHPForType()), 5);
             }
         });
 
-        // Remote player
+        // Remote player (2D)
         if (multiplayerActive && remotePlayer) {
             if (assets.images && assets.images.player) {
                 ctx.globalAlpha = 0.7;
@@ -839,7 +951,7 @@ function startGame() {
             }
         }
 
-        // Player bullets
+        // Player bullets (2D)
         bullets.forEach(b => {
             if (assets.images && assets.images.bullet) {
                 ctx.drawImage(assets.images.bullet, b.x, b.y, b.w, b.h);
@@ -849,7 +961,7 @@ function startGame() {
             }
         });
 
-        // Enemy bullets
+        // Enemy bullets (2D)
         enemyBullets.forEach(b => {
             if (assets.images && assets.images.enemyBullet) {
                 ctx.drawImage(assets.images.enemyBullet, b.x, b.y, b.w, b.h);
@@ -859,13 +971,10 @@ function startGame() {
             }
         });
 
-        // Power-ups
+        // Power-ups (2D)
         powerups.forEach(p => {
-            // Pulsing effect
             const pulse = Math.sin(frame * 0.1) * 0.2 + 0.8;
             ctx.globalAlpha = pulse;
-            
-            // Color by type
             switch(p.type) {
                 case 'health': ctx.fillStyle = 'lime'; break;
                 case 'rapidfire': ctx.fillStyle = 'yellow'; break;
@@ -875,15 +984,13 @@ function startGame() {
                 case 'points': ctx.fillStyle = 'gold'; break;
             }
             ctx.fillRect(p.x, p.y, p.width, p.height);
-            
-            // Letter indicator
             ctx.fillStyle = 'white';
             ctx.font = '14px monospace';
             ctx.fillText(p.type[0].toUpperCase(), p.x + 5, p.y + 15);
             ctx.globalAlpha = 1.0;
         });
 
-        // Particles
+        // Particles (2D)
         particles.forEach(p => {
             ctx.fillStyle = p.color;
             ctx.globalAlpha = p.life / 50;
@@ -915,7 +1022,6 @@ function startGame() {
         ctx.textAlign = 'right';
         ctx.fillText(`LEVEL: ${currentLevel}`, canvas.width - 20, 100);
         
-        // Power-up timers
         let yOffset = 160;
         if (player.rapidFire > 0) {
             ctx.fillStyle = 'yellow';
@@ -937,7 +1043,6 @@ function startGame() {
             ctx.fillText(`SHIELD: ${Math.floor(player.shield/60)}s`, 20, yOffset);
         }
 
-        // Touch hint
         if ('ontouchstart' in window) {
             ctx.font = '12px "Press Start 2P", monospace';
             ctx.fillStyle = '#aaa';
