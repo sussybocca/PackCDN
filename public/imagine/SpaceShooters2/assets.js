@@ -3,6 +3,9 @@ const assets = {
     images: {},
     sounds: {},
     videos: {},
+    models: {},        // THREE.Group objects (loaded models)
+    animations: {},    // Animation clips per model
+    mixers: [],        // Active AnimationMixers to update each frame
     loaded: false,
     totalAssets: 0,
     loadedCount: 0
@@ -32,12 +35,21 @@ const builtIn = {
         { name: 'nebula1', src: 'sounds/139106-771366016_small.mp4', label: 'Nebula' },
         { name: 'stars1', src: 'videos/stars.mp4', label: 'Stars' },
         { name: 'galaxy1', src: 'videos/galaxy.mp4', label: 'Galaxy' }
+    ],
+    models: [   // 3D models (FBX)
+        { name: 'player', src: 'models/Player.FBX', label: 'Player Ship' },
+        { name: 'enemy1', src: 'models/enemy.FBX', label: 'Enemy Ship' }
     ]
 };
 
 // Build manifest based on user choices
 function buildManifest() {
-    const manifest = { images: builtIn.images.slice(), sounds: [], videos: [] };
+    const manifest = { 
+        images: builtIn.images.slice(), 
+        sounds: [], 
+        videos: [],
+        models: builtIn.models.slice()   // always include both models
+    };
     const choices = JSON.parse(localStorage.getItem('spaceShooters_assetChoices') || '{}');
 
     const addBuiltInSound = (category, choiceKey, defaultName) => {
@@ -88,9 +100,42 @@ async function loadUserAssets() {
     }
 }
 
+// Load a single FBX model and return a promise
+function loadFBXModel(item) {
+    return new Promise((resolve, reject) => {
+        // Check if THREE and FBXLoader are available
+        if (typeof THREE === 'undefined' || typeof FBXLoader === 'undefined') {
+            console.warn('THREE or FBXLoader not available – skipping 3D model:', item.name);
+            return reject('Three.js not loaded');
+        }
+        const loader = new FBXLoader();
+        loader.load(item.src, 
+            (object) => {
+                // Scale and rotate to fit 2D game orientation
+                // These values may need tweaking based on your FBX
+                object.scale.set(0.01, 0.01, 0.01); // adjust as needed
+                object.rotation.x = -Math.PI / 2;   // make model face "up" (Y axis)
+                object.rotation.z = Math.PI;        // rotate to face correct direction (optional)
+
+                // Store any animations
+                if (object.animations && object.animations.length) {
+                    assets.animations[item.name] = object.animations;
+                }
+
+                resolve(object);
+            },
+            undefined,
+            (error) => {
+                console.warn(`Failed to load model: ${item.src}`, error);
+                reject(error);
+            }
+        );
+    });
+}
+
 function loadAssets(callback) {
     const manifest = buildManifest();
-    assets.totalAssets = manifest.images.length + manifest.sounds.length + manifest.videos.length;
+    assets.totalAssets = manifest.images.length + manifest.sounds.length + manifest.videos.length + manifest.models.length;
 
     // Images
     manifest.images.forEach(item => {
@@ -99,7 +144,7 @@ function loadAssets(callback) {
         img.onload = assetLoaded;
         img.onerror = () => {
             console.warn(`Failed to load image: ${item.src}`);
-            assetLoaded(); // Count failed assets so game doesn't hang
+            assetLoaded();
         };
         assets.images[item.name] = img;
     });
@@ -113,11 +158,11 @@ function loadAssets(callback) {
             console.warn(`Failed to load sound: ${item.src}`);
             assetLoaded();
         };
-        audio.oncanplaythrough = assetLoaded; // Count when ready
+        audio.oncanplaythrough = assetLoaded;
         assets.sounds[item.name] = audio;
     });
 
-    // Videos – FIXED: onerror now calls assetLoaded
+    // Videos
     manifest.videos.forEach(item => {
         const video = document.createElement('video');
         video.src = item.src;
@@ -126,10 +171,22 @@ function loadAssets(callback) {
         video.load();
         video.onerror = () => {
             console.warn(`Failed to load video: ${item.src}`);
-            assetLoaded(); // <-- THIS WAS MISSING
+            assetLoaded();
         };
         video.onloadeddata = assetLoaded;
         assets.videos[item.name] = video;
+    });
+
+    // Models – load with FBXLoader
+    manifest.models.forEach(item => {
+        loadFBXModel(item)
+            .then(object => {
+                assets.models[item.name] = object;
+                assetLoaded();
+            })
+            .catch(() => {
+                assetLoaded(); // count as loaded even if failed (fallback to 2D)
+            });
     });
 
     function assetLoaded() {
