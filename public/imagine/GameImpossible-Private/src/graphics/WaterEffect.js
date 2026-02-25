@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { ShaderManager } from './ShaderManager.js';
 
 export class WaterEffect {
-    constructor(scene, camera, options = {}) {
+    constructor(scene, camera, renderer, options = {}) { // <-- added renderer parameter
         this.scene = scene;
         this.camera = camera;
+        this.renderer = renderer; // <-- store renderer
         this.shaderManager = new ShaderManager();
         this.mesh = null;
         this.waveHeight = options.waveHeight || 0.5;
@@ -54,7 +55,6 @@ export class WaterEffect {
             for (let x = 0; x < 256; x++) {
                 const nx = x / 256 - 0.5;
                 const ny = y / 256 - 0.5;
-                // Simplex noise or simple sine pattern
                 const val = Math.sin(nx * 10) * Math.cos(ny * 10);
                 const r = (val * 0.5 + 0.5) * 255;
                 const g = (val * 0.5 + 0.5) * 255;
@@ -77,7 +77,6 @@ export class WaterEffect {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, 128, 128);
-        // Add some noise
         const imageData = ctx.getImageData(0, 0, 128, 128);
         for (let i = 0; i < imageData.data.length; i += 4) {
             const noise = Math.random() * 0.3 + 0.7;
@@ -111,9 +110,17 @@ export class WaterEffect {
 
     init() {
         this.shaderManager.init();
-        const waterShader = this.shaderManager.getShader('waterAdvanced'); // Assume we have an advanced shader
+        // Use 'water' shader if 'waterAdvanced' not available; fallback to water.
+        let waterShader = this.shaderManager.getShader('waterAdvanced');
+        if (!waterShader) {
+            waterShader = this.shaderManager.getShader('water');
+        }
+        if (!waterShader) {
+            console.error('Water shader not found');
+            return;
+        }
 
-        const geometry = new THREE.PlaneGeometry(200, 200, 128, 128); // High-res for vertex waves
+        const geometry = new THREE.PlaneGeometry(200, 200, 128, 128);
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
@@ -133,12 +140,12 @@ export class WaterEffect {
                 causticsTexture: { value: this.causticsTexture },
                 reflectionTexture: { value: this.reflectionTexture.texture },
                 refractionTexture: { value: this.refractionTexture.texture },
-                cameraPos: { value: this.camera.position },
+                cameraPos: { value: this.camera.position.clone() },
                 lightDir: { value: new THREE.Vector3(1, 1, 1).normalize() },
                 lightColor: { value: new THREE.Color(0xffeedd) },
-                ripples: { value: new THREE.Vector4(0,0,0,0) } // Will be updated per frame
+                ripples: { value: new THREE.Vector4(0,0,0,0) }
             },
-            vertexShader: `
+            vertexShader: waterShader.vertex || `
                 uniform float time;
                 uniform vec2 windDirection;
                 uniform float waveHeight;
@@ -150,14 +157,12 @@ export class WaterEffect {
 
                 void main() {
                     vUv = uv;
-                    // Gerstner wave
                     float freq = 2.0 * 3.14159 / waveLength;
                     float phase = time * speed;
                     vec2 dir = windDirection;
                     float d = dot(position.xz, dir);
                     float wave = sin(d * freq + phase) * waveHeight;
                     vec3 displaced = position + vec3(0.0, wave, 0.0);
-                    // Approximate normal via derivative
                     float dx = cos(d * freq + phase) * waveHeight * freq * dir.x;
                     float dz = cos(d * freq + phase) * waveHeight * freq * dir.y;
                     vec3 tangent = vec3(1.0, dx, 0.0);
@@ -167,7 +172,7 @@ export class WaterEffect {
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
                 }
             `,
-            fragmentShader: `
+            fragmentShader: waterShader.fragment || `
                 uniform float time;
                 uniform vec3 colorShallow;
                 uniform vec3 colorDeep;
@@ -184,82 +189,58 @@ export class WaterEffect {
                 uniform vec3 cameraPos;
                 uniform vec3 lightDir;
                 uniform vec3 lightColor;
-                uniform vec4 ripples; // x,y position, z strength, w unused
+                uniform vec4 ripples;
                 varying vec3 vPosition;
                 varying vec2 vUv;
                 varying vec3 vNormal;
 
                 void main() {
-                    // Sample normal from normal map and combine with vertex normal
                     vec3 normalMap = texture2D(normalMap, vUv * 4.0 + time * 0.1).xyz * 2.0 - 1.0;
                     vec3 normal = normalize(vNormal + normalMap * 0.5);
-
-                    // View direction
                     vec3 viewDir = normalize(cameraPos - vPosition);
-
-                    // Fresnel
                     float fresnel = dot(viewDir, normal);
                     fresnel = pow(1.0 - max(0.0, fresnel), 3.0);
-
-                    // Depth-based color
-                    float depth = vPosition.y * 0.5 + 0.5; // approximate
+                    float depth = vPosition.y * 0.5 + 0.5;
                     vec3 baseColor = mix(colorShallow, colorDeep, depth);
-
-                    // Reflection/refraction sampling
-                    vec2 screenUV = gl_FragCoord.xy / vec2(800.0, 600.0); // need actual resolution
+                    vec2 screenUV = gl_FragCoord.xy / vec2(800.0, 600.0);
                     vec3 reflection = texture2D(reflectionTexture, screenUV).rgb;
                     vec3 refraction = texture2D(refractionTexture, screenUV).rgb;
-
-                    // Foam where waves are steep
                     float steepness = abs(vNormal.y);
                     float foam = smoothstep(0.2, 0.5, 1.0 - steepness);
                     vec3 foamSample = texture2D(foamTexture, vUv * 10.0 + time * 0.5).rgb;
                     foam *= foamSample.r;
-
-                    // Caustics from texture
                     float caustic = texture2D(causticsTexture, vUv * 5.0 + time * 0.2).r;
-
-                    // Ripples from interactions
                     float rippleDist = length(vPosition.xz - ripples.xy);
                     float ripple = exp(-rippleDist * rippleDist * 2.0) * ripples.z;
-
-                    // Combine
                     vec3 finalColor = baseColor;
                     finalColor += reflection * reflectionStrength * fresnel;
                     finalColor += refraction * refractionStrength * (1.0 - fresnel);
                     finalColor += foam * foamColor;
                     finalColor += caustic * causticsStrength * lightColor;
                     finalColor += vec3(ripple) * 0.5;
-
                     float alpha = transparency;
-
                     gl_FragColor = vec4(finalColor, alpha);
                 }
             `,
             transparent: true,
-            side: THREE.DoubleSide,
-            wireframe: false
+            side: THREE.DoubleSide
         });
 
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.rotation.x = -Math.PI / 2;
-        this.mesh.position.y = 0.0; // water surface at y=0
+        this.mesh.position.y = 0.0;
         this.scene.add(this.mesh);
     }
 
-    /**
-     * Call this before rendering the main scene to capture reflection/refraction.
-     */
     renderReflection() {
-        // Set reflection camera to be below water looking up
+        if (!this.mesh) return;
         this.reflectionCamera.position.copy(this.camera.position);
-        this.reflectionCamera.position.y = -this.camera.position.y + 2.0; // mirror
+        this.reflectionCamera.position.y = -this.camera.position.y + 2.0;
         this.reflectionCamera.rotation.copy(this.camera.rotation);
         this.reflectionCamera.rotation.x = -this.camera.rotation.x;
         this.reflectionCamera.updateMatrixWorld();
         this.reflectionCamera.projectionMatrix.copy(this.camera.projectionMatrix);
 
-        // Temporarily hide water plane
         this.mesh.visible = false;
         this.renderer.setRenderTarget(this.reflectionTexture);
         this.renderer.render(this.scene, this.reflectionCamera);
@@ -268,7 +249,7 @@ export class WaterEffect {
     }
 
     renderRefraction() {
-        // Refraction camera is same as main camera, just render scene without water
+        if (!this.mesh) return;
         this.mesh.visible = false;
         this.renderer.setRenderTarget(this.refractionTexture);
         this.renderer.render(this.scene, this.camera);
@@ -276,31 +257,20 @@ export class WaterEffect {
         this.mesh.visible = true;
     }
 
-    /**
-     * Add a ripple at world position.
-     */
     addRipple(position, strength) {
         this.ripples.push({ x: position.x, z: position.z, strength, age: 0 });
     }
 
-    /**
-     * Register a physics body for buoyancy.
-     */
     addBuoyantBody(body) {
         this.buoyantBodies.add(body);
     }
 
-    /**
-     * Update buoyancy forces.
-     */
     applyBuoyancy(deltaTime) {
         for (let body of this.buoyantBodies) {
-            // Simple buoyancy: upward force proportional to depth below water surface
             const depth = 0.0 - body.position.y;
             if (depth > 0) {
                 const force = new CANNON.Vec3(0, depth * body.mass * 5.0, 0);
                 body.applyForce(force, body.position);
-                // Damping
                 body.velocity.y *= 0.99;
             }
         }
@@ -308,11 +278,8 @@ export class WaterEffect {
 
     update(deltaTime) {
         if (!this.mesh) return;
-
-        // Update time uniform
         this.mesh.material.uniforms.time.value += deltaTime;
 
-        // Update ripples
         for (let i = this.ripples.length - 1; i >= 0; i--) {
             const r = this.ripples[i];
             r.age += deltaTime;
@@ -320,7 +287,6 @@ export class WaterEffect {
                 this.ripples.splice(i, 1);
             }
         }
-        // Pass first ripple to shader (simplified)
         if (this.ripples.length > 0) {
             const r = this.ripples[0];
             this.mesh.material.uniforms.ripples.value.set(r.x, r.z, r.strength * (1 - r.age/2), 0);
@@ -328,10 +294,7 @@ export class WaterEffect {
             this.mesh.material.uniforms.ripples.value.set(0,0,0,0);
         }
 
-        // Apply buoyancy
         this.applyBuoyancy(deltaTime);
-
-        // Update camera position uniform
         this.mesh.material.uniforms.cameraPos.value.copy(this.camera.position);
     }
 }
