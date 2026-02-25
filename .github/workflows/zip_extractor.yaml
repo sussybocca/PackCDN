@@ -1,0 +1,66 @@
+name: Extract Uploaded Zip Files to public/imagine
+
+on:
+  push:
+    paths:
+      - '*.zip'          # Only run if a .zip file in the root is added/modified
+    branches: [ main ]   # Adjust branch if needed
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  extract-new-zips:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Needed to compare changes against the previous commit
+
+      - name: Get list of added or modified zip files in this push
+        id: changed-files
+        run: |
+          # Get the commit range for this push (if available)
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # First push to a branch – compare against the parent of the first commit
+            # (simpler: just treat all zip files as new, or use a different approach)
+            echo "First push, extracting all zip files"
+            echo "zips=$(ls *.zip 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          else
+            # Normal push: compare HEAD with the previous commit
+            changed=$(git diff --name-only --diff-filter=AM ${{ github.event.before }} ${{ github.sha }} -- '*.zip')
+            echo "Changed zip files: $changed"
+            # Convert newlines to spaces for later use
+            zips=$(echo "$changed" | tr '\n' ' ')
+            echo "zips=$zips" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract each changed zip file to public/imagine
+        run: |
+          # Create target directory if it doesn't exist
+          mkdir -p public/imagine
+
+          # Get the list of zip files from the previous step
+          ZIP_FILES="${{ steps.changed-files.outputs.zips }}"
+          if [ -z "$ZIP_FILES" ]; then
+            echo "No new or modified zip files to extract."
+            exit 0
+          fi
+
+          for zipfile in $ZIP_FILES; do
+            if [ -f "$zipfile" ]; then
+              echo "Extracting $zipfile to public/imagine ..."
+              unzip -o "$zipfile" -d public/imagine/
+            else
+              echo "Warning: $zipfile no longer exists (maybe deleted in this commit?)"
+            fi
+          done
+
+      # Optional: Commit the extracted files back to the repo
+      # Be careful: this can trigger another workflow run unless you skip CI.
+      # - name: Commit extracted files
+      #   run: |
+      #     git config --global user.name 'github-actions[bot]'
+      #     git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      #     git add public/imagine
+      #     git diff --quiet && git diff --staged --quiet || git commit -m "Extract uploaded zip files to public/imagine [skip ci]"
+      #     git push
