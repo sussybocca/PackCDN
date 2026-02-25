@@ -367,21 +367,50 @@ export class LevelGenerator {
     }
 
     generateChunk(level, cx, cz) {
-        const chunkData = { walls: [], floors: [], ceilings: [], decorations: [] };
-        for (let x = cx; x < cx + this.chunkSize; x++) {
-            for (let z = cz; z < cz + this.chunkSize; z++) {
-                const nx = x / 100, nz = z / 100;
-                let height = Math.floor(this.noise.noise(nx, nz, 0) * 20);
-                for (let y = -5; y <= height; y++) {
-                    const pos = new THREE.Vector3(x, y, z);
-                    const wall = new MazeWall(this.game, pos, new THREE.Vector3(1,1,1), this.getMaterial('rock'));
-                    chunkData.walls.push(wall);
-                    level.walls.push(wall);
-                }
+    const chunkData = { walls: [], floors: [], ceilings: [], decorations: [] };
+    
+    // Prepare to collect shapes for the compound physics body
+    const shapes = [];
+    const shapeOffsets = [];
+    const material = this.physics.wallMaterial; // use the wall material
+
+    for (let x = cx; x < cx + this.chunkSize; x++) {
+        for (let z = cz; z < cz + this.chunkSize; z++) {
+            const nx = x / 100, nz = z / 100;
+            let height = Math.floor(this.noise.noise(nx, nz, 0) * 20);
+            for (let y = -5; y <= height; y++) {
+                const pos = new THREE.Vector3(x, y, z);
+                
+                // 1. Create visual mesh (as before)
+                const wall = new MazeWall(this.game, pos, new THREE.Vector3(1,1,1), this.getMaterial('rock'));
+                chunkData.walls.push(wall);
+                level.walls.push(wall);
+                
+                // 2. Accumulate physics shape for this block
+                const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+                shapes.push(boxShape);
+                shapeOffsets.push(new CANNON.Vec3(x, y, z));
             }
         }
-        level.chunks.set(`${cx},${cz}`, chunkData);
     }
+
+    // 3. Create a single compound body for all walls in this chunk
+    if (shapes.length > 0) {
+        const compoundBody = new CANNON.Body({ mass: 0, material });
+        for (let i = 0; i < shapes.length; i++) {
+            compoundBody.addShape(shapes[i], shapeOffsets[i]);
+        }
+        // Set collision groups (walls should collide with everything)
+        compoundBody.collisionFilterGroup = this.physics.groups.WALL;
+        compoundBody.collisionFilterMask = this.physics.groups.ALL;
+        this.physics.addBody(compoundBody);
+        
+        // Store the compound body in chunkData for later cleanup
+        chunkData.compoundBody = compoundBody;
+    }
+
+    level.chunks.set(`${cx},${cz}`, chunkData);
+}
 
     generateRooms(level, count) {
         // Carve rooms by removing walls in rectangular areas
