@@ -9,7 +9,6 @@ import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import { SAOPass } from 'three/addons/postprocessing/SAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { LensflarePass } from 'three/addons/postprocessing/LensflarePass.js'; // Not standard, but we can create a custom god ray pass
 
 export class PostProcessor {
     constructor(renderer, scene, camera) {
@@ -18,6 +17,10 @@ export class PostProcessor {
         this.camera = camera;
         this.composer = new EffectComposer(renderer);
         this.passes = {};
+
+        // Ensure renderer has necessary capabilities
+        this.renderer.depth = true;
+        this.renderer.stencil = true;
     }
 
     init() {
@@ -26,7 +29,6 @@ export class PostProcessor {
         this.composer.addPass(renderPass);
 
         // ========== AMBIENT OCCLUSION (SSAO) ==========
-        // Adds depth to crevices – subtle but effective
         const saoPass = new SAOPass(this.scene, this.camera);
         saoPass.params = {
             output: SAOPass.OUTPUT.Default,
@@ -43,7 +45,7 @@ export class PostProcessor {
         this.composer.addPass(saoPass);
         this.passes.sao = saoPass;
 
-        // ========== BLOOM – cranked for highlights ==========
+        // ========== BLOOM ==========
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.5, 0.85);
         bloomPass.threshold = 0.6;
         bloomPass.strength = 1.5;
@@ -51,7 +53,7 @@ export class PostProcessor {
         this.composer.addPass(bloomPass);
         this.passes.bloom = bloomPass;
 
-        // ========== COLOR CORRECTION – rich contrast & saturation ==========
+        // ========== COLOR CORRECTION ==========
         const colorCorrectionShader = {
             uniforms: {
                 tDiffuse: { value: null },
@@ -72,7 +74,6 @@ export class PostProcessor {
                 uniform float contrast;
                 uniform float saturation;
                 varying vec2 vUv;
-
                 void main() {
                     vec4 color = texture2D(tDiffuse, vUv);
                     color.rgb += brightness;
@@ -87,12 +88,11 @@ export class PostProcessor {
         this.composer.addPass(colorPass);
         this.passes.color = colorPass;
 
-        // ========== LENS FLARE / GOD RAYS (custom shader) ==========
-        // Simulates light scattering from bright sources
+        // ========== GOD RAYS (Lens Flare) ==========
         const godRayShader = {
             uniforms: {
                 tDiffuse: { value: null },
-                lightPosition: { value: new THREE.Vector2(0.7, 0.3) }, // screen-space pos of light
+                lightPosition: { value: new THREE.Vector2(0.7, 0.3) },
                 exposure: { value: 0.4 },
                 decay: { value: 0.95 },
                 density: { value: 0.8 },
@@ -138,14 +138,13 @@ export class PostProcessor {
         this.composer.addPass(godRayPass);
         this.passes.godRay = godRayPass;
 
-        // ========== RGB SHIFT – subtle chromatic aberration ==========
+        // ========== RGB SHIFT ==========
         const rgbShiftPass = new ShaderPass(RGBShiftShader);
         rgbShiftPass.uniforms['amount'].value = 0.003;
         this.composer.addPass(rgbShiftPass);
         this.passes.rgbShift = rgbShiftPass;
 
         // ========== DEPTH OF FIELD (Bokeh) ==========
-        // Focus on center, blur background
         const bokehPass = new BokehPass(this.scene, this.camera, {
             focus: 10.0,
             aperture: 0.025,
@@ -156,13 +155,13 @@ export class PostProcessor {
         this.composer.addPass(bokehPass);
         this.passes.bokeh = bokehPass;
 
-        // ========== FILM GRAIN – cinematic texture ==========
+        // ========== FILM GRAIN ==========
         const filmPass = new FilmPass(0.2, 0.0, 2048, false);
         filmPass.renderToScreen = false;
         this.composer.addPass(filmPass);
         this.passes.film = filmPass;
 
-        // ========== VIGNETTE – focus edges ==========
+        // ========== VIGNETTE ==========
         const vignetteShader = {
             uniforms: {
                 tDiffuse: { value: null },
@@ -192,18 +191,18 @@ export class PostProcessor {
             `
         };
         const vignettePass = new ShaderPass(vignetteShader);
-        vignettePass.renderToScreen = false;
+        vignettePass.renderToScreen = false; // Will be set to true later
         this.composer.addPass(vignettePass);
         this.passes.vignette = vignettePass;
 
-        // ========== GLITCH – disabled by default ==========
+        // ========== GLITCH (disabled) ==========
         const glitchPass = new GlitchPass();
         glitchPass.goWild = false;
         glitchPass.enabled = false;
         this.composer.addPass(glitchPass);
         this.passes.glitch = glitchPass;
 
-        // ========== AFTERIMAGE – disabled ==========
+        // ========== AFTERIMAGE (disabled) ==========
         const afterimagePass = new AfterimagePass(0.95);
         afterimagePass.enabled = false;
         this.composer.addPass(afterimagePass);
@@ -214,6 +213,9 @@ export class PostProcessor {
         glitchPass.renderToScreen = false;
         afterimagePass.renderToScreen = false;
         filmPass.renderToScreen = false;
+
+        // Log success
+        console.log('PostProcessor initialized with all effects');
     }
 
     render(deltaTime) {
@@ -223,9 +225,6 @@ export class PostProcessor {
         } else {
             this.passes.glitch.goWild = false;
         }
-
-        // Update god ray light position dynamically? Could track a bright object.
-        // For now, static.
 
         this.composer.render();
     }
