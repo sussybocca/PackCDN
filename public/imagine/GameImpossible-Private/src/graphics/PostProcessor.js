@@ -19,48 +19,75 @@ export class PostProcessor {
     }
 
     init() {
+        // 1. Base render
         const renderPass = new RenderPass(this.scene, this.camera);
         this.composer.addPass(renderPass);
 
-        // ========== BLOOM – cranked to insane levels ==========
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.5, 0.6, 0.9);
-        bloomPass.threshold = 0.05;      // Lower threshold = more bloom
-        bloomPass.strength = 2.0;         // Higher strength = brighter bloom
-        bloomPass.radius = 0.8;           // Larger radius = softer bloom
+        // 2. BLOOM – subtle, natural glow (only highlights)
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
+        bloomPass.threshold = 0.8;        // Only very bright areas
+        bloomPass.strength = 1.0;          // Gentle glow
+        bloomPass.radius = 0.5;            // Soft radius
         this.composer.addPass(bloomPass);
         this.passes.bloom = bloomPass;
 
-        // ========== RGB SHIFT (chromatic aberration) – max distortion ==========
+        // 3. COLOR CORRECTION (custom) – contrast & saturation boost
+        const colorCorrectionShader = {
+            uniforms: {
+                tDiffuse: { value: null },
+                brightness: { value: 0.05 },
+                contrast: { value: 1.15 },
+                saturation: { value: 1.1 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float brightness;
+                uniform float contrast;
+                uniform float saturation;
+                varying vec2 vUv;
+
+                void main() {
+                    vec4 color = texture2D(tDiffuse, vUv);
+                    // Brightness
+                    color.rgb += brightness;
+                    // Contrast
+                    color.rgb = (color.rgb - 0.5) * contrast + 0.5;
+                    // Saturation
+                    float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+                    color.rgb = mix(vec3(gray), color.rgb, saturation);
+                    gl_FragColor = color;
+                }
+            `
+        };
+        const colorPass = new ShaderPass(colorCorrectionShader);
+        this.composer.addPass(colorPass);
+        this.passes.color = colorPass;
+
+        // 4. RGB SHIFT – very subtle chromatic aberration (lens effect)
         const rgbShiftPass = new ShaderPass(RGBShiftShader);
-        rgbShiftPass.uniforms['amount'].value = 0.02; // Double the previous value
+        rgbShiftPass.uniforms['amount'].value = 0.002; // Barely noticeable
         this.composer.addPass(rgbShiftPass);
         this.passes.rgbShift = rgbShiftPass;
 
-        // ========== AFTERIMAGE (motion blur) – longer trails ==========
-        const afterimagePass = new AfterimagePass(0.85); // Lower = longer trail
-        afterimagePass.renderToScreen = false; // Will be set later
-        this.composer.addPass(afterimagePass);
-        this.passes.afterimage = afterimagePass;
-
-        // ========== FILM GRAIN – add cinematic noise ==========
-        const filmPass = new FilmPass(0.5, 0.5, 2048, false); // intensity, scanlines, grain size, monochrome
+        // 5. FILM GRAIN – cinematic texture (extremely light)
+        const filmPass = new FilmPass(0.15, 0.0, 2048, false); // intensity, scanlines (0), grain size, monochrome
         filmPass.renderToScreen = false;
         this.composer.addPass(filmPass);
         this.passes.film = filmPass;
 
-        // ========== GLITCH – for time dilation / chaos ==========
-        const glitchPass = new GlitchPass();
-        glitchPass.goWild = false;
-        glitchPass.enabled = true; // Enable by default but subtle
-        this.composer.addPass(glitchPass);
-        this.passes.glitch = glitchPass;
-
-        // ========== VIGNETTE (custom shader) – darken edges ==========
+        // 6. VIGNETTE – subtle darkening at edges (draws focus)
         const vignetteShader = {
             uniforms: {
                 tDiffuse: { value: null },
-                offset: { value: 1.0 },
-                darkness: { value: 1.5 }
+                offset: { value: 0.9 },
+                darkness: { value: 0.7 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -77,7 +104,7 @@ export class PostProcessor {
                 void main() {
                     vec4 color = texture2D(tDiffuse, vUv);
                     float dist = distance(vUv, vec2(0.5, 0.5));
-                    float vignette = smoothstep(0.8, offset * 0.5, dist);
+                    float vignette = smoothstep(offset, offset * 0.25, dist);
                     vignette = pow(vignette, darkness);
                     color.rgb *= vignette;
                     gl_FragColor = color;
@@ -89,26 +116,33 @@ export class PostProcessor {
         this.composer.addPass(vignettePass);
         this.passes.vignette = vignettePass;
 
-        // Ensure the last pass renders to screen (afterimage is not last, so set the last pass)
-        // We'll set the last added pass (vignette) to render to screen.
-        // But we need to manage which pass is last. We can set afterimage to not render, and vignette to render.
+        // 7. GLITCH – disabled by default (can be activated for special effects)
+        const glitchPass = new GlitchPass();
+        glitchPass.goWild = false;
+        glitchPass.enabled = false;
+        this.composer.addPass(glitchPass);
+        this.passes.glitch = glitchPass;
+
+        // 8. AFTERIMAGE – disabled (not needed for general immersion)
+        const afterimagePass = new AfterimagePass(0.95);
+        afterimagePass.enabled = false;
+        this.composer.addPass(afterimagePass);
+        this.passes.afterimage = afterimagePass;
+
+        // Set the last active pass to render to screen (vignette)
+        vignettePass.renderToScreen = true;
+        glitchPass.renderToScreen = false;
         afterimagePass.renderToScreen = false;
         filmPass.renderToScreen = false;
-        glitchPass.renderToScreen = false;
-        vignettePass.renderToScreen = true; // This will be the final output
-
-        // Also optionally add a DotScreenPass for retro? No, skip for immersion.
     }
 
     render(deltaTime) {
-        // Update glitch wild mode randomly
-        if (this.passes.glitch.enabled && Math.random() > 0.98) { // Slightly more often
+        // Update glitch wild mode if enabled (rarely)
+        if (this.passes.glitch.enabled && Math.random() > 0.98) {
             this.passes.glitch.goWild = true;
         } else {
             this.passes.glitch.goWild = false;
         }
-
-        // Update film grain time uniform if needed (FilmPass handles internally)
 
         this.composer.render();
     }
@@ -121,7 +155,6 @@ export class PostProcessor {
         this.passes.glitch.enabled = enable;
     }
 
-    // Additional controls if needed
     setFilmIntensity(val) {
         if (this.passes.film) this.passes.film.uniforms.intensity.value = val;
     }
