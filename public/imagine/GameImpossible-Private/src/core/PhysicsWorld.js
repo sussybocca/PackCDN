@@ -163,8 +163,7 @@ export class PhysicsWorld {
         for (const zone of this.gravityZones) {
             const bodies = this.getBodiesInSphere(zone.body.position, zone.radius);
             for (const body of bodies) {
-                // Override gravity for this body temporarily? Better to apply force.
-                // Gravity is acceleration, so force = mass * gravity.
+                // Gravity is acceleration, so force = mass * gravity
                 const force = zone.gravity.clone().scale(body.mass);
                 body.applyForce(force, body.position);
             }
@@ -179,8 +178,8 @@ export class PhysicsWorld {
             const bodies = this.getBodiesInSphere(zone.body.position, zone.radius);
             for (const body of bodies) {
                 // Simplified buoyancy: upward force proportional to submerged volume
-                // Assume full volume for now.
-                const volume = 1.0; // We'd need actual shape volume
+                // Assume full volume for now (you could compute actual volume from shapes)
+                const volume = 1.0; // Would need shape volume in reality
                 const buoyantForce = new CANNON.Vec3(0, zone.density * 9.82 * volume, 0);
                 body.applyForce(buoyantForce, body.position);
                 // Viscous damping
@@ -213,7 +212,10 @@ export class PhysicsWorld {
         const rSq = radius * radius;
         for (const body of this.world.bodies) {
             if (body.type === CANNON.Body.STATIC) continue;
-            const distSq = body.position.distanceSquared(center);
+            const dx = body.position.x - center.x;
+            const dy = body.position.y - center.y;
+            const dz = body.position.z - center.z;
+            const distSq = dx*dx + dy*dy + dz*dz;
             if (distSq < rSq) result.push(body);
         }
         return result;
@@ -267,14 +269,11 @@ export class PhysicsWorld {
      */
     processTriggers() {
         for (const trigger of this.triggers) {
-            // We need to check all bodies that could overlap with trigger
-            const overlapping = [];
             const mask = trigger.collisionFilterMask;
             for (const body of this.world.bodies) {
                 if (body === trigger) continue;
                 if (!(body.collisionFilterGroup & mask)) continue; // not in mask
                 if (this.bodiesOverlap(trigger, body)) {
-                    overlapping.push(body);
                     // Fire event if listener exists
                     const key = `${trigger.id}-${body.id}`;
                     if (this.contactListeners.has(key)) {
@@ -282,19 +281,14 @@ export class PhysicsWorld {
                     }
                 }
             }
-            // Optionally store overlapping set for exit detection
         }
     }
 
     /**
      * Check if two bodies overlap (simple AABB test).
-     * For precise, we'd need narrowphase, but this is sufficient for triggers.
      */
     bodiesOverlap(bodyA, bodyB) {
-        // Use bounding spheres for simplicity
-        const aabbA = bodyA.aabb;
-        const aabbB = bodyB.aabb;
-        return aabbA.overlaps(aabbB);
+        return bodyA.aabb.overlaps(bodyB.aabb);
     }
 
     /**
@@ -428,7 +422,7 @@ export class PhysicsWorld {
      */
     sphereCast(from, to, radius, options = {}) {
         // Approximate by raycast with a thicker ray? Not directly supported.
-        // We'll implement a simple sweep by sampling.
+        // Implement a simple sweep by sampling.
         const dir = new CANNON.Vec3().copy(to).vsub(from);
         const dist = dir.length();
         dir.normalize();
@@ -454,10 +448,14 @@ export class PhysicsWorld {
      * Enable debug rendering (requires CANNON DebugRenderer).
      * @param {THREE.Scene} scene
      */
-    enableDebug(scene) {
+    async enableDebug(scene) {   // <-- FIX: added async
         if (!this.debugRenderer) {
-            const { CannonDebugRenderer } = await import('cannon-es-debugger');
-            this.debugRenderer = new CannonDebugRenderer(scene, this.world);
+            try {
+                const { CannonDebugRenderer } = await import('cannon-es-debugger');
+                this.debugRenderer = new CannonDebugRenderer(scene, this.world);
+            } catch (e) {
+                console.warn('Debug renderer not available:', e);
+            }
         }
     }
 
