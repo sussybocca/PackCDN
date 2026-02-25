@@ -19,7 +19,8 @@ export class SceneManager {
         this.shaderManager = new ShaderManager();
         this.postProcessor = new PostProcessor(this.renderer, this.scene, this.camera);
         this.particleSystem = new ParticleSystem(this.scene);
-        this.waterEffect = new WaterEffect(this.scene);
+        // Pass camera and renderer to WaterEffect for reflection/refraction
+        this.waterEffect = new WaterEffect(this.scene, this.camera, this.renderer);
         
         this.ambientLight = new THREE.AmbientLight(0x404060);
         this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -32,7 +33,8 @@ export class SceneManager {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        // Fix deprecated outputEncoding
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(this.renderer.domElement);
 
@@ -72,6 +74,7 @@ export class SceneManager {
         // Initialize shaders and post-processing
         this.shaderManager.init();
         this.postProcessor.init();
+        // Initialize water effect (now has renderer)
         this.waterEffect.init();
 
         // Skybox with stars
@@ -104,10 +107,15 @@ export class SceneManager {
             light.position.y = 3 + Math.sin(performance.now() * 0.002 + i) * 2;
         });
 
-        // Update water
+        // Update water effect (time uniform)
         this.waterEffect.update(deltaTime);
 
-        // Render via post-processor
+        // Render reflection and refraction for water (must be done before main render)
+        // These methods use the renderer to capture the scene from water's perspective
+        this.waterEffect.renderReflection();
+        this.waterEffect.renderRefraction();
+
+        // Render via post-processor (this will render the final scene with water)
         this.postProcessor.render(deltaTime);
     }
 
