@@ -1,11 +1,11 @@
-name: Extract Zip Files to public/imagine
+name: Extract Zip to public/imagine
 
 on:
   push:
     paths:
-      - '*.zip'                # only run if a zip file in root is added/modified
-    branches: [ main ]         # change if you use a different default branch
-  workflow_dispatch:            # allow manual trigger
+      - '*.zip'                # only when a zip in root is changed
+    branches: [ main ]         # change if your default branch is different
+  workflow_dispatch:            # allows manual trigger
 
 jobs:
   extract-and-commit:
@@ -13,30 +13,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # this is the default, but we keep it explicit
 
       - name: Extract all zip files to public/imagine
         run: |
-          # Create the target directory if it doesn't exist
           mkdir -p public/imagine
-
-          # Loop over every .zip file in the repository root
           for zipfile in *.zip; do
-            # Skip if no zip files exist (the loop would run with literal "*.zip")
             [ -e "$zipfile" ] || continue
-
-            echo "Extracting $zipfile to public/imagine ..."
+            echo "Extracting $zipfile ..."
             unzip -o "$zipfile" -d public/imagine/
           done
+
+      - name: Set up git remote with token
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Commit and push extracted files
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add public/imagine
-          # Only commit if there are changes
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
+          if ! git diff --staged --quiet; then
             git commit -m "Extract zip files to public/imagine [skip ci]"
             git push
+          else
+            echo "No changes to commit"
           fi
