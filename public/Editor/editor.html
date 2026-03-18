@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚡ Pack Studio - Immersive WebAssembly Editor</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -45,30 +45,29 @@
             background: rgba(30, 30, 30, 0.95);
             backdrop-filter: blur(10px);
             border-bottom: 2px solid var(--primary-color);
-            padding: 8px 16px;
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             position: relative;
             z-index: 100;
-            gap: 8px;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
         }
 
         .logo-icon {
-            font-size: 20px;
+            font-size: 24px;
             color: var(--primary-color);
             animation: pulse 2s infinite;
         }
 
         .logo-text {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 700;
             background: linear-gradient(90deg, #007acc, #00bcd4);
             -webkit-background-clip: text;
@@ -80,15 +79,15 @@
         .status-bar {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 20px;
+            font-size: 14px;
         }
 
         .status-item {
             display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
+            gap: 6px;
+            padding: 6px 12px;
             background: rgba(0, 0, 0, 0.3);
             border-radius: 4px;
             border: 1px solid var(--border-color);
@@ -96,38 +95,19 @@
 
         .status-item i {
             color: var(--primary-color);
-            font-size: 14px;
         }
 
-        /* Mobile menu toggle */
-        .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: 24px;
-            cursor: pointer;
-            padding: 8px;
-            margin-right: 8px;
-        }
-
-        /* Main Container - using grid for better control */
+        /* Main Container */
         .container {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            grid-template-rows: 1fr auto;
-            grid-template-areas: 
-                "sidebar editor"
-                "terminal terminal";
+            display: flex;
             height: calc(100vh - 60px);
             padding: 16px;
             gap: 16px;
-            transition: grid-template-columns 0.3s ease;
         }
 
         /* Left Sidebar */
         .sidebar {
-            grid-area: sidebar;
+            width: 320px;
             background: rgba(37, 37, 38, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 12px;
@@ -136,26 +116,25 @@
             flex-direction: column;
             overflow: hidden;
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
-            transition: transform 0.3s ease, width 0.3s ease;
         }
 
         .sidebar-section {
-            padding: 16px;
+            padding: 20px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .section-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 10px;
+            margin-bottom: 16px;
             color: var(--primary-color);
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
         }
 
         .section-header i {
-            font-size: 16px;
+            font-size: 18px;
         }
 
         /* File Explorer */
@@ -169,16 +148,15 @@
         }
 
         .file-item {
-            padding: 8px 10px;
+            padding: 8px 12px;
             border-radius: 6px;
-            margin: 2px 0;
+            margin: 4px 0;
             display: flex;
             align-items: center;
             gap: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
             border-left: 3px solid transparent;
-            font-size: 14px;
         }
 
         .file-item:hover {
@@ -199,7 +177,6 @@
 
         .file-name {
             flex: 1;
-            word-break: break-word;
         }
 
         .file-actions {
@@ -217,7 +194,7 @@
             background: none;
             border: none;
             color: var(--text-secondary);
-            padding: 4px 6px;
+            padding: 2px 6px;
             border-radius: 3px;
             cursor: pointer;
             font-size: 12px;
@@ -230,7 +207,7 @@
 
         /* Editor Area */
         .editor-area {
-            grid-area: editor;
+            flex: 1;
             display: flex;
             flex-direction: column;
             background: rgba(30, 30, 30, 0.95);
@@ -239,29 +216,26 @@
             border: 2px solid var(--border-color);
             overflow: hidden;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            min-width: 0; /* important for flex children */
         }
 
         .editor-tabs {
             display: flex;
             background: rgba(45, 45, 48, 0.9);
             border-bottom: 2px solid var(--border-color);
-            padding: 0 8px;
+            padding: 0 12px;
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
         }
 
         .tab {
-            padding: 10px 16px;
+            padding: 12px 20px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             cursor: pointer;
             border-right: 1px solid var(--border-color);
             white-space: nowrap;
             transition: background 0.2s;
             position: relative;
-            font-size: 14px;
         }
 
         .tab:hover {
@@ -284,9 +258,9 @@
         }
 
         .tab-close {
-            margin-left: 4px;
+            margin-left: 8px;
             opacity: 0.6;
-            padding: 2px 4px;
+            padding: 2px;
             border-radius: 3px;
         }
 
@@ -313,17 +287,17 @@
         .wasm-panel {
             background: rgba(30, 30, 30, 0.7);
             border-radius: 8px;
-            padding: 12px;
-            margin-top: 8px;
+            padding: 15px;
+            margin-top: 10px;
             border: 1px dashed var(--border-color);
         }
 
         .wasm-upload {
             text-align: center;
-            padding: 16px;
+            padding: 20px;
             border: 2px dashed var(--primary-color);
             border-radius: 8px;
-            margin: 8px 0;
+            margin: 10px 0;
             cursor: pointer;
             transition: all 0.3s;
             background: rgba(0, 122, 204, 0.05);
@@ -335,41 +309,40 @@
         }
 
         .wasm-upload i {
-            font-size: 28px;
+            font-size: 32px;
             color: var(--primary-color);
-            margin-bottom: 6px;
+            margin-bottom: 10px;
         }
 
         .wasm-file {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 10px;
+            padding: 8px 12px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 6px;
             margin: 4px 0;
-            font-size: 13px;
+            font-size: 14px;
         }
 
         .wasm-file-info {
             display: flex;
             align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .wasm-file-size {
             color: var(--text-secondary);
-            font-size: 11px;
+            font-size: 12px;
         }
 
         /* Configuration Panel */
         .config-panel {
             background: rgba(30, 30, 30, 0.7);
             border-radius: 8px;
-            padding: 12px;
-            margin-top: 8px;
-            max-height: 350px;
+            padding: 15px;
+            margin-top: 10px;
+            max-height: 400px;
             overflow-y: auto;
             overflow-x: hidden;
             position: relative;
@@ -377,42 +350,93 @@
         }
 
         .config-panel::-webkit-scrollbar {
-            width: 10px;
+            width: 12px;
         }
 
         .config-panel::-webkit-scrollbar-track {
             background: rgba(20, 20, 20, 0.3);
             border-radius: 6px;
+            margin: 4px;
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
         }
 
         .config-panel::-webkit-scrollbar-thumb {
             background: linear-gradient(to bottom, var(--primary-color), var(--accent-color));
             border-radius: 6px;
             border: 2px solid rgba(30, 30, 30, 0.8);
+            min-height: 40px;
+        }
+
+        .config-panel::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #00bcd4, #68217a);
+            box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
+        }
+
+        .config-panel::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(to bottom, #005a9e, #4a1460);
+        }
+
+        .config-panel::-webkit-scrollbar-corner {
+            background: rgba(30, 30, 30, 0.8);
+        }
+
+        .config-panel {
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) rgba(20, 20, 20, 0.3);
+        }
+
+        .config-panel {
+            scroll-behavior: smooth;
+        }
+
+        .config-panel::before,
+        .config-panel::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .config-panel::before {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(37, 37, 38, 0.8) 0%, rgba(37, 37, 38, 0) 100%);
+            border-radius: 8px 8px 0 0;
+        }
+
+        .config-panel::after {
+            bottom: 0;
+            background: linear-gradient(to top, rgba(37, 37, 38, 0.8) 0%, rgba(37, 37, 38, 0) 100%);
+            border-radius: 0 0 8px 8px;
         }
 
         .config-item {
-            margin-bottom: 12px;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 2;
         }
 
         .config-label {
             display: block;
-            margin-bottom: 4px;
-            font-size: 13px;
+            margin-bottom: 6px;
+            font-size: 14px;
             color: var(--text-primary);
             font-weight: 500;
         }
 
         .config-input {
             width: 100%;
-            padding: 8px 10px;
+            padding: 10px 12px;
             background: rgba(0, 0, 0, 0.3);
             border: 2px solid var(--border-color);
             border-radius: 6px;
             color: var(--text-primary);
             font-family: inherit;
             transition: border-color 0.3s;
-            font-size: 16px; /* prevents zoom on mobile */
+            position: relative;
+            z-index: 2;
         }
 
         .config-input:focus {
@@ -423,26 +447,24 @@
 
         .config-row {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .config-row .config-item {
-            flex: 1 1 150px;
+            flex: 1;
             margin-bottom: 0;
         }
 
         .checkbox-group {
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin-top: 12px;
-            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 20px;
         }
 
         .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: var(--primary-color);
         }
@@ -455,25 +477,24 @@
 
         .type-info-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-            gap: 6px;
-            margin-top: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
         }
 
         .type-card {
-            padding: 8px 4px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             border: 2px solid transparent;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
             background: rgba(0, 0, 0, 0.3);
-            -webkit-tap-highlight-color: transparent;
         }
 
         .type-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .type-card.active {
@@ -481,36 +502,58 @@
             background: rgba(0, 122, 204, 0.1);
         }
 
+        .type-card.basic.active {
+            border-color: #107c10;
+            background: rgba(16, 124, 16, 0.1);
+        }
+
+        .type-card.standard.active {
+            border-color: #f2c811;
+            background: rgba(242, 200, 17, 0.1);
+        }
+
+        .type-card.advanced.active {
+            border-color: #68217a;
+            background: rgba(104, 33, 122, 0.1);
+        }
+
+        .type-card.wasm.active {
+            border-color: #d13438;
+            background: rgba(209, 52, 56, 0.1);
+        }
+
         .type-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
+            font-size: 24px;
+            margin-bottom: 8px;
         }
 
         .type-name {
             font-weight: 600;
-            font-size: 12px;
+            font-size: 14px;
+            margin-bottom: 4px;
         }
 
         .type-desc {
-            display: none; /* hide on mobile */
+            font-size: 11px;
+            color: var(--text-secondary);
         }
 
         /* Advanced Options */
         .advanced-options {
             background: linear-gradient(135deg, rgba(104, 33, 122, 0.1) 0%, rgba(0, 122, 204, 0.1) 100%);
             border-left: 4px solid var(--accent-color);
-            padding: 12px;
+            padding: 15px;
             border-radius: 6px;
-            margin-top: 12px;
-            margin-bottom: 16px;
+            margin-top: 15px;
+            margin-bottom: 20px;
         }
 
         .advanced-header {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             color: var(--accent-color);
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             cursor: pointer;
         }
 
@@ -524,52 +567,44 @@
 
         /* Terminal Panel */
         .terminal-panel {
-            grid-area: terminal;
             background: var(--terminal-bg);
             border-radius: 8px;
+            margin-top: 16px;
             overflow: hidden;
+            flex-shrink: 0;
             border: 2px solid var(--border-color);
-            transition: max-height 0.3s ease;
-            max-height: 200px;
-        }
-
-        .terminal-panel.collapsed {
-            max-height: 40px;
         }
 
         .terminal-header {
             background: rgba(45, 45, 48, 0.9);
-            padding: 8px 12px;
+            padding: 10px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
         }
 
         .terminal-title {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             color: var(--primary-color);
         }
 
         .terminal-content {
-            padding: 10px;
+            padding: 15px;
             font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            max-height: 160px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 200px;
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
         }
 
         .terminal-line {
-            margin-bottom: 2px;
+            margin-bottom: 4px;
             display: flex;
             align-items: flex-start;
-            gap: 6px;
-            word-break: break-word;
+            gap: 8px;
         }
 
         .terminal-prompt {
@@ -591,37 +626,53 @@
         /* Floating Action Buttons */
         .fab-container {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 24px;
+            right: 24px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             z-index: 1000;
         }
 
         .fab {
-            width: 52px;
-            height: 52px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             border: none;
             background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
             color: white;
             font-size: 20px;
             cursor: pointer;
-            box-shadow: 0 4px 16px rgba(0, 122, 204, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 122, 204, 0.4);
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            -webkit-tap-highlight-color: transparent;
+            position: relative;
         }
 
-        .fab:active {
-            transform: scale(0.95);
+        .fab:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 6px 25px rgba(0, 122, 204, 0.6);
         }
 
         .fab-label {
-            display: none; /* hide labels on mobile */
+            position: absolute;
+            right: 70px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateX(10px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .fab:hover .fab-label {
+            opacity: 1;
+            transform: translateX(0);
         }
 
         /* Publish Modal */
@@ -651,14 +702,13 @@
             background: linear-gradient(135deg, #252526 0%, #1e1e1e 100%);
             border-radius: 16px;
             border: 2px solid var(--primary-color);
-            width: 95%;
-            max-width: 700px;
+            width: 90%;
+            max-width: 800px;
             max-height: 90vh;
             overflow: hidden;
             transform: translateY(20px);
             transition: transform 0.3s;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-            margin: 10px;
         }
 
         .modal-overlay.active .modal {
@@ -666,7 +716,7 @@
         }
 
         .modal-header {
-            padding: 16px;
+            padding: 20px;
             background: rgba(0, 0, 0, 0.3);
             border-bottom: 2px solid var(--border-color);
             display: flex;
@@ -675,12 +725,12 @@
         }
 
         .modal-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             color: var(--primary-color);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .modal-close {
@@ -690,38 +740,42 @@
             font-size: 24px;
             cursor: pointer;
             padding: 4px;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         .modal-content {
-            padding: 16px;
+            padding: 20px;
             overflow-y: auto;
-            max-height: calc(90vh - 70px);
-            -webkit-overflow-scrolling: touch;
+            max-height: calc(90vh - 80px);
         }
 
         .modal-section {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
 
         .modal-section-title {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             color: var(--text-primary);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
 
         /* Publish Results */
         .publish-results {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
-            padding: 12px;
-            margin-top: 16px;
+            padding: 15px;
+            margin-top: 20px;
             border-left: 4px solid var(--success-color);
             display: none;
-            word-break: break-word;
         }
 
         .publish-results.active {
@@ -729,22 +783,22 @@
         }
 
         .result-item {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .result-label {
             font-weight: 600;
             color: var(--text-secondary);
-            font-size: 13px;
-            margin-bottom: 2px;
+            font-size: 14px;
+            margin-bottom: 4px;
         }
 
         .result-value {
             color: var(--text-primary);
             font-family: 'Consolas', monospace;
-            font-size: 12px;
+            font-size: 13px;
             word-break: break-all;
         }
 
@@ -757,62 +811,61 @@
             text-decoration: underline;
         }
 
+        /* Loading Animation */
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 30px;
         }
 
         .spinner {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             border: 4px solid rgba(0, 122, 204, 0.2);
             border-top: 4px solid var(--primary-color);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
+            margin: 0 auto 15px;
         }
 
+        /* Security Warning */
         .security-warning {
             background: linear-gradient(135deg, rgba(242, 200, 17, 0.2) 0%, rgba(242, 200, 17, 0.1) 100%);
             border-left: 4px solid var(--warning-color);
-            padding: 12px;
+            padding: 15px;
             border-radius: 8px;
-            margin: 12px 0;
+            margin: 15px 0;
         }
 
         .security-warning .warning-header {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             color: var(--warning-color);
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .security-warning ul {
-            margin-left: 16px;
-            margin-bottom: 8px;
+            margin-left: 20px;
+            margin-bottom: 10px;
         }
 
         .security-warning li {
-            margin-bottom: 4px;
+            margin-bottom: 5px;
             color: var(--text-primary);
-            font-size: 13px;
         }
 
         .edit-token-display {
             background: rgba(0, 0, 0, 0.5);
             border: 2px dashed var(--warning-color);
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
-            margin: 8px 0;
+            margin: 10px 0;
             font-family: 'Consolas', monospace;
-            font-size: 12px;
+            font-size: 13px;
             word-break: break-all;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
         }
 
         .copy-token-btn {
@@ -822,9 +875,14 @@
             padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             transition: all 0.2s;
+        }
+
+        .copy-token-btn:hover {
+            background: #f2c811;
+            transform: scale(1.05);
         }
 
         /* Animations */
@@ -838,140 +896,40 @@
             50% { opacity: 0.7; }
         }
 
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         /* Scrollbar Styling */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
         }
 
         ::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
+            border-radius: 5px;
         }
 
         ::-webkit-scrollbar-thumb {
             background: var(--primary-color);
-            border-radius: 4px;
+            border-radius: 5px;
         }
 
-        /* Responsive Design - Mobile First */
-        @media (max-width: 768px) {
-            .menu-toggle {
-                display: block;
-            }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
 
+        /* Responsive Design */
+        @media (max-width: 1200px) {
             .container {
-                grid-template-columns: 1fr;
-                grid-template-areas: 
-                    "editor"
-                    "terminal";
-                padding: 8px;
-                gap: 8px;
-            }
-
-            .sidebar {
-                position: fixed;
-                top: 60px;
-                left: 0;
-                bottom: 0;
-                width: 280px;
-                transform: translateX(-100%);
-                z-index: 500;
-                border-radius: 0 12px 12px 0;
-                border-left: none;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .header {
-                padding: 6px 12px;
-            }
-
-            .logo-text {
-                font-size: 16px;
-            }
-
-            .status-item span {
-                display: none;
-            }
-
-            .status-item i {
-                font-size: 16px;
-            }
-
-            .fab {
-                width: 48px;
-                height: 48px;
-                font-size: 18px;
-            }
-
-            .terminal-panel {
-                max-height: 150px;
-            }
-
-            .terminal-panel.collapsed {
-                max-height: 36px;
-            }
-
-            .terminal-content {
-                max-height: 110px;
-            }
-
-            .modal {
-                width: 98%;
-                margin: 5px;
-            }
-
-            .modal-title {
-                font-size: 16px;
-            }
-
-            .result-value {
-                font-size: 11px;
-            }
-
-            .edit-token-display {
                 flex-direction: column;
-                align-items: stretch;
             }
-
-            .copy-token-btn {
-                align-self: center;
+            
+            .sidebar {
                 width: 100%;
-            }
-
-            .type-card {
-                padding: 6px 2px;
-            }
-
-            .type-name {
-                font-size: 11px;
-            }
-
-            .config-input {
-                font-size: 14px;
-                padding: 8px;
-            }
-        }
-
-        /* Touch-friendly adjustments */
-        @media (hover: none) and (pointer: coarse) {
-            .file-item:hover {
-                background: none;
-            }
-            .file-item.active {
-                background: rgba(86, 156, 214, 0.2);
-            }
-            .file-actions {
-                opacity: 1;
-            }
-            .file-btn {
-                padding: 6px 8px;
-            }
-            .tab {
-                padding: 12px 16px;
+                max-height: 300px;
             }
         }
 
@@ -998,9 +956,6 @@
 <body>
     <!-- Header -->
     <div class="header">
-        <button class="menu-toggle" id="menu-toggle">
-            <i class="fas fa-bars"></i>
-        </button>
         <div class="logo">
             <div class="logo-icon">
                 <i class="fas fa-cube"></i>
@@ -1026,7 +981,7 @@
     <!-- Main Container -->
     <div class="container">
         <!-- Left Sidebar -->
-        <div class="sidebar" id="sidebar">
+        <div class="sidebar">
             <!-- File Explorer Section -->
             <div class="sidebar-section file-explorer">
                 <div class="section-header">
@@ -1064,12 +1019,12 @@
                 </div>
                 <div class="config-panel">
                     <div class="config-item">
-                        <label class="config-label">Pack Name</label>
-                        <input type="text" class="config-input" id="pack-name" value="my-awesome-pack">
+                        <label class="config-label">Package Name</label>
+                        <input type="text" class="config-input" id="package-name" value="my-awesome-pack">
                     </div>
                     
                     <div class="config-item">
-                        <label class="config-label">Pack Type</label>
+                        <label class="config-label">Package Type</label>
                         <div class="type-info-cards">
                             <div class="type-card basic active" data-type="basic">
                                 <div class="type-icon">📦</div>
@@ -1097,7 +1052,7 @@
                     <div class="config-row">
                         <div class="config-item">
                             <label class="config-label">Version</label>
-                            <input type="text" class="config-input" id="pack-version" value="1.0.0">
+                            <input type="text" class="config-input" id="package-version" value="1.0.0">
                         </div>
                         <div class="config-item">
                             <label class="config-label">Visibility</label>
@@ -1145,7 +1100,7 @@
                                 </div>
                             </div>
 
-                            <!-- Collaborators Field -->
+                            <!-- 🆕 NEW: Collaborators Field -->
                             <div class="config-item">
                                 <label class="config-label">Collaborators (Optional)</label>
                                 <input type="text" class="config-input" id="collaborators" placeholder="user1,user2,user3">
@@ -1167,9 +1122,9 @@
             </div>
         </div>
 
-        <!-- Terminal Panel (collapsible) -->
-        <div class="terminal-panel" id="terminal-panel">
-            <div class="terminal-header" id="terminal-header">
+        <!-- Terminal Panel -->
+        <div class="terminal-panel">
+            <div class="terminal-header">
                 <div class="terminal-title">
                     <i class="fas fa-terminal"></i>
                     <span>Output</span>
@@ -1233,7 +1188,7 @@
                     <p>Publishing your package...</p>
                 </div>
                 
-                <!-- Security Warning for Anonymous Publishing -->
+                <!-- 🆕 NEW: Edit Token Security Warning -->
                 <div class="security-warning" id="security-warning" style="display: none;">
                     <div class="warning-header">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -1260,11 +1215,11 @@
                     <!-- Publish results will appear here -->
                 </div>
                 
-                <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
-                    <button class="fab" id="confirm-publish" style="flex: 1; border-radius: 8px; height: 48px; min-width: 150px;">
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="fab" id="confirm-publish" style="flex: 1; border-radius: 8px; height: 48px;">
                         <i class="fas fa-paper-plane"></i> Publish Now
                     </button>
-                    <button class="fab secondary" id="cancel-publish" style="background: var(--secondary-color); border-radius: 8px; height: 48px; min-width: 150px;">
+                    <button class="fab secondary" id="cancel-publish" style="background: var(--secondary-color); border-radius: 8px; height: 48px;">
                         <i class="fas fa-times"></i> Cancel
                     </button>
                 </div>
@@ -1278,13 +1233,13 @@
         // Application State
         const appState = {
             files: {
-                'pack.json': {
-                    name: 'pack.json',
+                'package.json': {
+                    name: 'package.json',
                     content: JSON.stringify({
                         name: 'my-awesome-pack',
                         version: '1.0.0',
-                        complexity: 'low',
-                        description: 'My awesome pack with WASM support',
+                        type: 'module',
+                        description: 'My awesome package with WASM support',
                         main: 'index.js',
                         author: '',
                         license: 'MIT',
@@ -1299,7 +1254,7 @@
                 },
                 'index.js': {
                     name: 'index.js',
-                    content: `// Main entry point for your pack
+                    content: `// Main entry point for your package
 
 export function helloWorld() {
     console.log('Hello from my awesome pack!');
@@ -1319,7 +1274,7 @@ export function sum(a, b) {
                     name: 'README.md',
                     content: `# My Awesome Pack
 
-This is a sample pack created with Pack Studio.
+This is a sample package created with Pack Studio.
 
 ## Features
 - Fast and efficient
@@ -1348,9 +1303,9 @@ MIT
                 }
             },
             wasmFiles: {},
-            activeFile: 'pack.json',
+            activeFile: 'package.json',
             editor: null,
-            packType: 'basic',
+            packageType: 'basic',
             compileToWasm: false,
             wasmConfig: {}
         };
@@ -1362,28 +1317,26 @@ MIT
                 color: '#107c10',
                 maxFiles: 20,
                 maxSize: 5 * 1024 * 1024,
-                description: 'Simple packs with basic JavaScript',
+                description: 'Simple packages with basic JavaScript',
                 allowNodeModules: false,
-                wasmSupport: false,
-                canCompileToWasm: false
+                wasmSupport: false
             },
             'standard': {
                 icon: '🚀',
                 color: '#f2c811',
                 maxFiles: 50,
                 maxSize: 10 * 1024 * 1024,
-                description: 'Standard packs with limited Node.js modules',
+                description: 'Standard packages with limited Node.js modules',
                 allowNodeModules: true,
                 wasmSupport: true,
-                maxWasmSize: 5 * 1024 * 1024,
-                canCompileToWasm: true
+                maxWasmSize: 5 * 1024 * 1024
             },
             'advanced': {
                 icon: '⚡',
                 color: '#68217a',
                 maxFiles: 100,
                 maxSize: 50 * 1024 * 1024,
-                description: 'Advanced packs with full Node.js module support',
+                description: 'Advanced packages with full Node.js module support',
                 allowNodeModules: true,
                 wasmSupport: true,
                 maxWasmSize: 25 * 1024 * 1024,
@@ -1394,12 +1347,12 @@ MIT
                 color: '#d13438',
                 maxFiles: 30,
                 maxSize: 100 * 1024 * 1024,
-                description: 'WebAssembly-focused packs',
+                description: 'WebAssembly-focused packages',
                 allowNodeModules: false,
                 wasmSupport: true,
                 maxWasmSize: 100 * 1024 * 1024,
                 canCompileToWasm: true,
-                isWasmPack: true
+                isWasmPackage: true
             }
         };
 
@@ -1409,8 +1362,8 @@ MIT
         const terminalOutput = document.getElementById('terminal-output');
         const wasmUpload = document.getElementById('wasm-upload');
         const wasmFilesContainer = document.getElementById('wasm-files');
-        const packNameInput = document.getElementById('pack-name');
-        const packVersionInput = document.getElementById('pack-version');
+        const packageNameInput = document.getElementById('package-name');
+        const packageVersionInput = document.getElementById('package-version');
         const isPublicCheckbox = document.getElementById('is-public');
         const isNewVersionCheckbox = document.getElementById('is-new-version');
         const newVersionFields = document.getElementById('new-version-fields');
@@ -1430,13 +1383,7 @@ MIT
         const clearTerminalBtn = document.getElementById('clear-terminal');
         const collaboratorsInput = document.getElementById('collaborators');
 
-        // Mobile menu elements
-        const menuToggle = document.getElementById('menu-toggle');
-        const sidebar = document.getElementById('sidebar');
-        const terminalHeader = document.getElementById('terminal-header');
-        const terminalPanel = document.getElementById('terminal-panel');
-
-        // Security warning elements
+        // 🆕 NEW: Security warning elements
         const securityWarning = document.getElementById('security-warning');
         const editTokenDisplay = document.getElementById('edit-token-display');
         const copyTokenBtn = document.getElementById('copy-token-btn');
@@ -1453,23 +1400,6 @@ MIT
         fileInput.multiple = true;
         fileInput.style.display = 'none';
         document.body.appendChild(fileInput);
-
-        // Mobile menu toggle
-        menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-        });
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768 && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== menuToggle && !menuToggle.contains(e.target)) {
-                sidebar.classList.remove('open');
-            }
-        });
-
-        // Terminal collapse/expand
-        terminalHeader.addEventListener('click', () => {
-            terminalPanel.classList.toggle('collapsed');
-        });
 
         // Initialize Monaco Editor
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
@@ -1504,23 +1434,25 @@ MIT
 
             // Create editor instance
             appState.editor = monaco.editor.create(document.getElementById('monaco-editor'), {
-                value: appState.files['pack.json'].content,
+                value: appState.files['package.json'].content,
                 language: 'json',
                 theme: 'pack-studio',
                 automaticLayout: true,
                 fontSize: 14,
                 fontFamily: "'Cascadia Code', 'Consolas', monospace",
                 minimap: {
-                    enabled: false, // disable minimap on mobile
+                    enabled: true,
+                    size: 'fill'
                 },
                 scrollbar: {
                     vertical: 'visible',
                     horizontal: 'visible',
                     useShadows: false,
-                    verticalScrollbarSize: 10,
-                    horizontalScrollbarSize: 10
+                    verticalScrollbarSize: 12,
+                    horizontalScrollbarSize: 12
                 },
                 smoothScrolling: true,
+                mouseWheelZoom: true,
                 wordWrap: 'on',
                 wrappingIndent: 'indent',
                 renderLineHighlight: 'all',
@@ -1544,27 +1476,15 @@ MIT
                 if (activeFile && appState.files[activeFile]) {
                     appState.files[activeFile].content = appState.editor.getValue();
                     
-                    // Update pack.json fields if changed
-                    if (activeFile === 'pack.json') {
+                    // Update package.json fields if changed
+                    if (activeFile === 'package.json') {
                         try {
-                            const packJson = JSON.parse(appState.editor.getValue());
-                            if (packJson.name && packJson.name !== packNameInput.value) {
-                                packNameInput.value = packJson.name;
+                            const packageJson = JSON.parse(appState.editor.getValue());
+                            if (packageJson.name && packageJson.name !== packageNameInput.value) {
+                                packageNameInput.value = packageJson.name;
                             }
-                            if (packJson.version && packJson.version !== packVersionInput.value) {
-                                packVersionInput.value = packJson.version;
-                            }
-                            // Update pack type based on complexity/pack.type
-                            if (packJson.complexity) {
-                                const complexityMap = { low: 'basic', medium: 'standard', high: 'advanced' };
-                                const mappedType = complexityMap[packJson.complexity] || packJson.pack?.type || 'basic';
-                                appState.packType = mappedType;
-                                document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
-                                document.querySelector(`.type-card[data-type="${mappedType}"]`)?.classList.add('active');
-                            } else if (packJson.pack?.type) {
-                                appState.packType = packJson.pack.type;
-                                document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
-                                document.querySelector(`.type-card[data-type="${packJson.pack.type}"]`)?.classList.add('active');
+                            if (packageJson.version && packageJson.version !== packageVersionInput.value) {
+                                packageVersionInput.value = packageJson.version;
                             }
                         } catch (e) {
                             // Invalid JSON
@@ -1599,7 +1519,7 @@ MIT
                         <button class="file-btn" data-action="rename" data-file="${fileName}" title="Rename">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${fileName !== 'pack.json' && fileName !== 'index.js' ? `
+                        ${fileName !== 'package.json' && fileName !== 'index.js' ? `
                         <button class="file-btn" data-action="delete" data-file="${fileName}" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1617,8 +1537,8 @@ MIT
             
             if (Object.keys(appState.wasmFiles).length === 0) {
                 wasmFilesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 16px; color: var(--text-secondary); font-style: italic;">
-                        <i class="fas fa-microchip fa-2x" style="margin-bottom: 8px; display: block;"></i>
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary); font-style: italic;">
+                        <i class="fas fa-microchip fa-2x" style="margin-bottom: 10px; display: block;"></i>
                         No WASM files uploaded yet
                     </div>
                 `;
@@ -1658,7 +1578,7 @@ MIT
                 tab.innerHTML = `
                     <div class="file-icon">${icon}</div>
                     <span>${fileName}</span>
-                    ${fileName !== 'pack.json' && fileName !== 'index.js' ? `
+                    ${fileName !== 'package.json' && fileName !== 'index.js' ? `
                     <div class="tab-close" data-file="${fileName}">
                         <i class="fas fa-times"></i>
                     </div>
@@ -1683,11 +1603,6 @@ MIT
             // Update UI
             renderFileTree();
             renderEditorTabs();
-
-            // On mobile, close sidebar after selecting a file
-            if (window.innerWidth <= 768) {
-                sidebar.classList.remove('open');
-            }
         }
 
         // Create new file
@@ -1742,7 +1657,7 @@ MIT
 
         // Delete file
         function deleteFile(fileName) {
-            if (fileName === 'pack.json' || fileName === 'index.js') {
+            if (fileName === 'package.json' || fileName === 'index.js') {
                 showError('Cannot delete required files!');
                 return;
             }
@@ -1818,78 +1733,70 @@ MIT
             }
         }
 
-        // Validate pack before publishing
+        // Validate package before publishing
         function validatePackage() {
             const errors = [];
             const warnings = [];
             const info = [];
             
-            const packType = appState.packType;
-            const typeConfig = PACKAGE_TYPES[packType];
+            const packageType = appState.packageType;
+            const typeConfig = PACKAGE_TYPES[packageType];
             
-            // Check pack.json
+            // Check package.json
             try {
-                const packJson = JSON.parse(appState.files['pack.json'].content);
+                const packageJson = JSON.parse(appState.files['package.json'].content);
                 
-                if (!packJson.name || packJson.name.trim() === '') {
-                    errors.push('Pack name is required in pack.json');
+                if (!packageJson.name || packageJson.name.trim() === '') {
+                    errors.push('Package name is required in package.json');
                 }
                 
-                if (!packJson.version) {
-                    warnings.push('Consider adding a version field to pack.json');
+                if (!packageJson.version) {
+                    warnings.push('Consider adding a version field to package.json');
                 }
                 
-                // Check pack.json structure
-                if (!packJson.pack) {
-                    warnings.push('Consider adding a "pack" object for advanced features');
+                // 🆕 NEW: Check pack.json structure
+                if (!packageJson.pack) {
+                    packageJson.pack = {
+                        type: packageType,
+                        sandbox: {
+                            level: packageType === 'basic' ? 'strict' : 'moderate'
+                        }
+                    };
+                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
                 }
             } catch (e) {
-                errors.push('Invalid JSON in pack.json');
+                errors.push('Invalid JSON in package.json');
             }
             
             // Check file limits
             const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
             if (totalFiles > typeConfig.maxFiles) {
-                errors.push(`Pack type "${packType}" allows maximum ${typeConfig.maxFiles} files, but you have ${totalFiles}`);
+                errors.push(`Package type "${packageType}" allows maximum ${typeConfig.maxFiles} files, but you have ${totalFiles}`);
             }
             
-            // Check WASM files for basic pack
-            if (packType === 'basic' && Object.keys(appState.wasmFiles).length > 0) {
-                errors.push('Basic packs cannot include WASM files');
+            // Check WASM files for basic package
+            if (packageType === 'basic' && Object.keys(appState.wasmFiles).length > 0) {
+                errors.push('Basic packages cannot include WASM files');
             }
             
-            // Check compilation for basic pack
-            if (packType === 'basic' && compileWasmCheckbox.checked) {
-                errors.push('Basic packs cannot compile to WASM');
+            // Check compilation for basic package
+            if (packageType === 'basic' && compileWasmCheckbox.checked) {
+                errors.push('Basic packages cannot compile to WASM');
             }
             
-            // Add info about pack type
+            // Add info about package type
             info.push(`${typeConfig.description}`);
             info.push(`Max files: ${typeConfig.maxFiles}, Max size: ${typeConfig.maxSize / 1024 / 1024}MB`);
             
             return { errors, warnings, info };
         }
 
-        // Publish package using the new API with all features
+        // 🆕 UPDATED: Publish package using the new API with all features
         async function publishPackage() {
             // Validate first
             const validation = validatePackage();
             if (validation.errors.length > 0) {
                 showError('Cannot publish: ' + validation.errors[0]);
-                return;
-            }
-            
-            const packName = packNameInput.value.trim();
-            if (!packName) {
-                showError('Pack name is required');
-                return;
-            }
-            
-            const isNewVersion = isNewVersionCheckbox.checked;
-            const basePackId = basePackIdInput.value.trim();
-            
-            if (isNewVersion && !basePackId) {
-                showError('For version updates, you must provide the Base Pack ID');
                 return;
             }
             
@@ -1899,24 +1806,26 @@ MIT
             securityWarning.style.display = 'none';
             
             try {
-                // Prepare pack.json
-                let packJson;
+                // Prepare package.json
+                let packageJson;
                 try {
-                    packJson = JSON.parse(appState.files['pack.json'].content);
+                    packageJson = JSON.parse(appState.files['package.json'].content);
                 } catch (e) {
-                    throw new Error('Invalid JSON in pack.json');
+                    throw new Error('Invalid JSON in package.json');
                 }
                 
-                packJson.name = packName;
-                packJson.version = packVersionInput.value;
+                packageJson.name = packageNameInput.value;
+                packageJson.version = packageVersionInput.value;
                 
-                // Set complexity based on selected pack type
-                const complexityMap = { basic: 'low', standard: 'medium', advanced: 'high', wasm: 'high' };
-                packJson.complexity = complexityMap[appState.packType] || 'low';
-                
-                // Ensure pack object exists
-                if (!packJson.pack) packJson.pack = {};
-                packJson.pack.type = appState.packType;
+                // Ensure pack.json structure exists
+                if (!packageJson.pack) {
+                    packageJson.pack = {
+                        type: appState.packageType,
+                        sandbox: {
+                            level: appState.packageType === 'basic' ? 'strict' : 'moderate'
+                        }
+                    };
+                }
                 
                 // Prepare files for upload
                 const files = {};
@@ -1944,18 +1853,18 @@ MIT
                           .filter(c => c.length > 0)
                     : [];
                 
-                // Prepare request body
+                // Prepare request body for the new API
                 const requestBody = {
-                    name: packName,
-                    packJson: JSON.stringify(packJson),
+                    name: packageNameInput.value,
+                    packJson: JSON.stringify(packageJson),
                     files: files,
                     isPublic: isPublicCheckbox.checked,
-                    packageType: appState.packType,
-                    version: packVersionInput.value,
-                    isNewVersion: isNewVersion,
-                    basePackId: isNewVersion ? basePackId : null,
-                    userId: userIdInput.value.trim() || null,
-                    editToken: editTokenInput.value.trim() || null,
+                    packageType: appState.packageType,
+                    version: packageVersionInput.value,
+                    isNewVersion: isNewVersionCheckbox.checked,
+                    basePackId: basePackIdInput.value || null,
+                    userId: userIdInput.value || null,
+                    editToken: editTokenInput.value || null,
                     collaborators: collaborators,
                     compileToWasm: compileWasmCheckbox.checked,
                     wasmConfig: {
@@ -1964,10 +1873,7 @@ MIT
                     }
                 };
                 
-                logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packType})...`);
-                if (isNewVersion) {
-                    logToTerminal(`📝 Creating new version of pack ID: ${requestBody.basePackId}`);
-                }
+                logToTerminal(`🚀 Publishing ${requestBody.name} v${requestBody.version} (${appState.packageType})...`);
                 
                 // Call the publish API
                 const response = await fetch('/api/publish.mjs', {
@@ -1981,21 +1887,19 @@ MIT
                 const result = await response.json();
                 
                 if (!response.ok) {
-                    showError(`API Error: ${result.error || result.details || 'Unknown error'}`);
-                    console.log('API Response:', result);
-                    publishLoading.style.display = 'none';
-                    return;
+                    throw new Error(result.error || `HTTP ${response.status}: ${result.details || 'Unknown error'}`);
                 }
                 
                 // Hide loading, show results
                 publishLoading.style.display = 'none';
                 publishResults.classList.add('active');
                 
-                // Show security warning for anonymous publishing
-                if (!userIdInput.value.trim() && result.editToken) {
+                // 🆕 NEW: Show security warning for anonymous publishing
+                if (!userIdInput.value && result.editToken) {
                     securityWarning.style.display = 'block';
                     editTokenDisplay.textContent = result.editToken;
                     
+                    // Setup copy token button
                     copyTokenBtn.onclick = () => {
                         navigator.clipboard.writeText(result.editToken).then(() => {
                             copyTokenBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
@@ -2015,19 +1919,12 @@ MIT
                 // Display results
                 publishResults.innerHTML = `
                     <div class="result-item">
-                        <div class="result-label">${isNewVersion ? '✓ Version Updated Successfully!' : '✓ Published Successfully!'}</div>
+                        <div class="result-label">✓ Published Successfully!</div>
                         <div class="result-value">${result.metadata?.name || requestBody.name} v${result.version}</div>
                     </div>
                     
-                    ${isNewVersion ? `
                     <div class="result-item">
-                        <div class="result-label">Version Type</div>
-                        <div class="result-value">📝 New version of existing pack</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="result-item">
-                        <div class="result-label">Pack ID</div>
+                        <div class="result-label">Package ID</div>
                         <div class="result-value">${result.packId}</div>
                     </div>
                     
@@ -2040,6 +1937,13 @@ MIT
                         <div class="result-label">CDN URL</div>
                         <div class="result-value">
                             <a href="${result.cdnUrl}" target="_blank">${result.cdnUrl}</a>
+                        </div>
+                    </div>
+                    
+                    <div class="result-item">
+                        <div class="result-label">Worker URL</div>
+                        <div class="result-value">
+                            <a href="${result.workerUrl}" target="_blank">${result.workerUrl}</a>
                         </div>
                     </div>
                     
@@ -2081,6 +1985,11 @@ MIT
                     ` : ''}
                     
                     <div class="result-item">
+                        <div class="result-label">Processing Time</div>
+                        <div class="result-value">${result.processingTime}</div>
+                    </div>
+                    
+                    <div class="result-item">
                         <div class="result-label">Advanced Features</div>
                         <div class="result-value">
                             <span style="color: ${result.advancedFeatures?.versioning ? '#4ec9b0' : '#858585'}">
@@ -2109,7 +2018,7 @@ MIT
                     </div>
                     ` : ''}
                     
-                    <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                    <div class="result-item" style="display: flex; gap: 10px; margin-top: 20px;">
                         <button id="explore-package" style="
                             flex: 1;
                             padding: 12px;
@@ -2119,9 +2028,8 @@ MIT
                             border-radius: 8px;
                             cursor: pointer;
                             font-weight: 600;
-                            min-width: 150px;
                         ">
-                            <i class="fas fa-external-link-alt"></i> Explore
+                            <i class="fas fa-external-link-alt"></i> Explore Package
                         </button>
                         <button id="copy-links" style="
                             padding: 12px;
@@ -2131,7 +2039,6 @@ MIT
                             border-radius: 8px;
                             cursor: pointer;
                             font-weight: 600;
-                            min-width: 150px;
                         ">
                             <i class="fas fa-copy"></i> Copy Links
                         </button>
@@ -2145,7 +2052,7 @@ MIT
                 
                 document.getElementById('copy-links').addEventListener('click', () => {
                     const links = [
-                        `Pack: ${result.cdnUrl}`,
+                        `Package: ${result.cdnUrl}`,
                         `CDN: ${result.cdnUrl}`,
                         `Install: ${result.installCommand}`,
                         result.wasmUrl ? `WASM: ${result.wasmUrl}` : '',
@@ -2159,7 +2066,7 @@ MIT
                     });
                 });
                 
-                logToTerminal(`✓ Pack ${isNewVersion ? 'updated' : 'published'} successfully! ID: ${result.packId}`);
+                logToTerminal(`✓ Package published successfully! ID: ${result.packId}`);
                 
             } catch (error) {
                 publishLoading.style.display = 'none';
@@ -2256,9 +2163,6 @@ MIT
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 z-index: 3000;
                 animation: slideIn 0.3s ease;
-                max-width: 90%;
-                word-break: break-word;
-                font-size: 14px;
             `;
             notification.textContent = message;
             document.body.appendChild(notification);
@@ -2282,9 +2186,6 @@ MIT
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 z-index: 3000;
                 animation: slideIn 0.3s ease;
-                max-width: 90%;
-                word-break: break-word;
-                font-size: 14px;
             `;
             notification.textContent = message;
             document.body.appendChild(notification);
@@ -2338,16 +2239,16 @@ MIT
                 card.addEventListener('click', () => {
                     document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
                     card.classList.add('active');
-                    appState.packType = card.dataset.type;
+                    appState.packageType = card.dataset.type;
                     
                     // Update compile to WASM checkbox
-                    const typeConfig = PACKAGE_TYPES[appState.packType];
+                    const typeConfig = PACKAGE_TYPES[appState.packageType];
                     compileWasmCheckbox.disabled = !typeConfig.canCompileToWasm;
                     if (!typeConfig.canCompileToWasm) {
                         compileWasmCheckbox.checked = false;
                     }
                     
-                    logToTerminal(`✓ Pack type changed to: ${appState.packType}`);
+                    logToTerminal(`✓ Package type changed to: ${appState.packageType}`);
                 });
             });
 
@@ -2425,19 +2326,19 @@ MIT
                     `;
                 }
                 
-                // Add info about pack
-                const typeConfig = PACKAGE_TYPES[appState.packType];
+                // Add info about package
+                const typeConfig = PACKAGE_TYPES[appState.packageType];
                 const totalFiles = Object.keys(appState.files).length + Object.keys(appState.wasmFiles).length;
                 
                 validationSummary.innerHTML += `
                     <div style="background: rgba(0, 122, 204, 0.2); border-left: 4px solid var(--primary-color); padding: 15px; border-radius: 6px; margin: 10px 0;">
                         <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 8px;">
-                            <i class="fas fa-info-circle"></i> Pack Info
+                            <i class="fas fa-info-circle"></i> Package Info
                         </div>
                         <div style="font-size: 14px; line-height: 1.5;">
-                            <div><strong>Name:</strong> ${packNameInput.value}</div>
-                            <div><strong>Type:</strong> ${appState.packType} ${typeConfig.icon}</div>
-                            <div><strong>Version:</strong> ${packVersionInput.value}</div>
+                            <div><strong>Name:</strong> ${packageNameInput.value}</div>
+                            <div><strong>Type:</strong> ${appState.packageType} ${typeConfig.icon}</div>
+                            <div><strong>Version:</strong> ${packageVersionInput.value}</div>
                             <div><strong>Files:</strong> ${totalFiles} / ${typeConfig.maxFiles}</div>
                             <div><strong>Visibility:</strong> ${isPublicCheckbox.checked ? 'Public' : 'Private'}</div>
                             ${compileWasmCheckbox.checked ? '<div><strong>✓ Compile to WASM:</strong> Enabled</div>' : ''}
@@ -2477,28 +2378,28 @@ MIT
                 }
             });
 
-            // Update pack name from pack.json
-            packNameInput.addEventListener('input', () => {
+            // Update package name from package.json
+            packageNameInput.addEventListener('input', () => {
                 try {
-                    const packJson = JSON.parse(appState.files['pack.json'].content);
-                    packJson.name = packNameInput.value;
-                    appState.files['pack.json'].content = JSON.stringify(packJson, null, 2);
-                    if (appState.activeFile === 'pack.json') {
-                        appState.editor.setValue(appState.files['pack.json'].content);
+                    const packageJson = JSON.parse(appState.files['package.json'].content);
+                    packageJson.name = packageNameInput.value;
+                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
+                    if (appState.activeFile === 'package.json') {
+                        appState.editor.setValue(appState.files['package.json'].content);
                     }
                 } catch (e) {
                     // Invalid JSON
                 }
             });
 
-            // Update pack version from pack.json
-            packVersionInput.addEventListener('input', () => {
+            // Update package version from package.json
+            packageVersionInput.addEventListener('input', () => {
                 try {
-                    const packJson = JSON.parse(appState.files['pack.json'].content);
-                    packJson.version = packVersionInput.value;
-                    appState.files['pack.json'].content = JSON.stringify(packJson, null, 2);
-                    if (appState.activeFile === 'pack.json') {
-                        appState.editor.setValue(appState.files['pack.json'].content);
+                    const packageJson = JSON.parse(appState.files['package.json'].content);
+                    packageJson.version = packageVersionInput.value;
+                    appState.files['package.json'].content = JSON.stringify(packageJson, null, 2);
+                    if (appState.activeFile === 'package.json') {
+                        appState.editor.setValue(appState.files['package.json'].content);
                     }
                 } catch (e) {
                     // Invalid JSON
@@ -2509,7 +2410,7 @@ MIT
         // Initialize
         renderWasmFiles();
         logToTerminal('🚀 Pack Studio v2.0 initialized');
-        logToTerminal('📦 Ready to create amazing packs with WebAssembly support');
+        logToTerminal('📦 Ready to create amazing packages with WebAssembly support');
         logToTerminal('💡 Tips: Drag & drop WASM files, use FAB buttons for quick actions');
         logToTerminal('🔐 NEW: Anonymous publishing with edit tokens, collaborators support, pack.json execution');
 
